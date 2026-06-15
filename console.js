@@ -16,6 +16,8 @@ export async function loadProjectConsoleHub(projectId) {
   document.getElementById('c-meta-phone').innerHTML = proj.clientPhone || "No phone";
   document.getElementById('c-meta-phone').href = proj.clientPhone ? "tel:"+proj.clientPhone : "#";
   document.getElementById('c-meta-notes').value = proj.notes || "";
+  const scopeEl = document.getElementById('c-meta-scope');
+  if (scopeEl) scopeEl.value = proj.scope || "";
   showPage('project-console');
   switchConsoleSegment('profile');
 }
@@ -34,6 +36,7 @@ export function switchConsoleSegment(seg) {
   if (seg === 'inspections') loadInspectionListings();
   if (seg === 'takeoff') loadTakeOffListings();
   if (seg === 'progress') loadProgressTimelineFeed();
+  if (seg === 'snags') loadSnagsListings();
   if (seg === 'workorders') loadWorkOrdersListings();
   if (seg === 'payments') loadPaymentsListings();
 }
@@ -124,7 +127,41 @@ export async function loadProgressTimelineFeed(forceRefresh = false) {
   `).join('');
 }
 
-// ======================== WORK ORDERS ========================
+// ======================== SNAGS ========================
+export async function loadSnagsListings(forceRefresh = false) {
+  const container = document.getElementById('console-snags-list');
+  let cache = getCache();
+  if (forceRefresh || !cache.snags.length) {
+    container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading snags...</p>`;
+    const items = await callApi('getSnags', {});
+    cache = getCache();
+    cache.snags = items || [];
+    setCache(cache);
+  }
+  const projectId = getCurrentProjectId();
+  const projectSnags = cache.snags.filter(s => s.projectId === projectId);
+  if (!projectSnags.length) {
+    container.innerHTML = `<p style="text-align:center;padding:20px;">No snags recorded.</p>`;
+    return;
+  }
+  container.innerHTML = projectSnags.map(s => {
+    const key = `snag:${s.snagId}`;
+    window.modalRecordCache = window.modalRecordCache || {};
+    window.modalRecordCache[key] = s;
+    const isOpen = s.status !== 'Completed';
+    return `
+    <div class="card" data-modal-type="snag" data-modal-key="${key}" onclick="window.openModalWithRecord('snag', window.modalRecordCache['${key}'])" style="cursor:pointer; border-left:6px solid ${isOpen ? 'var(--danger)' : 'var(--success)'};">
+      <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
+        <p style="margin:0;">${escapeHtml(s.notes)}</p>
+        <span style="font-size:11px; font-weight:900; background:${isOpen ? 'var(--danger)' : 'var(--success)'}; color:#fff; padding:3px 8px; border-radius:4px; text-transform:uppercase; flex-shrink:0;">${escapeHtml(s.status || 'Open')}</span>
+      </div>
+      ${s.assigned ? `<div style="margin-top:6px; font-size:13px;"><strong>Assigned:</strong> ${escapeHtml(s.assigned)}</div>` : ''}
+      <div style="margin-top:6px; font-size:12px; color:var(--muted);">Logged: ${escapeHtml(s.dateLogged)}${s.dateCompleted ? ` | Completed: ${escapeHtml(s.dateCompleted)}` : ''}</div>
+    </div>
+  `}).join('');
+}
+
+
 export async function loadWorkOrdersListings(forceRefresh = false) {
   const container = document.getElementById('console-workorders-list');
   let cache = getCache();

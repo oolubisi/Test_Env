@@ -3,7 +3,7 @@ import { idsMatch } from './utils.js';
 
 const GET_ACTION_BY_STORE = {
   projects: "getProjects", inspections: "getInspections", takeoffs: "getTakeOffItems",
-  progressLogs: "getProgressLogs", vendors: "getVendors", workorders: "getWorkOrders", payments: "getPayments"
+  progressLogs: "getProgressLogs", snags: "getSnags", vendors: "getVendors", workorders: "getWorkOrders", payments: "getPayments"
 };
 
 export const MUTATION_MAP = {
@@ -15,6 +15,9 @@ export const MUTATION_MAP = {
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
   saveProgressLog: { store: "progressLogs", idKey: "logId", mode: "upsert" },
+  saveSnag: { store: "snags", idKey: "snagId", mode: "upsert" },
+  updateSnag: { store: "snags", idKey: "snagId", mode: "upsert" },
+  deleteSnag: { store: "snags", idKey: "snagId", mode: "delete" },
   saveVendor: { store: "vendors", idKey: "vendorId", mode: "upsert" },
   updateVendor: { store: "vendors", idKey: "vendorId", mode: "upsert" },
   deleteVendor: { store: "vendors", idKey: "vendorId", mode: "delete" },
