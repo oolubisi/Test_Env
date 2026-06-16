@@ -799,21 +799,34 @@ async function openModal(type, editData = null) {
 // dashboard.js
 
 async function refreshMasterDashboard() {
-  // Removed badge update because element doesn't exist
-  const projects = await callApi('getProjects', {});
-  const cache = getCache();
-  cache.projects = projects || [];
-  setCache(cache);
-  renderProjects();
+  const container = document.getElementById('project-master-list');
+  if (container) container.innerHTML = '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
+  try {
+    const projects = await callApi('getProjects', {});
+    const cache = getCache();
+    cache.projects = projects || [];
+    setCache(cache);
+    renderProjects();
+  } catch(e) {
+    console.error("refreshMasterDashboard error:", e);
+    if (container) container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Failed to load projects. Check your connection.</p>';
+  }
 }
 
 function renderProjects() {
   const container = document.getElementById('project-master-list');
-  const term = document.getElementById('search-projects').value.toLowerCase();
+  const searchEl = document.getElementById('search-projects');
+  if (!container || !searchEl) return;
+  const term = searchEl.value.toLowerCase();
   const cache = getCache();
   const filtered = cache.projects.filter(p => p.clientName?.toLowerCase().includes(term) || p.projectId?.toLowerCase().includes(term));
   if (!filtered.length) { container.innerHTML = '<p style="text-align:center;padding:20px;">No projects</p>'; return; }
-  container.innerHTML = filtered.map(p => `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus==='Active'?'var(--success)':'var(--muted)'}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`).join('');
+  try {
+    container.innerHTML = filtered.map(p => `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus==='Active'?'var(--success)':'var(--muted)'}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`).join('');
+  } catch(e) {
+    console.error("renderProjects error:", e);
+    container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Error rendering projects. Check console.</p>';
+  }
 }
 
 async function refreshVendorsListView() {
@@ -1131,14 +1144,15 @@ function setCurrentProjectId(id) { currentSelectedProjectId = id; }
 function getCurrentProjectId() { return currentSelectedProjectId; }
 
 async function callApi(action, data = {}) {
+  const isGet = action.startsWith('get');
   let response;
   try {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
     response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
   } catch (err) {
-    // Network-level failure (offline, DNS, CORS, etc.) - safe to queue and retry later
-    console.warn("Offline, queuing:", err);
-    if (action.startsWith('get')) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    // Network-level failure (offline, DNS, CORS) - GET falls back to cache, writes queue
+    console.warn(`callApi [${action}] network error:`, err);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     await queueOfflineRequest(action, data);
     applyLocalMutation(action, data);
     updateSyncStatus();
@@ -1146,18 +1160,32 @@ async function callApi(action, data = {}) {
     return { status: "queued" };
   }
 
+  // Non-2xx HTTP (redirect, auth error, etc.) - GET falls back to cache
   if (!response.ok) {
-    // Server reachable but returned an HTTP error - don't queue, surface to user
+    console.warn(`callApi [${action}] HTTP ${response.status}`);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     throw new Error(`HTTP ${response.status}`);
   }
-  const result = await response.json();
+
+  let result;
+  try {
+    result = await response.json();
+  } catch (err) {
+    console.warn(`callApi [${action}] JSON parse error:`, err);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    throw new Error("Invalid response from server");
+  }
+
+  // Server logic/validation error - GET falls back to cache, writes surface error
   if (result && (result.status === 'error' || result.success === false)) {
-    // Server validation/logic error - don't queue, it would just fail again
     const message = result.message || result.error || "Server rejected the request";
+    console.warn(`callApi [${action}] server error:`, message);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     alert(`⚠️ Save failed: ${message}`);
     throw new Error(message);
   }
-  if (action.startsWith('get')) writeBackup(action, result);
+
+  if (isGet) writeBackup(action, result);
   return result;
 }
 

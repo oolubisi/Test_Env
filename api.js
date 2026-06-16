@@ -14,14 +14,15 @@ export function setCurrentProjectId(id) { currentSelectedProjectId = id; }
 export function getCurrentProjectId() { return currentSelectedProjectId; }
 
 export async function callApi(action, data = {}) {
+  const isGet = action.startsWith('get');
   let response;
   try {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
     response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
   } catch (err) {
-    // Network-level failure (offline, DNS, CORS, etc.) - safe to queue and retry later
-    console.warn("Offline, queuing:", err);
-    if (action.startsWith('get')) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    // Network-level failure (offline, DNS, CORS) - GET falls back to cache, writes queue
+    console.warn(`callApi [${action}] network error:`, err);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     await queueOfflineRequest(action, data);
     applyLocalMutation(action, data);
     updateSyncStatus();
@@ -29,18 +30,32 @@ export async function callApi(action, data = {}) {
     return { status: "queued" };
   }
 
+  // Non-2xx HTTP (redirect, auth error, etc.) - GET falls back to cache
   if (!response.ok) {
-    // Server reachable but returned an HTTP error - don't queue, surface to user
+    console.warn(`callApi [${action}] HTTP ${response.status}`);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     throw new Error(`HTTP ${response.status}`);
   }
-  const result = await response.json();
+
+  let result;
+  try {
+    result = await response.json();
+  } catch (err) {
+    console.warn(`callApi [${action}] JSON parse error:`, err);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    throw new Error("Invalid response from server");
+  }
+
+  // Server logic/validation error - GET falls back to cache, writes surface error
   if (result && (result.status === 'error' || result.success === false)) {
-    // Server validation/logic error - don't queue, it would just fail again
     const message = result.message || result.error || "Server rejected the request";
+    console.warn(`callApi [${action}] server error:`, message);
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     alert(`⚠️ Save failed: ${message}`);
     throw new Error(message);
   }
-  if (action.startsWith('get')) writeBackup(action, result);
+
+  if (isGet) writeBackup(action, result);
   return result;
 }
 

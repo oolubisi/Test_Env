@@ -5,21 +5,34 @@ import { openModal } from './modals.js';
 import { loadProjectConsoleHub } from './console.js';
 
 export async function refreshMasterDashboard() {
-  // Removed badge update because element doesn't exist
-  const projects = await callApi('getProjects', {});
-  const cache = getCache();
-  cache.projects = projects || [];
-  setCache(cache);
-  renderProjects();
+  const container = document.getElementById('project-master-list');
+  if (container) container.innerHTML = '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
+  try {
+    const projects = await callApi('getProjects', {});
+    const cache = getCache();
+    cache.projects = projects || [];
+    setCache(cache);
+    renderProjects();
+  } catch(e) {
+    console.error("refreshMasterDashboard error:", e);
+    if (container) container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Failed to load projects. Check your connection.</p>';
+  }
 }
 
 export function renderProjects() {
   const container = document.getElementById('project-master-list');
-  const term = document.getElementById('search-projects').value.toLowerCase();
+  const searchEl = document.getElementById('search-projects');
+  if (!container || !searchEl) return;
+  const term = searchEl.value.toLowerCase();
   const cache = getCache();
   const filtered = cache.projects.filter(p => p.clientName?.toLowerCase().includes(term) || p.projectId?.toLowerCase().includes(term));
   if (!filtered.length) { container.innerHTML = '<p style="text-align:center;padding:20px;">No projects</p>'; return; }
-  container.innerHTML = filtered.map(p => `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus==='Active'?'var(--success)':'var(--muted)'}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`).join('');
+  try {
+    container.innerHTML = filtered.map(p => `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus==='Active'?'var(--success)':'var(--muted)'}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`).join('');
+  } catch(e) {
+    console.error("renderProjects error:", e);
+    container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Error rendering projects. Check console.</p>';
+  }
 }
 
 export async function refreshVendorsListView() {
