@@ -32,8 +32,20 @@ export function setupAccountsPage() {
 }
 
 export async function initAccountsEngine() {
-  const cache = getCache();
-  const projects = cache.projects || [];
+  let cache = getCache();
+  // Ensure projects exist before we try to populate dropdown / compute totals
+  if (!cache.projects || !cache.projects.length) {
+    try {
+      const items = await callApi("getProjects", {});
+      cache = getCache();
+      setCache({ ...cache, projects: items || [] });
+    } catch (e) {
+      // Keep UI empty; offline mode will rely on cached projects (if any)
+      cache = getCache();
+    }
+  }
+
+  const projects = (getCache().projects || []).filter(Boolean);
   const pSel = document.getElementById("accounts-project-sel");
   if (pSel) {
     pSel.innerHTML =
@@ -45,7 +57,14 @@ export async function initAccountsEngine() {
         )
         .join("");
   }
+
   setupAccountsPage();
+
+  // If we have projects and dropdown is empty selection, auto-pick first one
+  if (pSel && !pSel.value && projects.length) {
+    pSel.value = projects[0].projectId;
+  }
+
   await renderAccountsForSelectedProject();
 }
 
