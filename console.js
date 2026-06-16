@@ -17,9 +17,52 @@ export async function loadProjectConsoleHub(projectId) {
   document.getElementById('c-meta-phone').href = proj.clientPhone ? "tel:"+proj.clientPhone : "#";
   document.getElementById('c-meta-notes').value = proj.notes || "";
   const scopeEl = document.getElementById('c-meta-scope');
-  if (scopeEl) scopeEl.value = proj.scope || "";
+  if (scopeEl) {
+    scopeEl.value = proj.scope || "";
+    scopeEl.readOnly = true;
+    scopeEl.style.background = '#f5f5f5';
+  }
+  const scopeToggle = document.getElementById('scope-edit-toggle');
+  if (scopeToggle) scopeToggle.checked = false;
+  const scopeSaveBtn = document.getElementById('scope-save-btn');
+  if (scopeSaveBtn) scopeSaveBtn.style.display = 'none';
   showPage('project-console');
   switchConsoleSegment('profile');
+}
+
+export function toggleScopeEdit(isEditing) {
+  const scopeEl = document.getElementById('c-meta-scope');
+  const saveBtn = document.getElementById('scope-save-btn');
+  if (!scopeEl) return;
+  scopeEl.readOnly = !isEditing;
+  scopeEl.style.background = isEditing ? '#fff' : '#f5f5f5';
+  if (saveBtn) saveBtn.style.display = isEditing ? 'block' : 'none';
+  if (isEditing) scopeEl.focus();
+}
+
+export async function saveProjectScope() {
+  const btn = document.getElementById('scope-save-btn');
+  const scopeEl = document.getElementById('c-meta-scope');
+  const toggle = document.getElementById('scope-edit-toggle');
+  const projectId = getCurrentProjectId();
+  if (!projectId || !scopeEl) return;
+  const newScope = scopeEl.value;
+  btn.disabled = true; btn.innerText = "Saving...";
+  try {
+    await callApi('updateProjectScope', { projectId, scope: newScope });
+    const cache = getCache();
+    const proj = cache.projects.find(p => p.projectId === projectId);
+    if (proj) proj.scope = newScope;
+    setCache(cache);
+    btn.innerText = "Save Scope";
+    btn.disabled = false;
+    if (toggle) toggle.checked = false;
+    toggleScopeEdit(false);
+  } catch (e) {
+    btn.innerText = "Save Scope";
+    btn.disabled = false;
+    alert("Failed to save scope: " + (e.message || "Unknown error"));
+  }
 }
 
 export function triggerEditProjectProfile() {

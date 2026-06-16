@@ -507,6 +507,7 @@ export async function openModal(type, editData = null) {
         <option value="">--</option>
         <option value="Labour" ${isEdit && editData.expenseCategory === 'Labour' ? 'selected' : ''}>Labour</option>
         <option value="Materials" ${isEdit && editData.expenseCategory === 'Materials' ? 'selected' : ''}>Materials</option>
+        <option value="Subcontractor Cost" ${isEdit && editData.expenseCategory === 'Subcontractor Cost' ? 'selected' : ''}>Subcontractor Cost</option>
         <option value="Transport" ${isEdit && editData.expenseCategory === 'Transport' ? 'selected' : ''}>Transport</option>
         <option value="Misc" ${isEdit && editData.expenseCategory === 'Misc' ? 'selected' : ''}>Misc</option>
       </select>

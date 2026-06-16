@@ -3,7 +3,7 @@ import { refreshMasterDashboard, refreshVendorsListView } from './dashboard.js';
 import { syncQueuedRequests, updateSyncStatus, triggerManualSync, refreshAllData } from './api.js';
 import { initReportsConsoleEngine, handleReportOptionsPopulation, compileFieldReport } from './reports.js';
 import { openModal, closeModal, removeAttachmentByIndex, clearVendorAvatarPhoto, openModalWithRecord } from './modals.js';
-import { loadProjectConsoleHub, triggerEditProjectProfile, switchConsoleSegment } from './console.js';
+import { loadProjectConsoleHub, triggerEditProjectProfile, switchConsoleSegment, toggleScopeEdit, saveProjectScope } from './console.js';
 
 let appStarted = false;
 let suppressPageRefresh = false;
@@ -34,6 +34,8 @@ window.showPage = showPage;
 window.loadProjectConsoleHub = loadProjectConsoleHub;
 window.triggerEditProjectProfile = triggerEditProjectProfile;
 window.switchConsoleSegment = switchConsoleSegment;
+window.toggleScopeEdit = toggleScopeEdit;
+window.saveProjectScope = saveProjectScope;
 window.openModal = openModal;
 window.openModalWithRecord = openModalWithRecord;
 window.closeModal = closeModal;
