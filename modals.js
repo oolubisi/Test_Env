@@ -471,7 +471,16 @@ export async function openModal(type, editData = null) {
   else if (type === 'payment') {
     title.innerText = isEdit ? "Edit Payment" : "New Payment";
     if (isEdit && editData.attachments) currentModalFiles = splitAttachments(editData.attachments);
-    const vendors = getCache().vendors || [];
+    let vendors = getCache().vendors || [];
+    if (!vendors.length) {
+      try {
+        const fetched = await callApi('getVendors', {});
+        const cache = getCache();
+        cache.vendors = fetched || [];
+        setCache(cache);
+        vendors = cache.vendors;
+      } catch (e) { console.warn("Could not load vendors for payment modal:", e); }
+    }
     const projects = getCache().projects || [];
     const currentDir = isEdit ? paymentDirectionOf(editData) : 'Outgoing Payment';
 
@@ -479,7 +488,7 @@ export async function openModal(type, editData = null) {
       const currentPayee = isEdit ? editData.payee : '';
       if (direction === 'Outgoing Payment') {
         return `<select id="pay_payee" ${largeInput}>
-          <option value="">-- Select Subcontractor --</option>
+          <option value="">-- Select Vendor --</option>
           ${vendors.map(v => `<option value="${escapeAttr(v.company)}" ${currentPayee === v.company ? 'selected' : ''}>${escapeHtml(v.company)}</option>`).join('')}
         </select>`;
       } else if (direction === 'Client Receipt') {
