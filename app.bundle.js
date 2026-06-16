@@ -530,7 +530,14 @@ async function openModal(type, editData = null) {
         <option value="Handed Over" ${isEdit && editData.projectStatus === "Handed Over" ? "selected" : ""}>Handed Over</option>
         <option value="Declined" ${isEdit && editData.projectStatus === "Declined" ? "selected" : ""}>Declined</option>
       </select>
-      <label ${labelStyle}>Scope</label><textarea id="p_scope" rows="3" ${largeInput}>${escapeHtml(isEdit ? editData.scope : "")}</textarea>
+      <label ${labelStyle}>Contract Subtotal</label>
+      <input
+        id="p_contract_subtotal"
+        type="number"
+        step="0.01"
+        value="${escapeAttr(isEdit ? editData.contractSubtotal : "")}"
+        ${largeInput}
+      >
       <label ${labelStyle}>Notes</label><textarea id="p_notes" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.notes : "")}</textarea>
     `;
     submit.onclick = () => {
@@ -541,6 +548,8 @@ async function openModal(type, editData = null) {
       }
       submit.disabled = true;
       submit.innerText = "Saving...";
+      const subtotalRaw = document.getElementById("p_contract_subtotal").value;
+      const contractSubtotal = Number(subtotalRaw || 0);
       const payload = {
         projectId: isEdit
           ? editData.projectId
@@ -550,7 +559,7 @@ async function openModal(type, editData = null) {
         clientPhone: phone,
         clientEmail: document.getElementById("p_email").value,
         projectStatus: document.getElementById("p_status").value,
-        scope: document.getElementById("p_scope").value,
+        contractSubtotal,
         notes: document.getElementById("p_notes").value,
       };
       callApi(isEdit ? "updateProject" : "saveProject", payload)
