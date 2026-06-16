@@ -105,7 +105,6 @@ export function switchConsoleSegment(seg) {
   if (seg === "takeoff") loadTakeOffListings();
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
-  if (seg === "workorders") loadWorkOrdersListings();
   if (seg === "payments") loadPaymentsListings();
 }
 
@@ -246,40 +245,6 @@ export async function loadSnagsListings(forceRefresh = false) {
     .join("");
 }
 
-export async function loadWorkOrdersListings(forceRefresh = false) {
-  const container = document.getElementById("console-workorders-list");
-  let cache = getCache();
-  if (forceRefresh || !cache.workorders.length) {
-    container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading work orders...</p>`;
-    const orders = await callApi("getWorkOrders", {});
-    cache = getCache();
-    cache.workorders = orders || [];
-    setCache(cache);
-  }
-  const projectId = getCurrentProjectId();
-  const projectOrders = cache.workorders.filter(
-    (w) => w.projectId === projectId,
-  );
-  if (!projectOrders.length) {
-    container.innerHTML = `<p style="text-align:center;padding:20px;">No work orders.</p>`;
-    return;
-  }
-  container.innerHTML = projectOrders
-    .map((w) => {
-      const key = `workorder:${w.workOrderId}`;
-      window.modalRecordCache = window.modalRecordCache || {};
-      window.modalRecordCache[key] = w;
-      return `
-    <div class="card" data-modal-type="workorder" data-modal-key="${key}" onclick="window.openModalWithRecord('workorder', window.modalRecordCache['${key}'])" style="cursor:pointer;">
-      <strong>${escapeHtml(w.vendorId)}</strong><br>
-      ${escapeHtml(w.description)}<br>
-      ₦${moneyValue(w.amount)}<br>
-      Status: ${escapeHtml(w.status)}
-    </div>
-  `;
-    })
-    .join("");
-}
 
 // ======================== PAYMENTS ========================
 export async function loadPaymentsListings(forceRefresh = false) {
