@@ -3,6 +3,7 @@ import { escapeHtml, escapeAttr, splitAttachments, normalizeAttachments, compres
 import { callApi, getCache, getCurrentProjectId, setCache } from './api.js';
 import { refreshMasterDashboard, refreshVendorsListView } from './dashboard.js';
 import { loadProjectConsoleHub, loadInspectionListings, loadTakeOffListings, loadProgressTimelineFeed, loadWorkOrdersListings, loadPaymentsListings, loadSnagsListings } from './console.js';
+import { saveSnagPhotosLocally, getSnagPhotosLocally, deleteSnagPhotosLocally } from './db.js';
 
 let currentModalFiles = [];
 let currentAvatarPhoto = "";
@@ -176,7 +177,7 @@ export async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updateInspection' : 'saveInspection', payload).then(() => {
         closeModal();
-        loadInspectionListings();
+        loadInspectionListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -210,7 +211,7 @@ export async function openModal(type, editData = null) {
         if (confirm("Delete this item?")) {
           callApi('deleteTakeOffItem', { itemId: uniqueId }).then(() => {
             closeModal();
-            loadTakeOffListings();
+            loadTakeOffListings(true);
           }).catch(() => {});
         }
       };
@@ -234,7 +235,7 @@ export async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updateTakeOffItem' : 'saveTakeOffItem', payload).then(() => {
         closeModal();
-        loadTakeOffListings();
+        loadTakeOffListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -270,7 +271,7 @@ export async function openModal(type, editData = null) {
       };
       callApi('saveProgressLog', payload).then(() => {
         closeModal();
-        loadProgressTimelineFeed();
+        loadProgressTimelineFeed(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -386,7 +387,7 @@ export async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updateWorkOrder' : 'saveWorkOrder', payload).then(() => {
         closeModal();
-        loadWorkOrdersListings();
+        loadWorkOrdersListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -394,7 +395,14 @@ export async function openModal(type, editData = null) {
   else if (type === 'snag') {
     const uniqueId = isEdit ? editData.snagId : "SNAG-" + Date.now();
     title.innerText = isEdit ? "Edit Snag" : "New Snag";
-    if (isEdit && editData.photoUrl) currentModalFiles = splitAttachments(editData.photoUrl);
+    // Snag photos are local-only (never sent to the server / Drive) - load from IndexedDB
+    currentModalFiles = [];
+    if (isEdit) {
+      try {
+        const localPhotos = await getSnagPhotosLocally(uniqueId);
+        if (localPhotos) currentModalFiles = splitAttachments(localPhotos);
+      } catch (e) { console.warn("Could not load local snag photos:", e); }
+    }
     body.innerHTML = `
       <label ${labelStyle}>Notes</label><textarea id="sn_notes" rows="3" ${largeInput}>${escapeHtml(isEdit?editData.notes:'')}</textarea>
       <label ${labelStyle}>Assigned To</label><input id="sn_assigned" value="${escapeAttr(isEdit?editData.assigned:'')}" ${largeInput}>
@@ -409,6 +417,7 @@ export async function openModal(type, editData = null) {
       </div>
       <div id="snagAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
       <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="sn_photo" accept="image/*" multiple style="display:none"></label>
+      <p style="font-size:11px; color:var(--muted); margin-top:4px;"><i class="fas fa-lock"></i> Photos stay on this device only and are not uploaded.</p>
       ${isEdit ? `<button class="action-btn" id="sn_delete_btn" style="background:var(--danger); margin-top:10px;">Delete</button>` : ''}
     `;
     if (currentModalFiles.length) populateModalInlineImageGalleryPreviews('snagAttachmentsPreviews');
@@ -426,9 +435,10 @@ export async function openModal(type, editData = null) {
     if (isEdit) {
       document.getElementById('sn_delete_btn').onclick = () => {
         if (confirm("Delete this snag?")) {
-          callApi('deleteSnag', { snagId: uniqueId }).then(() => {
+          callApi('deleteSnag', { snagId: uniqueId }).then(async () => {
+            try { await deleteSnagPhotosLocally(uniqueId); } catch (e) { console.warn(e); }
             closeModal();
-            loadSnagsListings();
+            loadSnagsListings(true);
           }).catch(() => {});
         }
       };
@@ -444,12 +454,17 @@ export async function openModal(type, editData = null) {
         assigned: document.getElementById('sn_assigned').value,
         dateLogged: isEdit ? editData.dateLogged : todayFormatted(),
         dateCompleted: status === 'Completed' ? document.getElementById('sn_date_completed').value : "",
-        status: status,
-        photoUrl: normalizeAttachments(currentModalFiles)
+        status: status
+        // photoUrl intentionally omitted - photos never leave this device
       };
+      try {
+        await saveSnagPhotosLocally(uniqueId, normalizeAttachments(currentModalFiles));
+      } catch (e) {
+        console.warn("Could not save snag photos locally:", e);
+      }
       callApi(isEdit ? 'updateSnag' : 'saveSnag', payload).then(() => {
         closeModal();
-        loadSnagsListings();
+        loadSnagsListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -538,7 +553,7 @@ export async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updatePayment' : 'savePayment', payload).then(() => {
         closeModal();
-        loadPaymentsListings();
+        loadPaymentsListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }

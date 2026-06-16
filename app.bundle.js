@@ -89,14 +89,19 @@ function isPettyExpense(p) { return paymentDirectionOf(p) === 'Small Expense'; }
 // db.js
 const DB_NAME = "FieldScanOfflineDB";
 const STORE_NAME = "syncQueue";
+const SNAG_PHOTO_STORE = "snagPhotos";
 
 let dbPromise = null;
 
 function openQueueDB() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 2);
-    req.onupgradeneeded = (e) => { e.target.result.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true }); };
+    const req = indexedDB.open(DB_NAME, 3);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+      if (!db.objectStoreNames.contains(SNAG_PHOTO_STORE)) db.createObjectStore(SNAG_PHOTO_STORE, { keyPath: "snagId" });
+    };
     req.onsuccess = (e) => {
       const db = e.target.result;
       db.onclose = () => { dbPromise = null; };
@@ -131,6 +136,39 @@ async function deleteQueuedRequest(id) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readwrite");
     tx.objectStore(STORE_NAME).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ======================== SNAG PHOTOS (LOCAL ONLY - NEVER SYNCED) ========================
+// Snag photos are intentionally kept on-device only and are never sent to the server
+// or uploaded to Google Drive. They live in this dedicated IndexedDB store, keyed by snagId.
+
+async function saveSnagPhotosLocally(snagId, photoDataString) {
+  const db = await openQueueDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SNAG_PHOTO_STORE, "readwrite");
+    tx.objectStore(SNAG_PHOTO_STORE).put({ snagId, photoData: photoDataString, savedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function getSnagPhotosLocally(snagId) {
+  const db = await openQueueDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(SNAG_PHOTO_STORE, "readonly").objectStore(SNAG_PHOTO_STORE).get(snagId);
+    req.onsuccess = () => resolve(req.result ? req.result.photoData : "");
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function deleteSnagPhotosLocally(snagId) {
+  const db = await openQueueDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SNAG_PHOTO_STORE, "readwrite");
+    tx.objectStore(SNAG_PHOTO_STORE).delete(snagId);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -425,7 +463,7 @@ async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updateInspection' : 'saveInspection', payload).then(() => {
         closeModal();
-        loadInspectionListings();
+        loadInspectionListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -459,7 +497,7 @@ async function openModal(type, editData = null) {
         if (confirm("Delete this item?")) {
           callApi('deleteTakeOffItem', { itemId: uniqueId }).then(() => {
             closeModal();
-            loadTakeOffListings();
+            loadTakeOffListings(true);
           }).catch(() => {});
         }
       };
@@ -483,7 +521,7 @@ async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updateTakeOffItem' : 'saveTakeOffItem', payload).then(() => {
         closeModal();
-        loadTakeOffListings();
+        loadTakeOffListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -519,7 +557,7 @@ async function openModal(type, editData = null) {
       };
       callApi('saveProgressLog', payload).then(() => {
         closeModal();
-        loadProgressTimelineFeed();
+        loadProgressTimelineFeed(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -635,7 +673,7 @@ async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updateWorkOrder' : 'saveWorkOrder', payload).then(() => {
         closeModal();
-        loadWorkOrdersListings();
+        loadWorkOrdersListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -643,7 +681,14 @@ async function openModal(type, editData = null) {
   else if (type === 'snag') {
     const uniqueId = isEdit ? editData.snagId : "SNAG-" + Date.now();
     title.innerText = isEdit ? "Edit Snag" : "New Snag";
-    if (isEdit && editData.photoUrl) currentModalFiles = splitAttachments(editData.photoUrl);
+    // Snag photos are local-only (never sent to the server / Drive) - load from IndexedDB
+    currentModalFiles = [];
+    if (isEdit) {
+      try {
+        const localPhotos = await getSnagPhotosLocally(uniqueId);
+        if (localPhotos) currentModalFiles = splitAttachments(localPhotos);
+      } catch (e) { console.warn("Could not load local snag photos:", e); }
+    }
     body.innerHTML = `
       <label ${labelStyle}>Notes</label><textarea id="sn_notes" rows="3" ${largeInput}>${escapeHtml(isEdit?editData.notes:'')}</textarea>
       <label ${labelStyle}>Assigned To</label><input id="sn_assigned" value="${escapeAttr(isEdit?editData.assigned:'')}" ${largeInput}>
@@ -658,6 +703,7 @@ async function openModal(type, editData = null) {
       </div>
       <div id="snagAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
       <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="sn_photo" accept="image/*" multiple style="display:none"></label>
+      <p style="font-size:11px; color:var(--muted); margin-top:4px;"><i class="fas fa-lock"></i> Photos stay on this device only and are not uploaded.</p>
       ${isEdit ? `<button class="action-btn" id="sn_delete_btn" style="background:var(--danger); margin-top:10px;">Delete</button>` : ''}
     `;
     if (currentModalFiles.length) populateModalInlineImageGalleryPreviews('snagAttachmentsPreviews');
@@ -675,9 +721,10 @@ async function openModal(type, editData = null) {
     if (isEdit) {
       document.getElementById('sn_delete_btn').onclick = () => {
         if (confirm("Delete this snag?")) {
-          callApi('deleteSnag', { snagId: uniqueId }).then(() => {
+          callApi('deleteSnag', { snagId: uniqueId }).then(async () => {
+            try { await deleteSnagPhotosLocally(uniqueId); } catch (e) { console.warn(e); }
             closeModal();
-            loadSnagsListings();
+            loadSnagsListings(true);
           }).catch(() => {});
         }
       };
@@ -693,12 +740,17 @@ async function openModal(type, editData = null) {
         assigned: document.getElementById('sn_assigned').value,
         dateLogged: isEdit ? editData.dateLogged : todayFormatted(),
         dateCompleted: status === 'Completed' ? document.getElementById('sn_date_completed').value : "",
-        status: status,
-        photoUrl: normalizeAttachments(currentModalFiles)
+        status: status
+        // photoUrl intentionally omitted - photos never leave this device
       };
+      try {
+        await saveSnagPhotosLocally(uniqueId, normalizeAttachments(currentModalFiles));
+      } catch (e) {
+        console.warn("Could not save snag photos locally:", e);
+      }
       callApi(isEdit ? 'updateSnag' : 'saveSnag', payload).then(() => {
         closeModal();
-        loadSnagsListings();
+        loadSnagsListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
@@ -787,7 +839,7 @@ async function openModal(type, editData = null) {
       };
       callApi(isEdit ? 'updatePayment' : 'savePayment', payload).then(() => {
         closeModal();
-        loadPaymentsListings();
+        loadPaymentsListings(true);
       }).catch(resetSubmitOnError(submit));
     };
   }
