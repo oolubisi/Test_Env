@@ -3,6 +3,9 @@ const DB_NAME = "FieldScanOfflineDB";
 const STORE_NAME = "syncQueue";
 const SNAG_PHOTO_STORE = "snagPhotos";
 
+// Closed-project snapshot locking (VAT/WHT + computed totals frozen after close)
+const CLOSED_PROJECT_LOCK_STORE = "closedProjectLocks";
+
 let dbPromise = null;
 
 export function openQueueDB() {
@@ -11,15 +14,29 @@ export function openQueueDB() {
     const req = indexedDB.open(DB_NAME, 3);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
-      if (!db.objectStoreNames.contains(SNAG_PHOTO_STORE)) db.createObjectStore(SNAG_PHOTO_STORE, { keyPath: "snagId" });
+      if (!db.objectStoreNames.contains(STORE_NAME))
+        db.createObjectStore(STORE_NAME, {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+      if (!db.objectStoreNames.contains(SNAG_PHOTO_STORE))
+        db.createObjectStore(SNAG_PHOTO_STORE, { keyPath: "snagId" });
+      if (!db.objectStoreNames.contains(CLOSED_PROJECT_LOCK_STORE))
+        db.createObjectStore(CLOSED_PROJECT_LOCK_STORE, {
+          keyPath: "projectId",
+        });
     };
     req.onsuccess = (e) => {
       const db = e.target.result;
-      db.onclose = () => { dbPromise = null; };
+      db.onclose = () => {
+        dbPromise = null;
+      };
       resolve(db);
     };
-    req.onerror = (e) => { dbPromise = null; reject(e.target.error); };
+    req.onerror = (e) => {
+      dbPromise = null;
+      reject(e.target.error);
+    };
   });
   return dbPromise;
 }
@@ -37,7 +54,10 @@ export async function queueOfflineRequest(action, data) {
 export async function getQueuedRequests() {
   const db = await openQueueDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
+    const req = db
+      .transaction(STORE_NAME, "readonly")
+      .objectStore(STORE_NAME)
+      .getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
@@ -61,7 +81,11 @@ export async function saveSnagPhotosLocally(snagId, photoDataString) {
   const db = await openQueueDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(SNAG_PHOTO_STORE, "readwrite");
-    tx.objectStore(SNAG_PHOTO_STORE).put({ snagId, photoData: photoDataString, savedAt: Date.now() });
+    tx.objectStore(SNAG_PHOTO_STORE).put({
+      snagId,
+      photoData: photoDataString,
+      savedAt: Date.now(),
+    });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -70,7 +94,10 @@ export async function saveSnagPhotosLocally(snagId, photoDataString) {
 export async function getSnagPhotosLocally(snagId) {
   const db = await openQueueDB();
   return new Promise((resolve, reject) => {
-    const req = db.transaction(SNAG_PHOTO_STORE, "readonly").objectStore(SNAG_PHOTO_STORE).get(snagId);
+    const req = db
+      .transaction(SNAG_PHOTO_STORE, "readonly")
+      .objectStore(SNAG_PHOTO_STORE)
+      .get(snagId);
     req.onsuccess = () => resolve(req.result ? req.result.photoData : "");
     req.onerror = () => reject(req.error);
   });
@@ -81,6 +108,38 @@ export async function deleteSnagPhotosLocally(snagId) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(SNAG_PHOTO_STORE, "readwrite");
     tx.objectStore(SNAG_PHOTO_STORE).delete(snagId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ======================== CLOSED PROJECT LOCKS ========================
+
+export async function openClosedProjectLocksDB() {
+  // We reuse the same DB and openQueueDB creates/ensures all stores via onupgradeneeded.
+  return openQueueDB();
+}
+
+export async function getClosedProjectLock(projectId) {
+  const db = await openClosedProjectLocksDB();
+  return new Promise((resolve, reject) => {
+    const req = db
+      .transaction(CLOSED_PROJECT_LOCK_STORE, "readonly")
+      .objectStore(CLOSED_PROJECT_LOCK_STORE)
+      .get(String(projectId));
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function upsertClosedProjectLock(projectId, lock) {
+  const db = await openClosedProjectLocksDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CLOSED_PROJECT_LOCK_STORE, "readwrite");
+    tx.objectStore(CLOSED_PROJECT_LOCK_STORE).put({
+      projectId: String(projectId),
+      ...lock,
+    });
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

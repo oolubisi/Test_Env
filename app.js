@@ -1,9 +1,31 @@
 // app.js
-import { refreshMasterDashboard, refreshVendorsListView } from './dashboard.js';
-import { syncQueuedRequests, updateSyncStatus, triggerManualSync, refreshAllData } from './api.js';
-import { initReportsConsoleEngine, handleReportOptionsPopulation, compileFieldReport } from './reports.js';
-import { openModal, closeModal, removeAttachmentByIndex, clearVendorAvatarPhoto, openModalWithRecord } from './modals.js';
-import { loadProjectConsoleHub, triggerEditProjectProfile, switchConsoleSegment, toggleScopeEdit, saveProjectScope } from './console.js';
+import { refreshMasterDashboard, refreshVendorsListView } from "./dashboard.js";
+import {
+  syncQueuedRequests,
+  updateSyncStatus,
+  triggerManualSync,
+  refreshAllData,
+} from "./api.js";
+import {
+  initReportsConsoleEngine,
+  handleReportOptionsPopulation,
+  compileFieldReport,
+} from "./reports.js";
+import {
+  openModal,
+  closeModal,
+  removeAttachmentByIndex,
+  clearVendorAvatarPhoto,
+  openModalWithRecord,
+} from "./modals.js";
+import {
+  loadProjectConsoleHub,
+  triggerEditProjectProfile,
+  switchConsoleSegment,
+  toggleScopeEdit,
+  saveProjectScope,
+} from "./console.js";
+import { initAccountsEngine } from "./accounts.js";
 
 let appStarted = false;
 let suppressPageRefresh = false;
@@ -11,14 +33,15 @@ let suppressPageRefresh = false;
 // Define showPage first
 function showPage(pageId) {
   document
-    .querySelectorAll('.page-view:not(.console-tab-window)')
-    .forEach(v => v.classList.remove('active-view'));
+    .querySelectorAll(".page-view:not(.console-tab-window)")
+    .forEach((v) => v.classList.remove("active-view"));
   const target = document.getElementById(`view-${pageId}`);
-  if (target) target.classList.add('active-view');
+  if (target) target.classList.add("active-view");
   if (!suppressPageRefresh) {
-    if (pageId === 'dashboard') refreshMasterDashboard();
-    if (pageId === 'vendors') refreshVendorsListView();
-    if (pageId === 'reports') initReportsConsoleEngine();
+    if (pageId === "dashboard") refreshMasterDashboard();
+    if (pageId === "vendors") refreshVendorsListView();
+    if (pageId === "accounts") initAccountsEngine();
+    if (pageId === "reports") initReportsConsoleEngine();
   }
   window.scrollTo(0, 0);
 }
@@ -47,20 +70,22 @@ window.handleReportOptionsPopulation = handleReportOptionsPopulation;
 window.compileFieldReport = compileFieldReport;
 
 // Service Worker & Events
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(e => console.warn(e)));
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () =>
+    navigator.serviceWorker.register("./sw.js").catch((e) => console.warn(e)),
+  );
 }
-window.addEventListener('online', syncQueuedRequests);
-window.addEventListener('offline', updateSyncStatus);
+window.addEventListener("online", syncQueuedRequests);
+window.addEventListener("offline", updateSyncStatus);
 
 // Initial load
-window.addEventListener('load', () => {
+window.addEventListener("load", () => {
   if (appStarted) return;
   appStarted = true;
   updateSyncStatus();
-  showPageWithoutRefresh('dashboard');
+  showPageWithoutRefresh("dashboard");
   refreshMasterDashboard();
   if (navigator.onLine) syncQueuedRequests();
 });
 
-export { showPage };  // export if needed elsewhere
+export { showPage }; // export if needed elsewhere
