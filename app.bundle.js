@@ -1858,6 +1858,14 @@ window.refreshAllData = refreshAllData;
 window.handleReportOptionsPopulation = handleReportOptionsPopulation;
 window.compileFieldReport = compileFieldReport;
 
+// Hard-bind modal functions to window so dashboard onclick handlers always work,
+// even if the JS module evaluation order changes due to service worker caching.
+try {
+  window.openModal = openModal;
+  window.openModalWithRecord = openModalWithRecord;
+  window.closeModal = closeModal;
+} catch (e) {}
+
 // ===== Accounts Engine (bundled) =====
 async function initAccountsEngine() {
   // Ensure projects exist before we populate dropdown / compute totals

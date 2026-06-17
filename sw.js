@@ -5,7 +5,8 @@ const CACHE_NAME = "fieldscan-v8";
 const ASSETS = [
   "./index.html",
   "./style.css",
-  "./app.bundle.js",
+  // IMPORTANT: do NOT precache app.bundle.js.
+  // This avoids serving stale JS that prevents modal rendering until some other page init happens.
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
@@ -36,6 +37,16 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+
+  // Never cache the bundle; always fetch latest to avoid "stale code" modal issues.
+  const url = new URL(e.request.url);
+  if (
+    url.pathname.endsWith("/app.bundle.js") ||
+    url.pathname.endsWith("app.bundle.js")
+  ) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
 
   // Navigation: Network-first, fallback to cached index.html
   if (e.request.mode === "navigate") {
