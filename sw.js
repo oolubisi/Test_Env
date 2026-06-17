@@ -45,13 +45,18 @@ self.addEventListener("fetch", (e) => {
 
   // Static assets: cache-first, then network and update cache
   e.respondWith(
-    caches.match(e.request).then((r) => {
-      if (r) return r;
-      return fetch(e.request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(e.request, copy));
-        return res;
-      });
+    caches.match(e.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(e.request)
+        .then((res) => {
+          // Ensure we only clone/consume the response once
+          const responseToCache = res.clone();
+          caches
+            .open(CACHE_NAME)
+            .then((c) => c.put(e.request, responseToCache));
+          return res;
+        })
+        .catch(() => cached);
     }),
   );
 });
