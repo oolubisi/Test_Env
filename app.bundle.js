@@ -1861,9 +1861,42 @@ window.compileFieldReport = compileFieldReport;
 // Hard-bind modal functions to window so dashboard onclick handlers always work,
 // even if the JS module evaluation order changes due to service worker caching.
 try {
-  window.openModal = openModal;
-  window.openModalWithRecord = openModalWithRecord;
-  window.closeModal = closeModal;
+  const _openModal = openModal;
+  const _openModalWithRecord = openModalWithRecord;
+  const _closeModal = closeModal;
+
+  // Wrapper: ensures overlay shows and surfaces errors in UI.
+  window.openModal = (...args) => {
+    try {
+      const overlay = document.getElementById("modalOverlay");
+      if (overlay) overlay.style.display = "flex";
+      return _openModal(...args);
+    } catch (err) {
+      try {
+        const body = document.getElementById("modalBody");
+        if (body)
+          body.innerHTML = `<pre style="color:#dc3545;white-space:pre-wrap;">openModal error: ${String(err)}</pre>`;
+      } catch {}
+      throw err;
+    }
+  };
+
+  window.openModalWithRecord = (...args) => {
+    try {
+      const overlay = document.getElementById("modalOverlay");
+      if (overlay) overlay.style.display = "flex";
+      return _openModalWithRecord(...args);
+    } catch (err) {
+      try {
+        const body = document.getElementById("modalBody");
+        if (body)
+          body.innerHTML = `<pre style="color:#dc3545;white-space:pre-wrap;">openModalWithRecord error: ${String(err)}</pre>`;
+      } catch {}
+      throw err;
+    }
+  };
+
+  window.closeModal = (...args) => _closeModal(...args);
 } catch (e) {}
 
 // ===== Accounts Engine (bundled) =====
