@@ -3,9 +3,9 @@ import { AUTH_TOKEN, GAS_URL } from './config.js';
 import { queueOfflineRequest, getQueuedRequests, deleteQueuedRequest } from './db.js';
 import { readBackup, writeBackup, applyLocalMutation, recomputeLocalStats } from './backup.js';
 import { refreshMasterDashboard, refreshVendorsListView } from './dashboard.js';
-import { loadInspectionListings, loadTakeOffListings, loadProgressTimelineFeed, loadSnagsListings, loadWorkOrdersListings, loadPaymentsListings } from './console.js';
+import { loadInspectionListings, loadTakeOffListings, loadProgressTimelineFeed, loadSnagsListings, loadPaymentsListings } from './console.js';
 
-let cache = { projects: [], inspections: [], takeoffs: [], progressLogs: [], snags: [], vendors: [], workorders: [], payments: [] };
+let cache = { projects: [], inspections: [], takeoffs: [], progressLogs: [], snags: [], vendors: [], payments: [], settings: null };
 let currentSelectedProjectId = null;
 
 export function setCache(newCache) { cache = { ...cache, ...newCache }; }
@@ -62,12 +62,11 @@ export async function callApi(action, data = {}) {
 const DEPENDENCY_ORDER = {
   saveProject: 1, updateProject: 1,
   saveVendor: 2, updateVendor: 2,
-  saveWorkOrder: 3, updateWorkOrder: 3,
-  saveInspection: 4, updateInspection: 4,
-  saveTakeOffItem: 5, updateTakeOffItem: 5, deleteTakeOffItem: 5,
-  saveProgressLog: 6,
-  saveSnag: 7, updateSnag: 7, deleteSnag: 7,
-  savePayment: 8, updatePayment: 8
+  saveInspection: 3, updateInspection: 3,
+  saveTakeOffItem: 4, updateTakeOffItem: 4, deleteTakeOffItem: 4,
+  saveProgressLog: 5,
+  saveSnag: 6, updateSnag: 6, deleteSnag: 6,
+  savePayment: 7, updatePayment: 7
 };
 
 export async function syncQueuedRequests() {
@@ -109,7 +108,7 @@ export async function syncQueuedRequests() {
   const vendorsView = document.getElementById('view-vendors');
   if (vendorsView && vendorsView.classList.contains('active-view')) refreshVendorsListView();
   if (currentSelectedProjectId) {
-    loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadWorkOrdersListings(true); loadPaymentsListings(true);
+    loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadPaymentsListings(true);
   }
   await updateSyncStatus();
 }
@@ -166,10 +165,10 @@ export async function refreshAllData() {
   try {
     setButtonState('refresh-data-btn', `<i class="fas fa-spinner fa-spin"></i> Refreshing...`, true);
     await callApi('getProjects', {}); await callApi('getInspections', {}); await callApi('getTakeOffItems', {});
-    await callApi('getProgressLogs', {}); await callApi('getSnags', {}); await callApi('getVendors', {}); await callApi('getWorkOrders', {}); await callApi('getPayments', {});
+    await callApi('getProgressLogs', {}); await callApi('getSnags', {}); await callApi('getVendors', {}); await callApi('getPayments', {});
     await refreshMasterDashboard();
     if (currentSelectedProjectId) {
-      loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadWorkOrdersListings(true); loadPaymentsListings(true);
+      loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadPaymentsListings(true);
     }
     showFinishedButtonState('refresh-data-btn', `<i class="fas fa-check"></i> Refreshed`, normalHtml);
   } catch (err) {

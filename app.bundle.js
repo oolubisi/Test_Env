@@ -1,15 +1,16 @@
 // app.bundle.js
 // Generated from the FieldScan Pro source files so the app also works when opened directly.
 
+
 // ===== config.js =====
 // config.js
-const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec"; // REPLACE
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec"; // REPLACE
 const AUTH_TOKEN = "FieldScan2025!SecureToken";
 const ATTACHMENT_DELIMITER = "|||";
 
 // ===== utils.js =====
 // utils.js
+
 
 function escapeHtml(str) {
   return String(str ?? "").replace(/[&<>]/g, function (m) {
@@ -28,6 +29,18 @@ function escapeAttr(str) {
 function moneyValue(val) {
   const n = Number(val || 0);
   return isNaN(n) ? "0" : n.toLocaleString();
+}
+
+// FieldScan Pro uses fixed 2-decimal currency calculations for financial summaries.
+function round2(val) {
+  const n = Number(val || 0);
+  if (isNaN(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function moneyValue2(val) {
+  const n = Number(val || 0);
+  if (isNaN(n)) return "0.00";
+  return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 function splitAttachments(val) {
   return String(val || "")
@@ -127,6 +140,9 @@ const DB_NAME = "FieldScanOfflineDB";
 const STORE_NAME = "syncQueue";
 const SNAG_PHOTO_STORE = "snagPhotos";
 
+// Closed-project snapshot locking (VAT/WHT + computed totals frozen after close)
+const CLOSED_PROJECT_LOCK_STORE = "closedProjectLocks";
+
 let dbPromise = null;
 
 function openQueueDB() {
@@ -142,6 +158,10 @@ function openQueueDB() {
         });
       if (!db.objectStoreNames.contains(SNAG_PHOTO_STORE))
         db.createObjectStore(SNAG_PHOTO_STORE, { keyPath: "snagId" });
+      if (!db.objectStoreNames.contains(CLOSED_PROJECT_LOCK_STORE))
+        db.createObjectStore(CLOSED_PROJECT_LOCK_STORE, {
+          keyPath: "projectId",
+        });
     };
     req.onsuccess = (e) => {
       const db = e.target.result;
@@ -230,33 +250,52 @@ async function deleteSnagPhotosLocally(snagId) {
   });
 }
 
+// ======================== CLOSED PROJECT LOCKS ========================
+
+async function openClosedProjectLocksDB() {
+  // We reuse the same DB and openQueueDB creates/ensures all stores via onupgradeneeded.
+  return openQueueDB();
+}
+
+async function getClosedProjectLock(projectId) {
+  const db = await openClosedProjectLocksDB();
+  return new Promise((resolve, reject) => {
+    const req = db
+      .transaction(CLOSED_PROJECT_LOCK_STORE, "readonly")
+      .objectStore(CLOSED_PROJECT_LOCK_STORE)
+      .get(String(projectId));
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function upsertClosedProjectLock(projectId, lock) {
+  const db = await openClosedProjectLocksDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CLOSED_PROJECT_LOCK_STORE, "readwrite");
+    tx.objectStore(CLOSED_PROJECT_LOCK_STORE).put({
+      projectId: String(projectId),
+      ...lock,
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // ===== backup.js =====
 // backup.js
 
+
 const GET_ACTION_BY_STORE = {
-  projects: "getProjects",
-  inspections: "getInspections",
-  takeoffs: "getTakeOffItems",
-  progressLogs: "getProgressLogs",
-  snags: "getSnags",
-  vendors: "getVendors",
-  workorders: "getWorkOrders",
-  payments: "getPayments",
+  projects: "getProjects", inspections: "getInspections", takeoffs: "getTakeOffItems",
+  progressLogs: "getProgressLogs", snags: "getSnags", vendors: "getVendors", payments: "getPayments"
 };
 
 const MUTATION_MAP = {
   saveProject: { store: "projects", idKey: "projectId", mode: "upsert" },
   updateProject: { store: "projects", idKey: "projectId", mode: "upsert" },
-  saveInspection: {
-    store: "inspections",
-    idKey: "inspectionId",
-    mode: "upsert",
-  },
-  updateInspection: {
-    store: "inspections",
-    idKey: "inspectionId",
-    mode: "upsert",
-  },
+  saveInspection: { store: "inspections", idKey: "inspectionId", mode: "upsert" },
+  updateInspection: { store: "inspections", idKey: "inspectionId", mode: "upsert" },
   saveTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
@@ -267,41 +306,26 @@ const MUTATION_MAP = {
   saveVendor: { store: "vendors", idKey: "vendorId", mode: "upsert" },
   updateVendor: { store: "vendors", idKey: "vendorId", mode: "upsert" },
   deleteVendor: { store: "vendors", idKey: "vendorId", mode: "delete" },
-  saveWorkOrder: { store: "workorders", idKey: "workOrderId", mode: "upsert" },
-  updateWorkOrder: {
-    store: "workorders",
-    idKey: "workOrderId",
-    mode: "upsert",
-  },
   savePayment: { store: "payments", idKey: "paymentId", mode: "upsert" },
-  updatePayment: { store: "payments", idKey: "paymentId", mode: "upsert" },
+  updatePayment: { store: "payments", idKey: "paymentId", mode: "upsert" }
 };
 
-function backupKey(action) {
-  return `fb_${action}`;
-}
-function readBackup(action, fallback = []) {
-  const raw = localStorage.getItem(backupKey(action));
-  return raw ? JSON.parse(raw) : fallback;
-}
+function backupKey(action) { return `fb_${action}`; }
+function readBackup(action, fallback = []) { const raw = localStorage.getItem(backupKey(action)); return raw ? JSON.parse(raw) : fallback; }
 function writeBackup(action, value) {
   try {
     localStorage.setItem(backupKey(action), JSON.stringify(value));
   } catch (err) {
     console.error("writeBackup failed (storage may be full):", action, err);
-    if (err && err.name === "QuotaExceededError") {
-      alert(
-        "⚠️ Local storage is full. Some offline data may not be saved. Try syncing and clearing attachments.",
-      );
+    if (err && err.name === 'QuotaExceededError') {
+      alert("⚠️ Local storage is full. Some offline data may not be saved. Try syncing and clearing attachments.");
     }
   }
 }
 
 function recomputeLocalStats() {
-  const vendors = readBackup("getVendors", []);
-  writeBackup("getStats", {
-    activeVendors: vendors.filter((v) => v.archived !== "Yes").length,
-  });
+  const vendors = readBackup('getVendors', []);
+  writeBackup('getStats', { activeVendors: vendors.filter(v => v.archived !== "Yes").length });
 }
 
 function applyLocalMutation(action, data) {
@@ -309,11 +333,11 @@ function applyLocalMutation(action, data) {
   if (!cfg) return;
   const getAction = GET_ACTION_BY_STORE[cfg.store];
   let current = readBackup(getAction, []);
-  const idVal = String(data[cfg.idKey] || "").trim();
+  const idVal = String(data[cfg.idKey] || '').trim();
   if (cfg.mode === "delete") {
-    current = current.filter((item) => !idsMatch(item[cfg.idKey], idVal));
+    current = current.filter(item => !idsMatch(item[cfg.idKey], idVal));
   } else {
-    const idx = current.findIndex((item) => idsMatch(item[cfg.idKey], idVal));
+    const idx = current.findIndex(item => idsMatch(item[cfg.idKey], idVal));
     const record = { ...data, offlinePending: true, lastModified: Date.now() };
     if (idx === -1) current = [record, ...current];
     else current[idx] = { ...current[idx], ...record };
@@ -325,79 +349,378 @@ function applyLocalMutation(action, data) {
 // ===== reports.js =====
 // reports.js
 
+
+
 async function initReportsConsoleEngine() {
-  const projects = await callApi("getProjects", {});
+  const projects = await callApi('getProjects', {});
   const cache = getCache();
   cache.projects = projects || [];
   setCache(cache);
-  const pSel = document.getElementById("rep-project-sel");
-  if (pSel)
-    pSel.innerHTML =
-      '<option value="">-- Select Project --</option>' +
-      cache.projects
-        .map(
-          (p) =>
-            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${p.projectId})</option>`,
-        )
-        .join("");
+  const pSel = document.getElementById('rep-project-sel');
+  if (pSel) pSel.innerHTML = '<option value="">-- Select Project --</option>' + cache.projects.map(p => `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${p.projectId})</option>`).join('');
 }
 
 function handleReportOptionsPopulation() {
-  const tSel = document.getElementById("rep-template-sel");
-  if (tSel)
-    tSel.innerHTML = `<option value="">-- Choose Report --</option>
+  const tSel = document.getElementById('rep-template-sel');
+  if (tSel) tSel.innerHTML = `<option value="">-- Choose Report --</option>
     <option value="inspection_report">Inspection Report</option>
     <option value="payment_summary">Payment Summary</option>
     <option value="master_dossier">Master Dossier</option>`;
 }
 
 async function compileFieldReport() {
-  const pId = document.getElementById("rep-project-sel").value;
-  const layout = document.getElementById("rep-template-sel").value;
-  if (!pId || !layout) {
-    alert("Select project and report type");
-    return;
-  }
+  const pId = document.getElementById('rep-project-sel').value;
+  const layout = document.getElementById('rep-template-sel').value;
+  if (!pId || !layout) { alert("Select project and report type"); return; }
   const cache = getCache();
-  const proj = cache.projects.find((p) => p.projectId === pId);
-  if (!proj) {
-    alert("Selected project not found. Try refreshing data.");
-    return;
-  }
-  const inspections = (await callApi("getInspections", {})).filter(
-    (i) => i.projectId === pId,
-  );
-  const payments = (await callApi("getPayments", {})).filter(
-    (p) => p.projectId === pId,
-  );
-  const snags = (await callApi("getSnags", {})).filter(
-    (s) => s.projectId === pId,
-  );
+  const proj = cache.projects.find(p=>p.projectId===pId);
+  if (!proj) { alert("Selected project not found. Try refreshing data."); return; }
+  const inspections = (await callApi('getInspections', {})).filter(i=>i.projectId===pId);
+  const payments = (await callApi('getPayments', {})).filter(p=>p.projectId===pId);
+  const snags = (await callApi('getSnags', {})).filter(s=>s.projectId===pId);
   let html = `<h2>FieldScan Pro Report</h2><div>Project: ${escapeHtml(proj.clientName)} (${pId})</div>`;
-  if (layout === "inspection_report") {
-    html += `<h3>Inspections</h3>${inspections.map((i) => `<div>${i.inspectionDate}: ${i.areaInspected} - ${i.siteCondition}</div>`).join("")}`;
-  } else if (layout === "payment_summary") {
-    const totalIn = payments
-      .filter((p) => p.paymentDirection === "Client Receipt")
-      .reduce((s, p) => s + Number(p.amount), 0);
-    const totalOut = payments
-      .filter((p) => p.paymentDirection !== "Client Receipt")
-      .reduce((s, p) => s + Number(p.amount), 0);
-    html += `<h3>Payments</h3><div>Received: ₦${moneyValue(totalIn)}</div><div>Paid Out: ₦${moneyValue(totalOut)}</div><div>Balance: ₦${moneyValue(totalIn - totalOut)}</div>`;
+  if (layout === 'inspection_report') {
+    html += `<h3>Inspections</h3>${inspections.map(i=>`<div>${i.inspectionDate}: ${i.areaInspected} - ${i.siteCondition}</div>`).join('')}`;
+  } else if (layout === 'payment_summary') {
+    const totalIn = payments.filter(p=>p.paymentDirection==='Client Receipt').reduce((s,p)=>s+Number(p.amount),0);
+    const totalOut = payments.filter(p=>p.paymentDirection!=='Client Receipt').reduce((s,p)=>s+Number(p.amount),0);
+    html += `<h3>Payments</h3><div>Received: ₦${moneyValue(totalIn)}</div><div>Paid Out: ₦${moneyValue(totalOut)}</div><div>Balance: ₦${moneyValue(totalIn-totalOut)}</div>`;
   } else {
-    const openSnags = snags.filter((s) => s.status !== "Completed").length;
+    const openSnags = snags.filter(s=>s.status!=='Completed').length;
     html += `<h3>Master Dossier</h3><div>${inspections.length} inspections, ${payments.length} payments, ${snags.length} snags (${openSnags} open)</div>`;
   }
-  const preview = document.getElementById("report-preview-viewport");
+  const preview = document.getElementById('report-preview-viewport');
   if (preview) preview.innerHTML = html;
-  const printContainer = document.getElementById("report-print-container");
+  const printContainer = document.getElementById('report-print-container');
   if (printContainer) printContainer.innerHTML = html;
-  const card = document.getElementById("report-onscreen-preview-card");
-  if (card) card.style.display = "block";
+  const card = document.getElementById('report-onscreen-preview-card');
+  if (card) card.style.display = 'block';
+}
+
+// ===== accounts.js =====
+
+
+
+
+
+function getClosedStatus(projectStatus) {
+  // Closed = anything except Active + In Planning
+  return projectStatus !== "Active" && projectStatus !== "In Planning";
+}
+
+function setupAccountsPage() {
+  const pSel = document.getElementById("accounts-project-sel");
+  if (pSel) {
+    pSel.addEventListener("change", () => renderAccountsForSelectedProject());
+  }
+  const vatInput = document.getElementById("accounts-settings-vat");
+  const whtInput = document.getElementById("accounts-settings-wht");
+  const subtotalInput = document.getElementById("accounts-contract-subtotal");
+
+  if (vatInput)
+    vatInput.addEventListener("input", () => renderAccountsComputed(false));
+  if (whtInput)
+    whtInput.addEventListener("input", () => renderAccountsComputed(false));
+  if (subtotalInput)
+    subtotalInput.addEventListener("input", () =>
+      renderAccountsComputed(false),
+    );
+}
+
+async function initAccountsEngine() {
+  let cache = getCache();
+  // Ensure projects exist before we try to populate dropdown / compute totals
+  if (!cache.projects || !cache.projects.length) {
+    try {
+      const items = await callApi("getProjects", {});
+      cache = getCache();
+      setCache({ ...cache, projects: items || [] });
+    } catch (e) {
+      // Keep UI empty; offline mode will rely on cached projects (if any)
+      cache = getCache();
+    }
+  }
+
+  const projects = (getCache().projects || []).filter(Boolean);
+  const pSel = document.getElementById("accounts-project-sel");
+  if (pSel) {
+    pSel.innerHTML =
+      '<option value="">-- Select Project --</option>' +
+      projects
+        .map(
+          (p) =>
+            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${escapeAttr(p.projectId)})</option>`,
+        )
+        .join("");
+  }
+
+  setupAccountsPage();
+
+  // If we have projects and dropdown is empty selection, auto-pick first one
+  if (pSel && !pSel.value && projects.length) {
+    pSel.value = projects[0].projectId;
+  }
+
+  await renderAccountsForSelectedProject();
+}
+
+function renderAccountsForSelectedProject() {
+  const cache = getCache();
+  const pSel = document.getElementById("accounts-project-sel");
+  const projectId = pSel ? pSel.value : getCurrentProjectId();
+
+  if (!projectId) {
+    setAccountsEmptyState();
+    return;
+  }
+
+  const project = (cache.projects || []).find((p) => p.projectId === projectId);
+  if (!project) {
+    setAccountsEmptyState();
+    return;
+  }
+
+  // Populate VAT/WHT inputs with current settings (editable unless locked)
+  // Default settings: VAT 7.5%, WHT 5%
+  // If there's a locked snapshot for closed project, use it and lock inputs.
+  return (async () => {
+    const closed = getClosedStatus(project.projectStatus);
+    const lock = closed ? await getClosedProjectLock(projectId) : null;
+
+    const vatInput = document.getElementById("accounts-settings-vat");
+    const whtInput = document.getElementById("accounts-settings-wht");
+    const subtotalInput = document.getElementById("accounts-contract-subtotal");
+
+    const vatPct = lock?.vatPct ?? 7.5;
+    const whtPct = lock?.whtPct ?? 5;
+
+    // subtotal snapshot stored only when locked; otherwise derive from local editable input
+    if (vatInput) {
+      vatInput.value = String(vatPct);
+      vatInput.readOnly = !!lock;
+      vatInput.disabled = !!lock;
+      vatInput.style.background = lock ? "#f5f5f5" : "";
+    }
+    if (whtInput) {
+      whtInput.value = String(whtPct);
+      whtInput.readOnly = !!lock;
+      whtInput.disabled = !!lock;
+      whtInput.style.background = lock ? "#f5f5f5" : "";
+    }
+
+    const subtotalDefault =
+      lock?.subtotal ??
+      (subtotalInput ? String(subtotalInput.value || 0) : "0");
+    if (subtotalInput) {
+      subtotalInput.value = String(subtotalDefault);
+      subtotalInput.readOnly = !!lock;
+      subtotalInput.disabled = !!lock;
+      subtotalInput.style.background = lock ? "#f5f5f5" : "";
+    }
+
+    await renderAccountsComputed(true, lock);
+  })();
+}
+
+function setAccountsEmptyState() {
+  const keys = [
+    "accounts-contract-vat",
+    "accounts-contract-value",
+    "accounts-wht",
+    "accounts-client-receipts",
+    "accounts-outgoing",
+    "accounts-small-expenses",
+    "accounts-pending-payments",
+    "accounts-balance-expected",
+    "accounts-net-profit",
+  ];
+  keys.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = "₦0.00";
+  });
+
+  const subtotal = document.getElementById("accounts-contract-subtotal");
+  if (subtotal) subtotal.value = "0";
+}
+
+function getNumericInput(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const n = Number(el.value || 0);
+  return isNaN(n) ? 0 : n;
+}
+
+function renderValue(id, val, opts = {}) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const rounded = round2(val);
+  el.textContent = `₦${moneyValue2(rounded)}`;
+}
+
+function renderComputedLocked(contractLock) {
+  // locked values are stored precomputed so VAT/WHT settings changes won't affect outputs
+  renderValue("accounts-contract-vat", contractLock.vatAmount);
+  renderValue("accounts-contract-value", contractLock.contractValue);
+  renderValue("accounts-wht", contractLock.whtAmount);
+
+  renderValue("accounts-client-receipts", contractLock.totalClientReceipts);
+  renderValue("accounts-outgoing", contractLock.totalOutgoing);
+  renderValue("accounts-small-expenses", contractLock.smallExpenses);
+  renderValue("accounts-pending-payments", contractLock.pendingPayments);
+
+  renderValue("accounts-balance-expected", contractLock.balanceExpected);
+  renderValue("accounts-net-profit", contractLock.netProfit);
+}
+
+async function renderAccountsComputed(isReRender, existingLock = null) {
+  const cache = getCache();
+  const pSel = document.getElementById("accounts-project-sel");
+  const projectId = pSel ? pSel.value : getCurrentProjectId();
+  if (!projectId) return;
+
+  const project = (cache.projects || []).find((p) => p.projectId === projectId);
+  if (!project) return;
+
+  // If locked snapshot exists, render it and do not recalc.
+  if (existingLock) {
+    renderComputedLocked(existingLock);
+    return;
+  }
+
+  // Otherwise compute live
+  const vatPct = getNumericInput("accounts-settings-vat");
+  const whtPct = getNumericInput("accounts-settings-wht");
+  const subtotal = getNumericInput("accounts-contract-subtotal");
+
+  const vatAmount = round2(subtotal * (vatPct / 100));
+  const contractValue = round2(subtotal + vatAmount);
+  const whtAmount = round2(subtotal * (whtPct / 100));
+
+  // Payments derived from local cache (ensure present before computing)
+  if (!cache.payments || !cache.payments.length) {
+    try {
+      const allPayments = await callApi("getPayments", {});
+      setCache({ ...cache, payments: allPayments || [] });
+    } catch (e) {
+      // If offline and cache isn't available, compute with empty payments
+      setCache({ ...cache, payments: cache.payments || [] });
+    }
+  }
+  const payments = (getCache().payments || []).filter(
+    (p) => p.projectId === projectId,
+  );
+
+  const totalClientReceipts = round2(
+    payments
+      .filter(
+        (p) =>
+          p.status !== "Pending" &&
+          (p.paymentDirection === "Client Receipt" ||
+            p.paymentDirection === "Client Receipt"),
+      )
+      .reduce((s, p) => s + Number(p.amount || 0), 0),
+  );
+
+  const totalOutgoing = round2(
+    payments
+      .filter(
+        (p) =>
+          p.status !== "Pending" && p.paymentDirection !== "Client Receipt",
+      )
+      .reduce((s, p) => s + Number(p.amount || 0), 0),
+  );
+
+  // Small expenses = payments with paymentDirection Small Expense
+  const smallExpenses = round2(
+    payments
+      .filter(
+        (p) => p.status !== "Pending" && p.paymentDirection === "Small Expense",
+      )
+      .reduce((s, p) => s + Number(p.amount || 0), 0),
+  );
+
+  const pendingPayments = round2(
+    payments
+      .filter(
+        (p) =>
+          p.status === "Pending" && p.paymentDirection !== "Client Receipt",
+      )
+      .reduce((s, p) => s + Number(p.amount || 0), 0),
+  );
+
+  const balanceExpected = round2(contractValue - whtAmount);
+  const netProfit = round2(balanceExpected - totalOutgoing);
+
+  // Render
+  renderValue("accounts-contract-vat", vatAmount);
+  renderValue("accounts-contract-value", contractValue);
+  renderValue("accounts-wht", whtAmount);
+
+  renderValue("accounts-client-receipts", totalClientReceipts);
+  renderValue("accounts-outgoing", totalOutgoing);
+  renderValue("accounts-small-expenses", smallExpenses);
+  renderValue("accounts-pending-payments", pendingPayments);
+
+  renderValue("accounts-balance-expected", balanceExpected);
+  renderValue("accounts-net-profit", netProfit);
+
+  // If project is closed, snapshot the computed values so future settings edits don't affect it.
+  const closed = getClosedStatus(project.projectStatus);
+  if (closed) {
+    const lock = {
+      projectId,
+      createdAt: Date.now(),
+      vatPct: vatPct,
+      whtPct: whtPct,
+      subtotal,
+      vatAmount,
+      whtAmount,
+      contractValue,
+      totalClientReceipts,
+      totalOutgoing,
+      smallExpenses,
+      pendingPayments,
+      balanceExpected,
+      netProfit,
+    };
+    await upsertClosedProjectLock(projectId, lock);
+    // After snapshot, disable inputs by re-rendering with lock
+    await renderComputedLocked(lock);
+    const vatInput = document.getElementById("accounts-settings-vat");
+    const whtInput = document.getElementById("accounts-settings-wht");
+    const subtotalInput = document.getElementById("accounts-contract-subtotal");
+    if (vatInput) {
+      vatInput.disabled = true;
+      vatInput.style.background = "#f5f5f5";
+    }
+    if (whtInput) {
+      whtInput.disabled = true;
+      whtInput.style.background = "#f5f5f5";
+    }
+    if (subtotalInput) {
+      subtotalInput.disabled = true;
+      subtotalInput.style.background = "#f5f5f5";
+    }
+  }
+}
+
+async function ensureAccountsPageVisibility(projectId = null) {
+  const view = document.getElementById("view-accounts");
+  if (!view) return;
+  if (projectId) {
+    const pSel = document.getElementById("accounts-project-sel");
+    if (pSel) pSel.value = projectId;
+  }
+  await renderAccountsForSelectedProject();
 }
 
 // ===== modals.js =====
 // modals.js
+
+
+
+
+
 
 let currentModalFiles = [];
 let currentAvatarPhoto = "";
@@ -416,7 +739,6 @@ function openModalWithRecord(type, record) {
       project: "projectId",
       inspection: "inspectionId",
       takeoff_item: "itemId",
-      workorder: "workOrderId",
       payment: "paymentId",
       vendor: "vendorId",
       snag: "snagId",
@@ -478,13 +800,11 @@ function clearVendorAvatarPhoto() {
 function generateFrontendPreviewId(type) {
   const cache = getCache();
   const yy = new Date().getFullYear().toString().slice(-2);
-  const prefix = type === "project" ? `PRJ/${yy}/` : `WKO/${yy}/`;
-  const dataset = type === "project" ? cache.projects : cache.workorders;
+  const prefix = `PRJ/${yy}/`;
+  const dataset = cache.projects || [];
   let max = 0;
-  (dataset || []).forEach((item) => {
-    const id = String(
-      item[type === "project" ? "projectId" : "workOrderId"] || "",
-    );
+  dataset.forEach((item) => {
+    const id = String(item.projectId || "");
     if (id.startsWith(prefix)) {
       const num = parseInt(id.substring(prefix.length));
       if (!isNaN(num) && num > max) max = num;
@@ -550,6 +870,7 @@ async function openModal(type, editData = null) {
       submit.innerText = "Saving...";
       const subtotalRaw = document.getElementById("p_contract_subtotal").value;
       const contractSubtotal = Number(subtotalRaw || 0);
+
       const payload = {
         projectId: isEdit
           ? editData.projectId
@@ -844,61 +1165,6 @@ async function openModal(type, editData = null) {
         .catch(resetSubmitOnError(submit));
     };
   }
-  // ---------- WORK ORDER ----------
-  else if (type === "workorder") {
-    const uniqueId = isEdit
-      ? editData.workOrderId
-      : generateFrontendPreviewId("workorder");
-    title.innerText = isEdit ? "Edit Work Order" : "New Work Order";
-    if (isEdit && editData.attachments)
-      currentModalFiles = splitAttachments(editData.attachments);
-    const vendors = getCache().vendors || [];
-    body.innerHTML = `
-      <label ${labelStyle}>ID</label><input value="${uniqueId}" disabled style="${largeInput} background:#f0f0f0;">
-      <label ${labelStyle}>Vendor</label>
-      <select id="wo_vendor" ${largeInput}>
-        ${vendors.map((v) => `<option value="${v.vendorId}" ${isEdit && v.vendorId === editData.vendorId ? "selected" : ""}>${escapeHtml(v.company)}</option>`).join("")}
-      </select>
-      <label ${labelStyle}>Description</label><textarea id="wo_desc" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.description : "")}</textarea>
-      <label ${labelStyle}>Amount (₦)</label><input id="wo_amount" type="number" value="${escapeAttr(isEdit ? editData.amount : "")}" ${largeInput}>
-      <label ${labelStyle}>Status</label>
-      <select id="wo_status" ${largeInput}>
-        <option value="Pending" ${isEdit && editData.status === "Pending" ? "selected" : ""}>Pending</option>
-        <option value="Active" ${isEdit && editData.status === "Active" ? "selected" : ""}>Active</option>
-        <option value="Completed" ${isEdit && editData.status === "Completed" ? "selected" : ""}>Completed</option>
-      </select>
-      <div id="woAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
-      <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="wo_files" accept="image/*,application/pdf" multiple style="display:none"></label>
-    `;
-    if (currentModalFiles.length)
-      populateModalInlineImageGalleryPreviews("woAttachmentsPreviews");
-    document.getElementById("wo_files").onchange = (e) =>
-      processIncomingMultiAttachments(e.target.files, "woAttachmentsPreviews");
-    submit.onclick = () => {
-      const vendorId = document.getElementById("wo_vendor").value;
-      if (!vendorId) {
-        alert("Select a vendor");
-        return;
-      }
-      submit.disabled = true;
-      submit.innerText = "Saving...";
-      const payload = {
-        workOrderId: uniqueId,
-        projectId: getCurrentProjectId(),
-        vendorId: vendorId,
-        description: document.getElementById("wo_desc").value,
-        amount: document.getElementById("wo_amount").value,
-        status: document.getElementById("wo_status").value,
-        attachments: normalizeAttachments(currentModalFiles),
-      };
-      callApi(isEdit ? "updateWorkOrder" : "saveWorkOrder", payload)
-        .then(() => {
-          closeModal();
-          loadWorkOrdersListings(true);
-        })
-        .catch(resetSubmitOnError(submit));
-    };
-  }
   // ---------- SNAG ----------
   else if (type === "snag") {
     const uniqueId = isEdit ? editData.snagId : "SNAG-" + Date.now();
@@ -1127,101 +1393,73 @@ async function openModal(type, editData = null) {
 // ===== dashboard.js =====
 // dashboard.js
 
+
+
+
+
 async function refreshMasterDashboard() {
-  const container = document.getElementById("project-master-list");
-  if (container)
-    container.innerHTML =
-      '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
+  const container = document.getElementById('project-master-list');
+  if (container) container.innerHTML = '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
   try {
-    const projects = await callApi("getProjects", {});
+    const projects = await callApi('getProjects', {});
     const cache = getCache();
     cache.projects = projects || [];
     setCache(cache);
     renderProjects();
-  } catch (e) {
+  } catch(e) {
     console.error("refreshMasterDashboard error:", e);
-    if (container)
-      container.innerHTML =
-        '<p style="text-align:center;padding:20px;color:red;">Failed to load projects. Check your connection.</p>';
+    if (container) container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Failed to load projects. Check your connection.</p>';
   }
 }
 
 function renderProjects() {
-  const container = document.getElementById("project-master-list");
-  const searchEl = document.getElementById("search-projects");
+  const container = document.getElementById('project-master-list');
+  const searchEl = document.getElementById('search-projects');
   if (!container || !searchEl) return;
   const term = searchEl.value.toLowerCase();
   const cache = getCache();
-  const filtered = cache.projects.filter(
-    (p) =>
-      p.clientName?.toLowerCase().includes(term) ||
-      p.projectId?.toLowerCase().includes(term),
-  );
-  if (!filtered.length) {
-    container.innerHTML =
-      '<p style="text-align:center;padding:20px;">No projects</p>';
-    return;
-  }
+  const filtered = cache.projects.filter(p => p.clientName?.toLowerCase().includes(term) || p.projectId?.toLowerCase().includes(term));
+  if (!filtered.length) { container.innerHTML = '<p style="text-align:center;padding:20px;">No projects</p>'; return; }
   try {
-    container.innerHTML = filtered
-      .map(
-        (p) =>
-          `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus === "Active" ? "var(--success)" : "var(--muted)"}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`,
-      )
-      .join("");
-  } catch (e) {
+    container.innerHTML = filtered.map(p => `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus==='Active'?'var(--success)':'var(--muted)'}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`).join('');
+  } catch(e) {
     console.error("renderProjects error:", e);
-    container.innerHTML =
-      '<p style="text-align:center;padding:20px;color:red;">Error rendering projects. Check console.</p>';
+    container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Error rendering projects. Check console.</p>';
   }
 }
 
 async function refreshVendorsListView() {
-  const vendors = await callApi("getVendors", {});
+  const vendors = await callApi('getVendors', {});
   const cache = getCache();
   cache.vendors = vendors || [];
   setCache(cache);
-  const trades = [
-    ...new Set(cache.vendors.map((v) => v.trade).filter(Boolean)),
-  ];
-  const filterSelect = document.getElementById("filter-vendor-trade");
-  if (filterSelect)
-    filterSelect.innerHTML =
-      '<option value="">All Trades</option>' +
-      trades
-        .map(
-          (t) => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`,
-        )
-        .join("");
+  const trades = [...new Set(cache.vendors.map(v=>v.trade).filter(Boolean))];
+  const filterSelect = document.getElementById('filter-vendor-trade');
+  if (filterSelect) filterSelect.innerHTML = '<option value="">All Trades</option>' + trades.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
   renderVendors();
 }
 
 function renderVendors() {
-  const term = document.getElementById("search-vendor").value.toLowerCase();
-  const trade = document.getElementById("filter-vendor-trade").value;
+  const term = document.getElementById('search-vendor').value.toLowerCase();
+  const trade = document.getElementById('filter-vendor-trade').value;
   const cache = getCache();
-  const filtered = cache.vendors.filter(
-    (v) =>
-      (!term || v.company?.toLowerCase().includes(term)) &&
-      (!trade || v.trade === trade),
-  );
-  const container = document.getElementById("vendor-master-list");
-  if (!filtered.length) {
-    container.innerHTML = '<p style="padding:20px;">No vendors</p>';
-    return;
-  }
-  container.innerHTML = filtered
-    .map((v) => {
-      const key = `vendor:${v.vendorId}`;
-      window.modalRecordCache = window.modalRecordCache || {};
-      window.modalRecordCache[key] = v;
-      return `<div class="card" data-modal-type="vendor" data-modal-key="${key}" onclick="window.openModalWithRecord('vendor', window.modalRecordCache['${key}'])" style="display:flex; gap:12px; align-items:center;"><img src="${getDirectImageUrl(v.passport) || "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E"}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div><strong>${escapeHtml(v.company)}</strong><br>${escapeHtml(v.trade)}<br>${escapeHtml(v.phone1)}</div></div>`;
-    })
-    .join("");
+  const filtered = cache.vendors.filter(v => (!term || v.company?.toLowerCase().includes(term)) && (!trade || v.trade === trade));
+  const container = document.getElementById('vendor-master-list');
+  if (!filtered.length) { container.innerHTML = '<p style="padding:20px;">No vendors</p>'; return; }
+  container.innerHTML = filtered.map(v => {
+    const key = `vendor:${v.vendorId}`;
+    window.modalRecordCache = window.modalRecordCache || {};
+    window.modalRecordCache[key] = v;
+    return `<div class="card" data-modal-type="vendor" data-modal-key="${key}" onclick="window.openModalWithRecord('vendor', window.modalRecordCache['${key}'])" style="display:flex; gap:12px; align-items:center;"><img src="${getDirectImageUrl(v.passport) || 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E'}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div><strong>${escapeHtml(v.company)}</strong><br>${escapeHtml(v.trade)}<br>${escapeHtml(v.phone1)}</div></div>`;
+  }).join('');
 }
 
 // ===== console.js =====
 // console.js
+
+
+
+
 
 // ======================== PROJECT CONSOLE LOADER ========================
 async function loadProjectConsoleHub(projectId) {
@@ -1310,7 +1548,6 @@ function switchConsoleSegment(seg) {
   if (seg === "takeoff") loadTakeOffListings();
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
-  if (seg === "workorders") loadWorkOrdersListings();
   if (seg === "payments") loadPaymentsListings();
 }
 
@@ -1451,41 +1688,6 @@ async function loadSnagsListings(forceRefresh = false) {
     .join("");
 }
 
-async function loadWorkOrdersListings(forceRefresh = false) {
-  const container = document.getElementById("console-workorders-list");
-  if (!container) return;
-  let cache = getCache();
-  if (forceRefresh || !cache.workorders.length) {
-    container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading work orders...</p>`;
-    const orders = await callApi("getWorkOrders", {});
-    cache = getCache();
-    cache.workorders = orders || [];
-    setCache(cache);
-  }
-  const projectId = getCurrentProjectId();
-  const projectOrders = cache.workorders.filter(
-    (w) => w.projectId === projectId,
-  );
-  if (!projectOrders.length) {
-    container.innerHTML = `<p style="text-align:center;padding:20px;">No work orders.</p>`;
-    return;
-  }
-  container.innerHTML = projectOrders
-    .map((w) => {
-      const key = `workorder:${w.workOrderId}`;
-      window.modalRecordCache = window.modalRecordCache || {};
-      window.modalRecordCache[key] = w;
-      return `
-    <div class="card" data-modal-type="workorder" data-modal-key="${key}" onclick="window.openModalWithRecord('workorder', window.modalRecordCache['${key}'])" style="cursor:pointer;">
-      <strong>${escapeHtml(w.vendorId)}</strong><br>
-      ${escapeHtml(w.description)}<br>
-      ₦${moneyValue(w.amount)}<br>
-      Status: ${escapeHtml(w.status)}
-    </div>
-  `;
-    })
-    .join("");
-}
 
 // ======================== PAYMENTS ========================
 async function loadPaymentsListings(forceRefresh = false) {
@@ -1508,6 +1710,9 @@ async function loadPaymentsListings(forceRefresh = false) {
     container.innerHTML = `<p style="color:var(--muted); font-style:italic; text-align:center; padding:20px; font-size:14px;">No payment records logged.</p>`;
     return;
   }
+
+  // Phase 2: Accounts page owns the VAT/WHT/tax totals and summary cards.
+  // Keep Payments console as list-only.
 
   const paymentsHtml = projectPayments
     .map((p) => {
@@ -1539,48 +1744,29 @@ async function loadPaymentsListings(forceRefresh = false) {
 // ===== api.js =====
 // api.js
 
-let cache = {
-  projects: [],
-  inspections: [],
-  takeoffs: [],
-  progressLogs: [],
-  snags: [],
-  vendors: [],
-  workorders: [],
-  payments: [],
-};
+
+
+
+
+
+let cache = { projects: [], inspections: [], takeoffs: [], progressLogs: [], snags: [], vendors: [], payments: [], settings: null };
 let currentSelectedProjectId = null;
 
-function setCache(newCache) {
-  cache = { ...cache, ...newCache };
-}
-function getCache() {
-  return cache;
-}
-function setCurrentProjectId(id) {
-  currentSelectedProjectId = id;
-}
-function getCurrentProjectId() {
-  return currentSelectedProjectId;
-}
+function setCache(newCache) { cache = { ...cache, ...newCache }; }
+function getCache() { return cache; }
+function setCurrentProjectId(id) { currentSelectedProjectId = id; }
+function getCurrentProjectId() { return currentSelectedProjectId; }
 
 async function callApi(action, data = {}) {
-  const isGet = action.startsWith("get");
+  const isGet = action.startsWith('get');
   let response;
   try {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
-    response = await fetch(GAS_URL, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
   } catch (err) {
     // Network-level failure (offline, DNS, CORS) - GET falls back to cache, writes queue
     console.warn(`callApi [${action}] network error:`, err);
-    if (isGet)
-      return readBackup(
-        action,
-        action === "getStats" ? { activeVendors: "--" } : [],
-      );
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     await queueOfflineRequest(action, data);
     applyLocalMutation(action, data);
     updateSyncStatus();
@@ -1591,11 +1777,7 @@ async function callApi(action, data = {}) {
   // Non-2xx HTTP (redirect, auth error, etc.) - GET falls back to cache
   if (!response.ok) {
     console.warn(`callApi [${action}] HTTP ${response.status}`);
-    if (isGet)
-      return readBackup(
-        action,
-        action === "getStats" ? { activeVendors: "--" } : [],
-      );
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     throw new Error(`HTTP ${response.status}`);
   }
 
@@ -1604,24 +1786,15 @@ async function callApi(action, data = {}) {
     result = await response.json();
   } catch (err) {
     console.warn(`callApi [${action}] JSON parse error:`, err);
-    if (isGet)
-      return readBackup(
-        action,
-        action === "getStats" ? { activeVendors: "--" } : [],
-      );
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     throw new Error("Invalid response from server");
   }
 
   // Server logic/validation error - GET falls back to cache, writes surface error
-  if (result && (result.status === "error" || result.success === false)) {
-    const message =
-      result.message || result.error || "Server rejected the request";
+  if (result && (result.status === 'error' || result.success === false)) {
+    const message = result.message || result.error || "Server rejected the request";
     console.warn(`callApi [${action}] server error:`, message);
-    if (isGet)
-      return readBackup(
-        action,
-        action === "getStats" ? { activeVendors: "--" } : [],
-      );
+    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
     alert(`⚠️ Save failed: ${message}`);
     throw new Error(message);
   }
@@ -1631,23 +1804,13 @@ async function callApi(action, data = {}) {
 }
 
 const DEPENDENCY_ORDER = {
-  saveProject: 1,
-  updateProject: 1,
-  saveVendor: 2,
-  updateVendor: 2,
-  saveWorkOrder: 3,
-  updateWorkOrder: 3,
-  saveInspection: 4,
-  updateInspection: 4,
-  saveTakeOffItem: 5,
-  updateTakeOffItem: 5,
-  deleteTakeOffItem: 5,
-  saveProgressLog: 6,
-  saveSnag: 7,
-  updateSnag: 7,
-  deleteSnag: 7,
-  savePayment: 8,
-  updatePayment: 8,
+  saveProject: 1, updateProject: 1,
+  saveVendor: 2, updateVendor: 2,
+  saveInspection: 3, updateInspection: 3,
+  saveTakeOffItem: 4, updateTakeOffItem: 4, deleteTakeOffItem: 4,
+  saveProgressLog: 5,
+  saveSnag: 6, updateSnag: 6, deleteSnag: 6,
+  savePayment: 7, updatePayment: 7
 };
 
 async function syncQueuedRequests() {
@@ -1655,24 +1818,15 @@ async function syncQueuedRequests() {
   let queue = await getQueuedRequests();
   if (!queue.length) return;
   alert("🔄 Syncing offline data...");
-  queue.sort(
-    (a, b) =>
-      (DEPENDENCY_ORDER[a.action] || 99) - (DEPENDENCY_ORDER[b.action] || 99),
-  );
+  queue.sort((a,b) => (DEPENDENCY_ORDER[a.action] || 99) - (DEPENDENCY_ORDER[b.action] || 99));
   for (let item of queue) {
     let retries = 3;
     let delay = 1000;
     let success = false;
     while (retries > 0 && !success) {
       try {
-        const payload = {
-          action: item.action,
-          data: { ...item.data, token: AUTH_TOKEN },
-        };
-        const response = await fetch(GAS_URL, {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        const payload = { action: item.action, data: { ...item.data, token: AUTH_TOKEN } };
+        const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
         if (response.ok) {
           const result = await response.json();
           if (!result.error && result.success !== false) {
@@ -1688,47 +1842,33 @@ async function syncQueuedRequests() {
           console.error("Failed to sync", item.action, item.data);
           alert(`Failed to sync ${item.action}. Will retry later.`);
         } else {
-          await new Promise((r) => setTimeout(r, delay));
+          await new Promise(r => setTimeout(r, delay));
           delay *= 2;
         }
       }
     }
   }
   await refreshMasterDashboard();
-  const vendorsView = document.getElementById("view-vendors");
-  if (vendorsView && vendorsView.classList.contains("active-view"))
-    refreshVendorsListView();
+  const vendorsView = document.getElementById('view-vendors');
+  if (vendorsView && vendorsView.classList.contains('active-view')) refreshVendorsListView();
   if (currentSelectedProjectId) {
-    loadInspectionListings(true);
-    loadTakeOffListings(true);
-    loadProgressTimelineFeed(true);
-    loadSnagsListings(true);
-    loadWorkOrdersListings(true);
-    loadPaymentsListings(true);
+    loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadPaymentsListings(true);
   }
   await updateSyncStatus();
 }
 
 async function updateSyncStatus() {
-  const badge = document.getElementById("sync-status");
-  const pendingBadge = document.getElementById("sync-pending-badge");
+  const badge = document.getElementById('sync-status');
+  const pendingBadge = document.getElementById('sync-pending-badge');
   const queue = await getQueuedRequests();
   if (pendingBadge) {
     pendingBadge.textContent = queue.length;
-    pendingBadge.style.display = queue.length ? "inline-block" : "none";
+    pendingBadge.style.display = queue.length ? 'inline-block' : 'none';
   }
   if (!badge) return;
-  if (!navigator.onLine) {
-    badge.innerHTML = `<i class="fas fa-wifi"></i> Offline${queue.length ? ` • ${queue.length} pending` : ""}`;
-    badge.style.display = "block";
-    return;
-  }
-  if (queue.length) {
-    badge.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> ${queue.length} pending`;
-    badge.style.display = "block";
-    return;
-  }
-  badge.style.display = "none";
+  if (!navigator.onLine) { badge.innerHTML = `<i class="fas fa-wifi"></i> Offline${queue.length ? ` • ${queue.length} pending` : ''}`; badge.style.display = 'block'; return; }
+  if (queue.length) { badge.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> ${queue.length} pending`; badge.style.display = 'block'; return; }
+  badge.style.display = 'none';
 }
 
 function setButtonState(buttonId, html, disabled) {
@@ -1736,8 +1876,8 @@ function setButtonState(buttonId, html, disabled) {
   if (!button) return;
   button.innerHTML = html;
   button.disabled = disabled;
-  button.style.opacity = disabled ? "0.65" : "";
-  button.style.pointerEvents = disabled ? "none" : "";
+  button.style.opacity = disabled ? '0.65' : '';
+  button.style.pointerEvents = disabled ? 'none' : '';
 }
 
 function showFinishedButtonState(buttonId, doneHtml, normalHtml) {
@@ -1749,25 +1889,14 @@ function showFinishedButtonState(buttonId, doneHtml, normalHtml) {
 }
 
 async function triggerManualSync() {
-  if (!navigator.onLine) {
-    alert("You are offline. Please connect to internet.");
-    return;
-  }
+  if (!navigator.onLine) { alert("You are offline. Please connect to internet."); return; }
   const normalHtml = `<i class="fas fa-sync-alt"></i> Sync Now <span id="sync-pending-badge" class="sync-count-badge" style="display:none;">0</span>`;
   try {
-    setButtonState(
-      "sync-now-btn",
-      `<i class="fas fa-sync-alt fa-spin"></i> Syncing...`,
-      true,
-    );
+    setButtonState('sync-now-btn', `<i class="fas fa-sync-alt fa-spin"></i> Syncing...`, true);
     await syncQueuedRequests();
-    showFinishedButtonState(
-      "sync-now-btn",
-      `<i class="fas fa-check"></i> Synced`,
-      normalHtml,
-    );
+    showFinishedButtonState('sync-now-btn', `<i class="fas fa-check"></i> Synced`, normalHtml);
   } catch (err) {
-    setButtonState("sync-now-btn", normalHtml, false);
+    setButtonState('sync-now-btn', normalHtml, false);
     throw err;
   } finally {
     await updateSyncStatus();
@@ -1775,47 +1904,31 @@ async function triggerManualSync() {
 }
 
 async function refreshAllData() {
-  if (!navigator.onLine) {
-    alert("Offline – cannot refresh from server.");
-    return;
-  }
+  if (!navigator.onLine) { alert("Offline – cannot refresh from server."); return; }
   const normalHtml = `<i class="fas fa-database"></i> Refresh`;
   try {
-    setButtonState(
-      "refresh-data-btn",
-      `<i class="fas fa-spinner fa-spin"></i> Refreshing...`,
-      true,
-    );
-    await callApi("getProjects", {});
-    await callApi("getInspections", {});
-    await callApi("getTakeOffItems", {});
-    await callApi("getProgressLogs", {});
-    await callApi("getSnags", {});
-    await callApi("getVendors", {});
-    await callApi("getWorkOrders", {});
-    await callApi("getPayments", {});
+    setButtonState('refresh-data-btn', `<i class="fas fa-spinner fa-spin"></i> Refreshing...`, true);
+    await callApi('getProjects', {}); await callApi('getInspections', {}); await callApi('getTakeOffItems', {});
+    await callApi('getProgressLogs', {}); await callApi('getSnags', {}); await callApi('getVendors', {}); await callApi('getPayments', {});
     await refreshMasterDashboard();
     if (currentSelectedProjectId) {
-      loadInspectionListings(true);
-      loadTakeOffListings(true);
-      loadProgressTimelineFeed(true);
-      loadSnagsListings(true);
-      loadWorkOrdersListings(true);
-      loadPaymentsListings(true);
+      loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadPaymentsListings(true);
     }
-    showFinishedButtonState(
-      "refresh-data-btn",
-      `<i class="fas fa-check"></i> Refreshed`,
-      normalHtml,
-    );
+    showFinishedButtonState('refresh-data-btn', `<i class="fas fa-check"></i> Refreshed`, normalHtml);
   } catch (err) {
-    setButtonState("refresh-data-btn", normalHtml, false);
+    setButtonState('refresh-data-btn', normalHtml, false);
     throw err;
   }
 }
 
 // ===== app.js =====
 // app.js
+
+
+
+
+
+
 
 let appStarted = false;
 let suppressPageRefresh = false;
@@ -1830,6 +1943,7 @@ function showPage(pageId) {
   if (!suppressPageRefresh) {
     if (pageId === "dashboard") refreshMasterDashboard();
     if (pageId === "vendors") refreshVendorsListView();
+    if (pageId === "accounts") initAccountsEngine();
     if (pageId === "reports") initReportsConsoleEngine();
   }
   window.scrollTo(0, 0);
@@ -1858,239 +1972,6 @@ window.refreshAllData = refreshAllData;
 window.handleReportOptionsPopulation = handleReportOptionsPopulation;
 window.compileFieldReport = compileFieldReport;
 
-// Hard-bind modal functions to window so dashboard onclick handlers always work,
-// even if the JS module evaluation order changes due to service worker caching.
-try {
-  const _openModal = openModal;
-  const _openModalWithRecord = openModalWithRecord;
-  const _closeModal = closeModal;
-
-  // Wrapper: ensures overlay shows and surfaces errors in UI.
-  window.openModal = (...args) => {
-    try {
-      const overlay = document.getElementById("modalOverlay");
-      if (overlay) overlay.style.display = "flex";
-      return _openModal(...args);
-    } catch (err) {
-      try {
-        const body = document.getElementById("modalBody");
-        if (body)
-          body.innerHTML = `<pre style="color:#dc3545;white-space:pre-wrap;">openModal error: ${String(err)}</pre>`;
-      } catch {}
-      throw err;
-    }
-  };
-
-  window.openModalWithRecord = (...args) => {
-    try {
-      const overlay = document.getElementById("modalOverlay");
-      if (overlay) overlay.style.display = "flex";
-      return _openModalWithRecord(...args);
-    } catch (err) {
-      try {
-        const body = document.getElementById("modalBody");
-        if (body)
-          body.innerHTML = `<pre style="color:#dc3545;white-space:pre-wrap;">openModalWithRecord error: ${String(err)}</pre>`;
-      } catch {}
-      throw err;
-    }
-  };
-
-  window.closeModal = (...args) => _closeModal(...args);
-} catch (e) {}
-
-// ===== Accounts Engine (bundled) =====
-async function initAccountsEngine() {
-  // Ensure projects exist before we populate dropdown / compute totals
-  let cache = getCache();
-  if (!cache.projects || !cache.projects.length) {
-    try {
-      const items = await callApi("getProjects", {});
-      cache = getCache();
-      setCache({ ...cache, projects: items || [] });
-    } catch (e) {
-      // Keep UI empty; offline mode will rely on cached projects (if any)
-      cache = getCache();
-    }
-  }
-
-  const projects = (getCache().projects || []).filter(Boolean);
-  const pSel = document.getElementById("accounts-project-sel");
-  if (pSel) {
-    pSel.innerHTML =
-      '<option value="">-- Select Project --</option>' +
-      projects
-        .map(
-          (p) =>
-            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${escapeAttr(p.projectId)})</option>`,
-        )
-        .join("");
-  }
-
-  // Settings + contract subtotal handlers
-  const vatInput = document.getElementById("accounts-settings-vat");
-  const whtInput = document.getElementById("accounts-settings-wht");
-  const subtotalInput = document.getElementById("accounts-contract-subtotal");
-
-  if (vatInput && whtInput && subtotalInput) {
-    if (!vatInput.value) vatInput.value = "7.5";
-    if (!whtInput.value) whtInput.value = "5";
-    const compute = async () => {
-      await renderAccountsComputed();
-    };
-
-    subtotalInput.addEventListener("input", compute);
-    vatInput.addEventListener("input", compute);
-    whtInput.addEventListener("input", compute);
-  }
-
-  // If we have projects and dropdown is empty selection, auto-pick first one
-  if (pSel && !pSel.value && projects.length) {
-    pSel.value = projects[0].projectId;
-  }
-
-  if (pSel) {
-    pSel.addEventListener("change", async () => {
-      await renderAccountsForSelectedProject();
-    });
-  }
-
-  setupAccountsPage();
-  await renderAccountsForSelectedProject();
-}
-
-// Minimal stubs so bundled init doesn’t depend on separate module files.
-// Full logic is in accounts.js; we ensure at least dropdown + recompute is triggered.
-function setupAccountsPage() {
-  // no-op: handlers are wired above
-}
-
-async function renderAccountsForSelectedProject() {
-  const projectId = document.getElementById("accounts-project-sel")?.value;
-  if (!projectId) return;
-  // Ensure payments exist for selected project
-  let cache = getCache();
-  if (!cache.payments || !cache.payments.length) {
-    try {
-      const fetched = await callApi("getPayments", {});
-      cache = getCache();
-      setCache({ ...cache, payments: fetched || [] });
-    } catch (e) {
-      cache = getCache();
-    }
-  }
-  await renderAccountsComputed();
-}
-
-function round2(val) {
-  const n = Number(val || 0);
-  if (Number.isNaN(n)) return 0;
-  return Math.round(n * 100) / 100;
-}
-
-function moneyValue2(val) {
-  const n = Number(val || 0);
-  if (Number.isNaN(n)) return "0.00";
-  return n.toFixed(2);
-}
-
-async function renderAccountsComputed() {
-  const pSel = document.getElementById("accounts-project-sel");
-  const projectId = pSel?.value;
-  if (!projectId) return;
-
-  const vatPct = Number(
-    document.getElementById("accounts-settings-vat")?.value || 0,
-  );
-  const whtPct = Number(
-    document.getElementById("accounts-settings-wht")?.value || 0,
-  );
-  const subtotal = Number(
-    document.getElementById("accounts-contract-subtotal")?.value || 0,
-  );
-
-  const cache = getCache();
-  const allPayments = cache.payments || [];
-  const projectPayments = allPayments.filter((p) => p.projectId === projectId);
-
-  const cleared = projectPayments.filter((p) => p.status !== "Pending");
-  const pending = projectPayments.filter((p) => p.status === "Pending");
-
-  const totalClientReceipts = cleared
-    .filter(
-      (p) =>
-        p.paymentDirection === "Client Receipt" ||
-        p.direction === "Client Receipt",
-    )
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
-
-  const totalOutgoing = cleared
-    .filter(
-      (p) =>
-        !(
-          p.paymentDirection === "Client Receipt" ||
-          p.direction === "Client Receipt"
-        ) && p.paymentDirection !== "Small Expense",
-    )
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
-
-  const smallExpenses = cleared
-    .filter(
-      (p) =>
-        p.paymentDirection === "Small Expense" ||
-        p.direction === "Small Expense",
-    )
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
-
-  const pendingPayments = pending
-    .filter(
-      (p) =>
-        !(
-          p.paymentDirection === "Client Receipt" ||
-          p.direction === "Client Receipt"
-        ),
-    )
-    .reduce((s, p) => s + Number(p.amount || 0), 0);
-
-  // Snapshot locking (closed projects) is handled in source accounts.js; keep runtime safe for now:
-  // compute always from current inputs so you can validate UI; lock will be implemented in a later patch.
-  const contractVAT = round2(subtotal * (vatPct / 100));
-  const contractWHT = round2(subtotal * (whtPct / 100));
-  const contractValue = round2(subtotal + contractVAT);
-
-  const balanceExpected = round2(contractValue - contractWHT);
-  const netProfit = round2(balanceExpected - totalOutgoing);
-
-  // Currency formatting: always 2 decimals
-  const setText = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = `₦${moneyValue2(val)}`;
-  };
-
-  setText("accounts-contract-vat", contractVAT);
-  setText("accounts-wht", contractWHT);
-  setText("accounts-contract-value", contractValue);
-
-  setText("accounts-client-receipts", totalClientReceipts);
-  setText("accounts-outgoing", totalOutgoing);
-  setText("accounts-small-expenses", smallExpenses);
-  setText("accounts-pending-payments", pendingPayments);
-
-  setText("accounts-balance-expected", balanceExpected);
-  setText("accounts-net-profit", netProfit);
-}
-
-// Patch showPage to also init Accounts when switching to Accounts
-const __origShowPage = showPage;
-showPage = function patchedShowPage(pageId) {
-  __origShowPage(pageId);
-  if (pageId === "accounts") {
-    initAccountsEngine().catch((e) =>
-      console.warn("initAccountsEngine failed:", e),
-    );
-  }
-};
-
 // Service Worker & Events
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
@@ -2108,10 +1989,6 @@ window.addEventListener("load", () => {
   showPageWithoutRefresh("dashboard");
   refreshMasterDashboard();
   if (navigator.onLine) syncQueuedRequests();
-
-  // Ensure project console + modal can load immediately after first click.
-  // Some older service worker cached bundles delayed module evaluation.
-  try {
-    initAccountsEngine().catch(() => {});
-  } catch (e) {}
 });
+
+

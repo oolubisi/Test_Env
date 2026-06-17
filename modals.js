@@ -17,7 +17,6 @@ import {
   loadInspectionListings,
   loadTakeOffListings,
   loadProgressTimelineFeed,
-  loadWorkOrdersListings,
   loadPaymentsListings,
   loadSnagsListings,
 } from "./console.js";
@@ -44,7 +43,6 @@ export function openModalWithRecord(type, record) {
       project: "projectId",
       inspection: "inspectionId",
       takeoff_item: "itemId",
-      workorder: "workOrderId",
       payment: "paymentId",
       vendor: "vendorId",
       snag: "snagId",
@@ -106,13 +104,11 @@ export function clearVendorAvatarPhoto() {
 export function generateFrontendPreviewId(type) {
   const cache = getCache();
   const yy = new Date().getFullYear().toString().slice(-2);
-  const prefix = type === "project" ? `PRJ/${yy}/` : `WKO/${yy}/`;
-  const dataset = type === "project" ? cache.projects : cache.workorders;
+  const prefix = `PRJ/${yy}/`;
+  const dataset = cache.projects || [];
   let max = 0;
-  (dataset || []).forEach((item) => {
-    const id = String(
-      item[type === "project" ? "projectId" : "workOrderId"] || "",
-    );
+  dataset.forEach((item) => {
+    const id = String(item.projectId || "");
     if (id.startsWith(prefix)) {
       const num = parseInt(id.substring(prefix.length));
       if (!isNaN(num) && num > max) max = num;
@@ -469,61 +465,6 @@ export async function openModal(type, editData = null) {
         .then(() => {
           closeModal();
           refreshVendorsListView();
-        })
-        .catch(resetSubmitOnError(submit));
-    };
-  }
-  // ---------- WORK ORDER ----------
-  else if (type === "workorder") {
-    const uniqueId = isEdit
-      ? editData.workOrderId
-      : generateFrontendPreviewId("workorder");
-    title.innerText = isEdit ? "Edit Work Order" : "New Work Order";
-    if (isEdit && editData.attachments)
-      currentModalFiles = splitAttachments(editData.attachments);
-    const vendors = getCache().vendors || [];
-    body.innerHTML = `
-      <label ${labelStyle}>ID</label><input value="${uniqueId}" disabled style="${largeInput} background:#f0f0f0;">
-      <label ${labelStyle}>Vendor</label>
-      <select id="wo_vendor" ${largeInput}>
-        ${vendors.map((v) => `<option value="${v.vendorId}" ${isEdit && v.vendorId === editData.vendorId ? "selected" : ""}>${escapeHtml(v.company)}</option>`).join("")}
-      </select>
-      <label ${labelStyle}>Description</label><textarea id="wo_desc" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.description : "")}</textarea>
-      <label ${labelStyle}>Amount (₦)</label><input id="wo_amount" type="number" value="${escapeAttr(isEdit ? editData.amount : "")}" ${largeInput}>
-      <label ${labelStyle}>Status</label>
-      <select id="wo_status" ${largeInput}>
-        <option value="Pending" ${isEdit && editData.status === "Pending" ? "selected" : ""}>Pending</option>
-        <option value="Active" ${isEdit && editData.status === "Active" ? "selected" : ""}>Active</option>
-        <option value="Completed" ${isEdit && editData.status === "Completed" ? "selected" : ""}>Completed</option>
-      </select>
-      <div id="woAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
-      <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="wo_files" accept="image/*,application/pdf" multiple style="display:none"></label>
-    `;
-    if (currentModalFiles.length)
-      populateModalInlineImageGalleryPreviews("woAttachmentsPreviews");
-    document.getElementById("wo_files").onchange = (e) =>
-      processIncomingMultiAttachments(e.target.files, "woAttachmentsPreviews");
-    submit.onclick = () => {
-      const vendorId = document.getElementById("wo_vendor").value;
-      if (!vendorId) {
-        alert("Select a vendor");
-        return;
-      }
-      submit.disabled = true;
-      submit.innerText = "Saving...";
-      const payload = {
-        workOrderId: uniqueId,
-        projectId: getCurrentProjectId(),
-        vendorId: vendorId,
-        description: document.getElementById("wo_desc").value,
-        amount: document.getElementById("wo_amount").value,
-        status: document.getElementById("wo_status").value,
-        attachments: normalizeAttachments(currentModalFiles),
-      };
-      callApi(isEdit ? "updateWorkOrder" : "saveWorkOrder", payload)
-        .then(() => {
-          closeModal();
-          loadWorkOrdersListings(true);
         })
         .catch(resetSubmitOnError(submit));
     };
