@@ -1,16 +1,15 @@
 // app.bundle.js
 // Generated from the FieldScan Pro source files so the app also works when opened directly.
 
-
 // ===== config.js =====
 // config.js
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec"; // REPLACE
+const GAS_URL =
+  "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec"; // REPLACE
 const AUTH_TOKEN = "FieldScan2025!SecureToken";
 const ATTACHMENT_DELIMITER = "|||";
 
 // ===== utils.js =====
 // utils.js
-
 
 function escapeHtml(str) {
   return String(str ?? "").replace(/[&<>]/g, function (m) {
@@ -285,17 +284,29 @@ async function upsertClosedProjectLock(projectId, lock) {
 // ===== backup.js =====
 // backup.js
 
-
 const GET_ACTION_BY_STORE = {
-  projects: "getProjects", inspections: "getInspections", takeoffs: "getTakeOffItems",
-  progressLogs: "getProgressLogs", snags: "getSnags", vendors: "getVendors", payments: "getPayments"
+  projects: "getProjects",
+  inspections: "getInspections",
+  takeoffs: "getTakeOffItems",
+  progressLogs: "getProgressLogs",
+  snags: "getSnags",
+  vendors: "getVendors",
+  payments: "getPayments",
 };
 
 const MUTATION_MAP = {
   saveProject: { store: "projects", idKey: "projectId", mode: "upsert" },
   updateProject: { store: "projects", idKey: "projectId", mode: "upsert" },
-  saveInspection: { store: "inspections", idKey: "inspectionId", mode: "upsert" },
-  updateInspection: { store: "inspections", idKey: "inspectionId", mode: "upsert" },
+  saveInspection: {
+    store: "inspections",
+    idKey: "inspectionId",
+    mode: "upsert",
+  },
+  updateInspection: {
+    store: "inspections",
+    idKey: "inspectionId",
+    mode: "upsert",
+  },
   saveTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
@@ -307,25 +318,34 @@ const MUTATION_MAP = {
   updateVendor: { store: "vendors", idKey: "vendorId", mode: "upsert" },
   deleteVendor: { store: "vendors", idKey: "vendorId", mode: "delete" },
   savePayment: { store: "payments", idKey: "paymentId", mode: "upsert" },
-  updatePayment: { store: "payments", idKey: "paymentId", mode: "upsert" }
+  updatePayment: { store: "payments", idKey: "paymentId", mode: "upsert" },
 };
 
-function backupKey(action) { return `fb_${action}`; }
-function readBackup(action, fallback = []) { const raw = localStorage.getItem(backupKey(action)); return raw ? JSON.parse(raw) : fallback; }
+function backupKey(action) {
+  return `fb_${action}`;
+}
+function readBackup(action, fallback = []) {
+  const raw = localStorage.getItem(backupKey(action));
+  return raw ? JSON.parse(raw) : fallback;
+}
 function writeBackup(action, value) {
   try {
     localStorage.setItem(backupKey(action), JSON.stringify(value));
   } catch (err) {
     console.error("writeBackup failed (storage may be full):", action, err);
-    if (err && err.name === 'QuotaExceededError') {
-      alert("⚠️ Local storage is full. Some offline data may not be saved. Try syncing and clearing attachments.");
+    if (err && err.name === "QuotaExceededError") {
+      alert(
+        "⚠️ Local storage is full. Some offline data may not be saved. Try syncing and clearing attachments.",
+      );
     }
   }
 }
 
 function recomputeLocalStats() {
-  const vendors = readBackup('getVendors', []);
-  writeBackup('getStats', { activeVendors: vendors.filter(v => v.archived !== "Yes").length });
+  const vendors = readBackup("getVendors", []);
+  writeBackup("getStats", {
+    activeVendors: vendors.filter((v) => v.archived !== "Yes").length,
+  });
 }
 
 function applyLocalMutation(action, data) {
@@ -333,11 +353,11 @@ function applyLocalMutation(action, data) {
   if (!cfg) return;
   const getAction = GET_ACTION_BY_STORE[cfg.store];
   let current = readBackup(getAction, []);
-  const idVal = String(data[cfg.idKey] || '').trim();
+  const idVal = String(data[cfg.idKey] || "").trim();
   if (cfg.mode === "delete") {
-    current = current.filter(item => !idsMatch(item[cfg.idKey], idVal));
+    current = current.filter((item) => !idsMatch(item[cfg.idKey], idVal));
   } else {
-    const idx = current.findIndex(item => idsMatch(item[cfg.idKey], idVal));
+    const idx = current.findIndex((item) => idsMatch(item[cfg.idKey], idVal));
     const record = { ...data, offlinePending: true, lastModified: Date.now() };
     if (idx === -1) current = [record, ...current];
     else current[idx] = { ...current[idx], ...record };
@@ -349,59 +369,78 @@ function applyLocalMutation(action, data) {
 // ===== reports.js =====
 // reports.js
 
-
-
 async function initReportsConsoleEngine() {
-  const projects = await callApi('getProjects', {});
+  const projects = await callApi("getProjects", {});
   const cache = getCache();
   cache.projects = projects || [];
   setCache(cache);
-  const pSel = document.getElementById('rep-project-sel');
-  if (pSel) pSel.innerHTML = '<option value="">-- Select Project --</option>' + cache.projects.map(p => `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${p.projectId})</option>`).join('');
+  const pSel = document.getElementById("rep-project-sel");
+  if (pSel)
+    pSel.innerHTML =
+      '<option value="">-- Select Project --</option>' +
+      cache.projects
+        .map(
+          (p) =>
+            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${p.projectId})</option>`,
+        )
+        .join("");
 }
 
 function handleReportOptionsPopulation() {
-  const tSel = document.getElementById('rep-template-sel');
-  if (tSel) tSel.innerHTML = `<option value="">-- Choose Report --</option>
+  const tSel = document.getElementById("rep-template-sel");
+  if (tSel)
+    tSel.innerHTML = `<option value="">-- Choose Report --</option>
     <option value="inspection_report">Inspection Report</option>
     <option value="payment_summary">Payment Summary</option>
     <option value="master_dossier">Master Dossier</option>`;
 }
 
 async function compileFieldReport() {
-  const pId = document.getElementById('rep-project-sel').value;
-  const layout = document.getElementById('rep-template-sel').value;
-  if (!pId || !layout) { alert("Select project and report type"); return; }
+  const pId = document.getElementById("rep-project-sel").value;
+  const layout = document.getElementById("rep-template-sel").value;
+  if (!pId || !layout) {
+    alert("Select project and report type");
+    return;
+  }
   const cache = getCache();
-  const proj = cache.projects.find(p=>p.projectId===pId);
-  if (!proj) { alert("Selected project not found. Try refreshing data."); return; }
-  const inspections = (await callApi('getInspections', {})).filter(i=>i.projectId===pId);
-  const payments = (await callApi('getPayments', {})).filter(p=>p.projectId===pId);
-  const snags = (await callApi('getSnags', {})).filter(s=>s.projectId===pId);
+  const proj = cache.projects.find((p) => p.projectId === pId);
+  if (!proj) {
+    alert("Selected project not found. Try refreshing data.");
+    return;
+  }
+  const inspections = (await callApi("getInspections", {})).filter(
+    (i) => i.projectId === pId,
+  );
+  const payments = (await callApi("getPayments", {})).filter(
+    (p) => p.projectId === pId,
+  );
+  const snags = (await callApi("getSnags", {})).filter(
+    (s) => s.projectId === pId,
+  );
   let html = `<h2>FieldScan Pro Report</h2><div>Project: ${escapeHtml(proj.clientName)} (${pId})</div>`;
-  if (layout === 'inspection_report') {
-    html += `<h3>Inspections</h3>${inspections.map(i=>`<div>${i.inspectionDate}: ${i.areaInspected} - ${i.siteCondition}</div>`).join('')}`;
-  } else if (layout === 'payment_summary') {
-    const totalIn = payments.filter(p=>p.paymentDirection==='Client Receipt').reduce((s,p)=>s+Number(p.amount),0);
-    const totalOut = payments.filter(p=>p.paymentDirection!=='Client Receipt').reduce((s,p)=>s+Number(p.amount),0);
-    html += `<h3>Payments</h3><div>Received: ₦${moneyValue(totalIn)}</div><div>Paid Out: ₦${moneyValue(totalOut)}</div><div>Balance: ₦${moneyValue(totalIn-totalOut)}</div>`;
+  if (layout === "inspection_report") {
+    html += `<h3>Inspections</h3>${inspections.map((i) => `<div>${i.inspectionDate}: ${i.areaInspected} - ${i.siteCondition}</div>`).join("")}`;
+  } else if (layout === "payment_summary") {
+    const totalIn = payments
+      .filter((p) => p.paymentDirection === "Client Receipt")
+      .reduce((s, p) => s + Number(p.amount), 0);
+    const totalOut = payments
+      .filter((p) => p.paymentDirection !== "Client Receipt")
+      .reduce((s, p) => s + Number(p.amount), 0);
+    html += `<h3>Payments</h3><div>Received: ₦${moneyValue(totalIn)}</div><div>Paid Out: ₦${moneyValue(totalOut)}</div><div>Balance: ₦${moneyValue(totalIn - totalOut)}</div>`;
   } else {
-    const openSnags = snags.filter(s=>s.status!=='Completed').length;
+    const openSnags = snags.filter((s) => s.status !== "Completed").length;
     html += `<h3>Master Dossier</h3><div>${inspections.length} inspections, ${payments.length} payments, ${snags.length} snags (${openSnags} open)</div>`;
   }
-  const preview = document.getElementById('report-preview-viewport');
+  const preview = document.getElementById("report-preview-viewport");
   if (preview) preview.innerHTML = html;
-  const printContainer = document.getElementById('report-print-container');
+  const printContainer = document.getElementById("report-print-container");
   if (printContainer) printContainer.innerHTML = html;
-  const card = document.getElementById('report-onscreen-preview-card');
-  if (card) card.style.display = 'block';
+  const card = document.getElementById("report-onscreen-preview-card");
+  if (card) card.style.display = "block";
 }
 
 // ===== accounts.js =====
-
-
-
-
 
 function getClosedStatus(projectStatus) {
   // Closed = anything except Active + In Planning
@@ -717,11 +756,6 @@ async function ensureAccountsPageVisibility(projectId = null) {
 // ===== modals.js =====
 // modals.js
 
-
-
-
-
-
 let currentModalFiles = [];
 let currentAvatarPhoto = "";
 let modalRecordCache = {};
@@ -839,7 +873,7 @@ async function openModal(type, editData = null) {
   if (type === "project") {
     title.innerText = isEdit ? "Edit Project" : "New Project";
     body.innerHTML = `
-      <label ${labelStyle}>Project ID</label><input value="${escapeAttr(isEdit ? editData.projectId : generateFrontendPreviewId("project"))}" disabled style="${largeInput} background:#f0f0f0;">
+      <label ${labelStyle}>Project ID</label><input id="p_project_id" name="projectId" value="${escapeAttr(isEdit ? editData.projectId : generateFrontendPreviewId("project"))}" disabled style="${largeInput} background:#f0f0f0;">
       <label ${labelStyle}>Client Name</label><input id="p_client" value="${escapeAttr(isEdit ? editData.clientName : "")}" ${largeInput}>
       <label ${labelStyle}>Site Location</label><input id="p_loc" value="${escapeAttr(isEdit ? editData.siteLocation : "")}" ${largeInput}>
       <label ${labelStyle}>Client Phone (11 digits)</label><input id="p_phone" type="tel" maxlength="11" oninput="this.value=this.value.replace(/[^0-9]/g,'')" value="${escapeAttr(isEdit ? editData.clientPhone : "")}" ${largeInput}>
@@ -1393,73 +1427,101 @@ async function openModal(type, editData = null) {
 // ===== dashboard.js =====
 // dashboard.js
 
-
-
-
-
 async function refreshMasterDashboard() {
-  const container = document.getElementById('project-master-list');
-  if (container) container.innerHTML = '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
+  const container = document.getElementById("project-master-list");
+  if (container)
+    container.innerHTML =
+      '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
   try {
-    const projects = await callApi('getProjects', {});
+    const projects = await callApi("getProjects", {});
     const cache = getCache();
     cache.projects = projects || [];
     setCache(cache);
     renderProjects();
-  } catch(e) {
+  } catch (e) {
     console.error("refreshMasterDashboard error:", e);
-    if (container) container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Failed to load projects. Check your connection.</p>';
+    if (container)
+      container.innerHTML =
+        '<p style="text-align:center;padding:20px;color:red;">Failed to load projects. Check your connection.</p>';
   }
 }
 
 function renderProjects() {
-  const container = document.getElementById('project-master-list');
-  const searchEl = document.getElementById('search-projects');
+  const container = document.getElementById("project-master-list");
+  const searchEl = document.getElementById("search-projects");
   if (!container || !searchEl) return;
   const term = searchEl.value.toLowerCase();
   const cache = getCache();
-  const filtered = cache.projects.filter(p => p.clientName?.toLowerCase().includes(term) || p.projectId?.toLowerCase().includes(term));
-  if (!filtered.length) { container.innerHTML = '<p style="text-align:center;padding:20px;">No projects</p>'; return; }
+  const filtered = cache.projects.filter(
+    (p) =>
+      p.clientName?.toLowerCase().includes(term) ||
+      p.projectId?.toLowerCase().includes(term),
+  );
+  if (!filtered.length) {
+    container.innerHTML =
+      '<p style="text-align:center;padding:20px;">No projects</p>';
+    return;
+  }
   try {
-    container.innerHTML = filtered.map(p => `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus==='Active'?'var(--success)':'var(--muted)'}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`).join('');
-  } catch(e) {
+    container.innerHTML = filtered
+      .map(
+        (p) =>
+          `<div class="card" data-project-id="${escapeAttr(p.projectId)}" onclick="window.loadProjectConsoleHub('${escapeAttr(p.projectId)}')" style="border-left:5px solid ${p.projectStatus === "Active" ? "var(--success)" : "var(--muted)"}; cursor:pointer;"><strong style="font-size:20px;">${escapeHtml(p.clientName)}</strong><br><span>${escapeHtml(p.siteLocation)}</span><div style="margin-top:6px; font-size:12px;">ID: ${escapeHtml(p.projectId)} | ${escapeHtml(p.projectStatus)}</div></div>`,
+      )
+      .join("");
+  } catch (e) {
     console.error("renderProjects error:", e);
-    container.innerHTML = '<p style="text-align:center;padding:20px;color:red;">Error rendering projects. Check console.</p>';
+    container.innerHTML =
+      '<p style="text-align:center;padding:20px;color:red;">Error rendering projects. Check console.</p>';
   }
 }
 
 async function refreshVendorsListView() {
-  const vendors = await callApi('getVendors', {});
+  const vendors = await callApi("getVendors", {});
   const cache = getCache();
   cache.vendors = vendors || [];
   setCache(cache);
-  const trades = [...new Set(cache.vendors.map(v=>v.trade).filter(Boolean))];
-  const filterSelect = document.getElementById('filter-vendor-trade');
-  if (filterSelect) filterSelect.innerHTML = '<option value="">All Trades</option>' + trades.map(t=>`<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`).join('');
+  const trades = [
+    ...new Set(cache.vendors.map((v) => v.trade).filter(Boolean)),
+  ];
+  const filterSelect = document.getElementById("filter-vendor-trade");
+  if (filterSelect)
+    filterSelect.innerHTML =
+      '<option value="">All Trades</option>' +
+      trades
+        .map(
+          (t) => `<option value="${escapeAttr(t)}">${escapeHtml(t)}</option>`,
+        )
+        .join("");
   renderVendors();
 }
 
 function renderVendors() {
-  const term = document.getElementById('search-vendor').value.toLowerCase();
-  const trade = document.getElementById('filter-vendor-trade').value;
+  const term = document.getElementById("search-vendor").value.toLowerCase();
+  const trade = document.getElementById("filter-vendor-trade").value;
   const cache = getCache();
-  const filtered = cache.vendors.filter(v => (!term || v.company?.toLowerCase().includes(term)) && (!trade || v.trade === trade));
-  const container = document.getElementById('vendor-master-list');
-  if (!filtered.length) { container.innerHTML = '<p style="padding:20px;">No vendors</p>'; return; }
-  container.innerHTML = filtered.map(v => {
-    const key = `vendor:${v.vendorId}`;
-    window.modalRecordCache = window.modalRecordCache || {};
-    window.modalRecordCache[key] = v;
-    return `<div class="card" data-modal-type="vendor" data-modal-key="${key}" onclick="window.openModalWithRecord('vendor', window.modalRecordCache['${key}'])" style="display:flex; gap:12px; align-items:center;"><img src="${getDirectImageUrl(v.passport) || 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E'}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div><strong>${escapeHtml(v.company)}</strong><br>${escapeHtml(v.trade)}<br>${escapeHtml(v.phone1)}</div></div>`;
-  }).join('');
+  const filtered = cache.vendors.filter(
+    (v) =>
+      (!term || v.company?.toLowerCase().includes(term)) &&
+      (!trade || v.trade === trade),
+  );
+  const container = document.getElementById("vendor-master-list");
+  if (!filtered.length) {
+    container.innerHTML = '<p style="padding:20px;">No vendors</p>';
+    return;
+  }
+  container.innerHTML = filtered
+    .map((v) => {
+      const key = `vendor:${v.vendorId}`;
+      window.modalRecordCache = window.modalRecordCache || {};
+      window.modalRecordCache[key] = v;
+      return `<div class="card" data-modal-type="vendor" data-modal-key="${key}" onclick="window.openModalWithRecord('vendor', window.modalRecordCache['${key}'])" style="display:flex; gap:12px; align-items:center;"><img src="${getDirectImageUrl(v.passport) || "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E"}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div><strong>${escapeHtml(v.company)}</strong><br>${escapeHtml(v.trade)}<br>${escapeHtml(v.phone1)}</div></div>`;
+    })
+    .join("");
 }
 
 // ===== console.js =====
 // console.js
-
-
-
-
 
 // ======================== PROJECT CONSOLE LOADER ========================
 async function loadProjectConsoleHub(projectId) {
@@ -1688,7 +1750,6 @@ async function loadSnagsListings(forceRefresh = false) {
     .join("");
 }
 
-
 // ======================== PAYMENTS ========================
 async function loadPaymentsListings(forceRefresh = false) {
   const container = document.getElementById("console-payments-list");
@@ -1744,29 +1805,48 @@ async function loadPaymentsListings(forceRefresh = false) {
 // ===== api.js =====
 // api.js
 
-
-
-
-
-
-let cache = { projects: [], inspections: [], takeoffs: [], progressLogs: [], snags: [], vendors: [], payments: [], settings: null };
+let cache = {
+  projects: [],
+  inspections: [],
+  takeoffs: [],
+  progressLogs: [],
+  snags: [],
+  vendors: [],
+  payments: [],
+  settings: null,
+};
 let currentSelectedProjectId = null;
 
-function setCache(newCache) { cache = { ...cache, ...newCache }; }
-function getCache() { return cache; }
-function setCurrentProjectId(id) { currentSelectedProjectId = id; }
-function getCurrentProjectId() { return currentSelectedProjectId; }
+function setCache(newCache) {
+  cache = { ...cache, ...newCache };
+}
+function getCache() {
+  return cache;
+}
+function setCurrentProjectId(id) {
+  currentSelectedProjectId = id;
+}
+function getCurrentProjectId() {
+  return currentSelectedProjectId;
+}
 
 async function callApi(action, data = {}) {
-  const isGet = action.startsWith('get');
+  const isGet = action.startsWith("get");
   let response;
   try {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
-    response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
+    response = await fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   } catch (err) {
     // Network-level failure (offline, DNS, CORS) - GET falls back to cache, writes queue
     console.warn(`callApi [${action}] network error:`, err);
-    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    if (isGet)
+      return readBackup(
+        action,
+        action === "getStats" ? { activeVendors: "--" } : [],
+      );
     await queueOfflineRequest(action, data);
     applyLocalMutation(action, data);
     updateSyncStatus();
@@ -1777,7 +1857,11 @@ async function callApi(action, data = {}) {
   // Non-2xx HTTP (redirect, auth error, etc.) - GET falls back to cache
   if (!response.ok) {
     console.warn(`callApi [${action}] HTTP ${response.status}`);
-    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    if (isGet)
+      return readBackup(
+        action,
+        action === "getStats" ? { activeVendors: "--" } : [],
+      );
     throw new Error(`HTTP ${response.status}`);
   }
 
@@ -1786,15 +1870,24 @@ async function callApi(action, data = {}) {
     result = await response.json();
   } catch (err) {
     console.warn(`callApi [${action}] JSON parse error:`, err);
-    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    if (isGet)
+      return readBackup(
+        action,
+        action === "getStats" ? { activeVendors: "--" } : [],
+      );
     throw new Error("Invalid response from server");
   }
 
   // Server logic/validation error - GET falls back to cache, writes surface error
-  if (result && (result.status === 'error' || result.success === false)) {
-    const message = result.message || result.error || "Server rejected the request";
+  if (result && (result.status === "error" || result.success === false)) {
+    const message =
+      result.message || result.error || "Server rejected the request";
     console.warn(`callApi [${action}] server error:`, message);
-    if (isGet) return readBackup(action, action === 'getStats' ? { activeVendors: '--' } : []);
+    if (isGet)
+      return readBackup(
+        action,
+        action === "getStats" ? { activeVendors: "--" } : [],
+      );
     alert(`⚠️ Save failed: ${message}`);
     throw new Error(message);
   }
@@ -1804,13 +1897,21 @@ async function callApi(action, data = {}) {
 }
 
 const DEPENDENCY_ORDER = {
-  saveProject: 1, updateProject: 1,
-  saveVendor: 2, updateVendor: 2,
-  saveInspection: 3, updateInspection: 3,
-  saveTakeOffItem: 4, updateTakeOffItem: 4, deleteTakeOffItem: 4,
+  saveProject: 1,
+  updateProject: 1,
+  saveVendor: 2,
+  updateVendor: 2,
+  saveInspection: 3,
+  updateInspection: 3,
+  saveTakeOffItem: 4,
+  updateTakeOffItem: 4,
+  deleteTakeOffItem: 4,
   saveProgressLog: 5,
-  saveSnag: 6, updateSnag: 6, deleteSnag: 6,
-  savePayment: 7, updatePayment: 7
+  saveSnag: 6,
+  updateSnag: 6,
+  deleteSnag: 6,
+  savePayment: 7,
+  updatePayment: 7,
 };
 
 async function syncQueuedRequests() {
@@ -1818,15 +1919,24 @@ async function syncQueuedRequests() {
   let queue = await getQueuedRequests();
   if (!queue.length) return;
   alert("🔄 Syncing offline data...");
-  queue.sort((a,b) => (DEPENDENCY_ORDER[a.action] || 99) - (DEPENDENCY_ORDER[b.action] || 99));
+  queue.sort(
+    (a, b) =>
+      (DEPENDENCY_ORDER[a.action] || 99) - (DEPENDENCY_ORDER[b.action] || 99),
+  );
   for (let item of queue) {
     let retries = 3;
     let delay = 1000;
     let success = false;
     while (retries > 0 && !success) {
       try {
-        const payload = { action: item.action, data: { ...item.data, token: AUTH_TOKEN } };
-        const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
+        const payload = {
+          action: item.action,
+          data: { ...item.data, token: AUTH_TOKEN },
+        };
+        const response = await fetch(GAS_URL, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
         if (response.ok) {
           const result = await response.json();
           if (!result.error && result.success !== false) {
@@ -1842,33 +1952,46 @@ async function syncQueuedRequests() {
           console.error("Failed to sync", item.action, item.data);
           alert(`Failed to sync ${item.action}. Will retry later.`);
         } else {
-          await new Promise(r => setTimeout(r, delay));
+          await new Promise((r) => setTimeout(r, delay));
           delay *= 2;
         }
       }
     }
   }
   await refreshMasterDashboard();
-  const vendorsView = document.getElementById('view-vendors');
-  if (vendorsView && vendorsView.classList.contains('active-view')) refreshVendorsListView();
+  const vendorsView = document.getElementById("view-vendors");
+  if (vendorsView && vendorsView.classList.contains("active-view"))
+    refreshVendorsListView();
   if (currentSelectedProjectId) {
-    loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadPaymentsListings(true);
+    loadInspectionListings(true);
+    loadTakeOffListings(true);
+    loadProgressTimelineFeed(true);
+    loadSnagsListings(true);
+    loadPaymentsListings(true);
   }
   await updateSyncStatus();
 }
 
 async function updateSyncStatus() {
-  const badge = document.getElementById('sync-status');
-  const pendingBadge = document.getElementById('sync-pending-badge');
+  const badge = document.getElementById("sync-status");
+  const pendingBadge = document.getElementById("sync-pending-badge");
   const queue = await getQueuedRequests();
   if (pendingBadge) {
     pendingBadge.textContent = queue.length;
-    pendingBadge.style.display = queue.length ? 'inline-block' : 'none';
+    pendingBadge.style.display = queue.length ? "inline-block" : "none";
   }
   if (!badge) return;
-  if (!navigator.onLine) { badge.innerHTML = `<i class="fas fa-wifi"></i> Offline${queue.length ? ` • ${queue.length} pending` : ''}`; badge.style.display = 'block'; return; }
-  if (queue.length) { badge.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> ${queue.length} pending`; badge.style.display = 'block'; return; }
-  badge.style.display = 'none';
+  if (!navigator.onLine) {
+    badge.innerHTML = `<i class="fas fa-wifi"></i> Offline${queue.length ? ` • ${queue.length} pending` : ""}`;
+    badge.style.display = "block";
+    return;
+  }
+  if (queue.length) {
+    badge.innerHTML = `<i class="fas fa-sync-alt fa-spin"></i> ${queue.length} pending`;
+    badge.style.display = "block";
+    return;
+  }
+  badge.style.display = "none";
 }
 
 function setButtonState(buttonId, html, disabled) {
@@ -1876,8 +1999,8 @@ function setButtonState(buttonId, html, disabled) {
   if (!button) return;
   button.innerHTML = html;
   button.disabled = disabled;
-  button.style.opacity = disabled ? '0.65' : '';
-  button.style.pointerEvents = disabled ? 'none' : '';
+  button.style.opacity = disabled ? "0.65" : "";
+  button.style.pointerEvents = disabled ? "none" : "";
 }
 
 function showFinishedButtonState(buttonId, doneHtml, normalHtml) {
@@ -1889,14 +2012,25 @@ function showFinishedButtonState(buttonId, doneHtml, normalHtml) {
 }
 
 async function triggerManualSync() {
-  if (!navigator.onLine) { alert("You are offline. Please connect to internet."); return; }
+  if (!navigator.onLine) {
+    alert("You are offline. Please connect to internet.");
+    return;
+  }
   const normalHtml = `<i class="fas fa-sync-alt"></i> Sync Now <span id="sync-pending-badge" class="sync-count-badge" style="display:none;">0</span>`;
   try {
-    setButtonState('sync-now-btn', `<i class="fas fa-sync-alt fa-spin"></i> Syncing...`, true);
+    setButtonState(
+      "sync-now-btn",
+      `<i class="fas fa-sync-alt fa-spin"></i> Syncing...`,
+      true,
+    );
     await syncQueuedRequests();
-    showFinishedButtonState('sync-now-btn', `<i class="fas fa-check"></i> Synced`, normalHtml);
+    showFinishedButtonState(
+      "sync-now-btn",
+      `<i class="fas fa-check"></i> Synced`,
+      normalHtml,
+    );
   } catch (err) {
-    setButtonState('sync-now-btn', normalHtml, false);
+    setButtonState("sync-now-btn", normalHtml, false);
     throw err;
   } finally {
     await updateSyncStatus();
@@ -1904,31 +2038,45 @@ async function triggerManualSync() {
 }
 
 async function refreshAllData() {
-  if (!navigator.onLine) { alert("Offline – cannot refresh from server."); return; }
+  if (!navigator.onLine) {
+    alert("Offline – cannot refresh from server.");
+    return;
+  }
   const normalHtml = `<i class="fas fa-database"></i> Refresh`;
   try {
-    setButtonState('refresh-data-btn', `<i class="fas fa-spinner fa-spin"></i> Refreshing...`, true);
-    await callApi('getProjects', {}); await callApi('getInspections', {}); await callApi('getTakeOffItems', {});
-    await callApi('getProgressLogs', {}); await callApi('getSnags', {}); await callApi('getVendors', {}); await callApi('getPayments', {});
+    setButtonState(
+      "refresh-data-btn",
+      `<i class="fas fa-spinner fa-spin"></i> Refreshing...`,
+      true,
+    );
+    await callApi("getProjects", {});
+    await callApi("getInspections", {});
+    await callApi("getTakeOffItems", {});
+    await callApi("getProgressLogs", {});
+    await callApi("getSnags", {});
+    await callApi("getVendors", {});
+    await callApi("getPayments", {});
     await refreshMasterDashboard();
     if (currentSelectedProjectId) {
-      loadInspectionListings(true); loadTakeOffListings(true); loadProgressTimelineFeed(true); loadSnagsListings(true); loadPaymentsListings(true);
+      loadInspectionListings(true);
+      loadTakeOffListings(true);
+      loadProgressTimelineFeed(true);
+      loadSnagsListings(true);
+      loadPaymentsListings(true);
     }
-    showFinishedButtonState('refresh-data-btn', `<i class="fas fa-check"></i> Refreshed`, normalHtml);
+    showFinishedButtonState(
+      "refresh-data-btn",
+      `<i class="fas fa-check"></i> Refreshed`,
+      normalHtml,
+    );
   } catch (err) {
-    setButtonState('refresh-data-btn', normalHtml, false);
+    setButtonState("refresh-data-btn", normalHtml, false);
     throw err;
   }
 }
 
 // ===== app.js =====
 // app.js
-
-
-
-
-
-
 
 let appStarted = false;
 let suppressPageRefresh = false;
@@ -1990,5 +2138,3 @@ window.addEventListener("load", () => {
   refreshMasterDashboard();
   if (navigator.onLine) syncQueuedRequests();
 });
-
-

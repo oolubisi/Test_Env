@@ -143,7 +143,7 @@ export async function openModal(type, editData = null) {
   if (type === "project") {
     title.innerText = isEdit ? "Edit Project" : "New Project";
     body.innerHTML = `
-      <label ${labelStyle}>Project ID</label><input value="${escapeAttr(isEdit ? editData.projectId : generateFrontendPreviewId("project"))}" disabled style="${largeInput} background:#f0f0f0;">
+      <label ${labelStyle}>Project ID</label><input id="p_project_id" name="projectId" value="${escapeAttr(isEdit ? editData.projectId : generateFrontendPreviewId("project"))}" disabled style="${largeInput} background:#f0f0f0;">
       <label ${labelStyle}>Client Name</label><input id="p_client" value="${escapeAttr(isEdit ? editData.clientName : "")}" ${largeInput}>
       <label ${labelStyle}>Site Location</label><input id="p_loc" value="${escapeAttr(isEdit ? editData.siteLocation : "")}" ${largeInput}>
       <label ${labelStyle}>Client Phone (11 digits)</label><input id="p_phone" type="tel" maxlength="11" oninput="this.value=this.value.replace(/[^0-9]/g,'')" value="${escapeAttr(isEdit ? editData.clientPhone : "")}" ${largeInput}>
