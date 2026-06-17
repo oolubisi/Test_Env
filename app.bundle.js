@@ -1453,6 +1453,7 @@ async function loadSnagsListings(forceRefresh = false) {
 
 async function loadWorkOrdersListings(forceRefresh = false) {
   const container = document.getElementById("console-workorders-list");
+  if (!container) return;
   let cache = getCache();
   if (forceRefresh || !cache.workorders.length) {
     container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading work orders...</p>`;
