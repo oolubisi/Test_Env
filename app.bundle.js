@@ -2067,4 +2067,10 @@ window.addEventListener("load", () => {
   showPageWithoutRefresh("dashboard");
   refreshMasterDashboard();
   if (navigator.onLine) syncQueuedRequests();
+
+  // Ensure project console + modal can load immediately after first click.
+  // Some older service worker cached bundles delayed module evaluation.
+  try {
+    initAccountsEngine().catch(() => {});
+  } catch (e) {}
 });
