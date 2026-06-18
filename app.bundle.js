@@ -144,6 +144,869 @@ function calculateTax(amount, key) {
   return roundMoney((Number(amount) || 0) * getTaxRate(key));
 }
 
+// ===== templates.js =====
+// templates.js — Master Data & Take-Off Templates
+
+const MASTER_ROOM_TYPES = [
+  "Living Room",
+  "Master Bedroom",
+  "Bedroom",
+  "Kitchen",
+  "Bathroom/Toilet",
+  "En-suite",
+  "Dining Room",
+  "Corridor/Hallway",
+  "Staircase",
+  "Store/Pantry",
+  "Balcony/Terrace",
+  "Entrance/Foyer",
+  "Garage",
+  "External Works",
+];
+
+const MASTER_TRADE_CATEGORIES = [
+  "Civil/Structural",
+  "Masonry/Blockwork",
+  "Carpentry/Joinery",
+  "Electrical",
+  "Plumbing/Mechanical",
+  "Tiling/Flooring",
+  "Painting/Decorating",
+  "Roofing",
+  "Aluminum/Glazing",
+  "Ironmongery",
+  "Landscaping",
+  "Security/Access Control",
+  "Fire Protection",
+  "HVAC/AC",
+  "Waterproofing",
+];
+
+const MASTER_UNITS = [
+  { value: "sqm", label: "sqm — Square Metres" },
+  { value: "m", label: "m — Metres" },
+  { value: "pcs", label: "pcs — Pieces" },
+  { value: "set", label: "set — Set" },
+  { value: "lot", label: "lot — Lot" },
+  { value: "kg", label: "kg — Kilograms" },
+  { value: "bag", label: "bag — Bag" },
+  { value: "drum", label: "drum — Drum" },
+  { value: "roll", label: "roll — Roll" },
+  { value: "m³", label: "m³ — Cubic Metres" },
+];
+
+const BUILT_IN_TEMPLATES = [
+  {
+    id: "tmpl-3bed-standard",
+    name: "Standard 3-Bed Flat",
+    description:
+      "Complete take-off template for a standard 3-bedroom apartment",
+    items: [
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Kitchen cabinets",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Sink and fittings",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "WC suite",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Shower fittings",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-bathroom-fitout",
+    name: "Bathroom Fit-Out",
+    description: "Complete bathroom renovation package",
+    items: [
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "WC pan and cistern",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Wash hand basin",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Shower mixer and tray",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Water heater",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Extractor fan",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Mirror light",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Aluminum/Glazing",
+        description: "Shower cubicle",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Ironmongery",
+        description: "Towel rails",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-kitchen-fitout",
+    name: "Kitchen Fit-Out",
+    description: "Complete kitchen installation package",
+    items: [
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Base cabinets",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Wall cabinets",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Countertop",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Sink and tap",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Gas cooker point",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Cooker socket",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles (backsplash)",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-electrical-roughin",
+    name: "Electrical Rough-In",
+    description: "Electrical first fix for all rooms",
+    items: [
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-external-works",
+    name: "External Works",
+    description: "External and landscaping items",
+    items: [
+      {
+        roomArea: "External Works",
+        tradeCategory: "Civil/Structural",
+        description: "Concrete apron",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Civil/Structural",
+        description: "Drainage channels",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Landscaping",
+        description: "Topsoil and turf",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Landscaping",
+        description: "Perimeter fence",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Electrical",
+        description: "External light points",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Water storage tank",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Security/Access Control",
+        description: "Gate motor",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Garage",
+        tradeCategory: "Civil/Structural",
+        description: "Floor concrete",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Garage",
+        tradeCategory: "Electrical",
+        description: "Roller shutter door",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+];
+
+function getBuiltInTemplates() {
+  return JSON.parse(JSON.stringify(BUILT_IN_TEMPLATES));
+}
+
+function getCustomTemplates() {
+  try {
+    const raw = localStorage.getItem("fb_customTemplates");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveCustomTemplates(templates) {
+  localStorage.setItem("fb_customTemplates", JSON.stringify(templates));
+}
+
+function getAllTemplates() {
+  return [...getBuiltInTemplates(), ...getCustomTemplates()];
+}
+
+function findTemplateById(id) {
+  return getAllTemplates().find((t) => t.id === id);
+}
+
+function deleteCustomTemplate(id) {
+  const filtered = getCustomTemplates().filter((t) => t.id !== id);
+  saveCustomTemplates(filtered);
+}
+
+function generateTemplateId() {
+  return "TMPL-CUST-" + Date.now();
+}
+
+/* ---------- Templates UI ---------- */
+function loadTemplatesSegment() {
+  const container = document.getElementById("console-templates-list");
+  if (!container) return;
+  const all = getAllTemplates();
+  const projectId = getCurrentProjectId();
+  const cache = getCache();
+  const projectItems = (cache.takeoffs || []).filter(
+    (i) => i.projectId === projectId,
+  );
+
+  let html = "";
+
+  // Save current as custom template
+  if (projectItems.length > 0) {
+    html += `
+      <div class="card" style="background: var(--card-light); border-style: dashed;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div>
+            <strong style="font-size:15px;">Save Current Take-Offs as Template</strong>
+            <div style="font-size:12px; color:var(--muted); margin-top:2px;">${projectItems.length} items in this project</div>
+          </div>
+          <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px;" onclick="openSaveAsTemplateModal()">
+            <i class="fas fa-save"></i> Save
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (!all.length) {
+    html += `<p style="text-align:center; padding:20px; color:var(--muted);">No templates available.</p>`;
+    container.innerHTML = html;
+    return;
+  }
+
+  html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in & Custom Templates</div>`;
+
+  html += all
+    .map((t) => {
+      const isCustom = !BUILT_IN_TEMPLATES.find((b) => b.id === t.id);
+      return `
+        <div class="card" style="cursor: default;">
+          <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:16px;">${escapeHtml(t.name)}</strong>
+                ${isCustom ? `<span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span>` : ""}
+              </div>
+              <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div>
+              <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div>
+            </div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+              <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
+                <i class="fas fa-check"></i> Apply
+              </button>
+              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="deleteCustomTemplate('${escapeAttr(t.id)}'); loadTemplatesSegment();"><i class="fas fa-trash"></i></button>` : ""}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.innerHTML = html;
+}
+
+function openSaveAsTemplateModal() {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Save as Template";
+  overlay.style.display = "flex";
+  body.innerHTML = `
+    <label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Template Name</label>
+    <input id="tmpl_name" style="width:100%; padding:12px; font-size:16px;" placeholder="e.g. My Standard Flat">
+    <label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Description</label>
+    <textarea id="tmpl_desc" rows="2" style="width:100%; padding:12px; font-size:16px;" placeholder="Brief description..."></textarea>
+  `;
+  submit.style.display = "block";
+  submit.innerText = "Save Template";
+  submit.onclick = () => {
+    const name = document.getElementById("tmpl_name").value.trim();
+    const desc = document.getElementById("tmpl_desc").value.trim();
+    if (!name) {
+      alert("Enter a template name");
+      return;
+    }
+    const cache = getCache();
+    const projectId = getCurrentProjectId();
+    const items = (cache.takeoffs || []).filter(
+      (i) => i.projectId === projectId,
+    );
+    if (!items.length) {
+      alert("No items to save");
+      return;
+    }
+    const stripped = items.map((i) => ({
+      roomArea: i.roomArea,
+      tradeCategory: i.tradeCategory,
+      description: i.description,
+      unit: i.unit,
+      quantity: 0,
+    }));
+    const custom = getCustomTemplates();
+    custom.push({
+      id: generateTemplateId(),
+      name,
+      description: desc || "Custom template",
+      items: stripped,
+    });
+    saveCustomTemplates(custom);
+    closeModal();
+    loadTemplatesSegment();
+    alert("Template saved");
+  };
+}
+
+function previewTemplate(id) {
+  const t = findTemplateById(id);
+  if (!t) return;
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Template Preview: " + t.name;
+  overlay.style.display = "flex";
+  const rows = t.items
+    .map(
+      (i) => `
+      <tr>
+        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px;">${escapeHtml(i.roomArea)}</td>
+        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px;">${escapeHtml(i.tradeCategory)}</td>
+        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px;">${escapeHtml(i.description)}</td>
+        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px; text-align:right;">${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</td>
+      </tr>
+    `,
+    )
+    .join("");
+  body.innerHTML = `
+    <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(t.description)} — ${t.items.length} items</p>
+    <div style="max-height:50vh; overflow-y:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead>
+          <tr style="background:#000; color:#fff;">
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Room</th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Trade</th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+            <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase;">Qty</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+  submit.style.display = "block";
+  submit.innerText = "Close";
+  submit.onclick = closeModal;
+}
+
+async function applyTemplateToProject(templateId) {
+  const t = findTemplateById(templateId);
+  if (!t) return;
+  if (
+    !confirm(
+      `Apply "${t.name}" (${t.items.length} items) to this project?\n\nQuantities will be set to 0 for field measurement.`,
+    )
+  ) {
+    return;
+  }
+  const projectId = getCurrentProjectId();
+  if (!projectId) {
+    alert("No project selected");
+    return;
+  }
+  const btn = document.querySelector(
+    `button[onclick="applyTemplateToProject('${escapeAttr(templateId)}')"]`,
+  );
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+  }
+  try {
+    for (const item of t.items) {
+      const payload = {
+        itemId:
+          "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
+        projectId: projectId,
+        roomArea: item.roomArea,
+        tradeCategory: item.tradeCategory,
+        description: item.description,
+        quantity: 0,
+        unit: item.unit,
+        beforePhotoUrl: "",
+        scopeNotes: "From template: " + t.name,
+      };
+      await callApi("saveTakeOffItem", payload);
+    }
+    loadTakeOffListings(true);
+    alert(`Template applied: ${t.items.length} items added.`);
+  } catch (e) {
+    alert("Error applying template: " + (e.message || "Unknown error"));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i class="fas fa-check"></i> Apply`;
+    }
+  }
+}
+
 // ===== db.js =====
 // db.js
 const DB_NAME = "FieldScanOfflineDB";
@@ -513,6 +1376,7 @@ function handleReportScopePopulation() {
   const filterWrap = document.getElementById("rep-filter-wrap");
   if (!typeSel || !scopeSel) return;
 
+  // Hide Scope label & field from UI (still driven by JS)
   scopeSel.style.display = "none";
   const scopeLabel = scopeSel.previousElementSibling;
   if (scopeLabel && scopeLabel.tagName === "LABEL")
@@ -623,7 +1487,7 @@ async function handleReportFilterPopulation() {
   }
 }
 
-/* ---------- Field Selector (Financial Summary) ---------- */
+/* ---------- Field Selector for Financial Summary (All Projects) ---------- */
 function updateFieldSelectorVisibility() {
   const type = document.getElementById("rep-type-sel").value;
   let wrap = document.getElementById("rep-field-selector-wrap");
@@ -853,7 +1717,7 @@ function renderFinancialAll(projects, payments, selectedFields) {
     tPro = 0;
 
   const cellMapFn = (f) => ({
-    project: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(f.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(f.clientName)}</span></td>`,
+    project: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; ${cols.find((c) => c.key === "project")?.tdStyle || ""}"><strong>${escapeHtml(f.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(f.clientName)}</span></td>`,
     subtotal: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.subtotal)}</td>`,
     vat: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.vat)}</td>`,
     totalContract: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800;">₦${moneyValue(f.totalContract)}</td>`,
@@ -1408,13 +2272,11 @@ async function loadAccountsView() {
       (cache.projects || [])
         .map(
           (p) =>
-            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${p.projectId})</option>`,
+            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${escapeHtml(p.projectId)})</option>`,
         )
         .join("");
   }
-  // Render immediately from cache — no async blocking
   updateAccountsSummary();
-  // Background fetch only if payments are missing
   if (!cache.payments || !cache.payments.length) {
     callApi("getPayments", {})
       .then((payments) => {
@@ -1613,6 +2475,7 @@ async function openModal(type, editData = null) {
   body.innerHTML = "";
   submit.disabled = false;
   submit.innerText = "Save";
+  submit.style.display = "block";
   currentModalFiles = [];
   currentAvatarPhoto = "";
 
@@ -1727,17 +2590,29 @@ async function openModal(type, editData = null) {
     title.innerText = isEdit ? "Edit Take-Off" : "New Take-Off";
     if (isEdit && editData.beforePhotoUrl)
       currentModalFiles = splitAttachments(editData.beforePhotoUrl);
+    const roomOptions = MASTER_ROOM_TYPES.map(
+      (r) => `<option value="${escapeAttr(r)}">`,
+    ).join("");
+    const tradeOptions = MASTER_TRADE_CATEGORIES.map(
+      (t) => `<option value="${escapeAttr(t)}">`,
+    ).join("");
+    const unitOptions = MASTER_UNITS.map(
+      (u) =>
+        `<option value="${escapeAttr(u.value)}" ${isEdit && editData.unit === u.value ? "selected" : ""}>${escapeHtml(u.label)}</option>`,
+    ).join("");
     body.innerHTML = `
-      <label ${labelStyle}>Room/Area</label><input id="t_room" value="${escapeAttr(isEdit ? editData.roomArea : "")}" ${largeInput}>
-      <label ${labelStyle}>Trade Category</label><input id="t_trade" value="${escapeAttr(isEdit ? editData.tradeCategory : "")}" ${largeInput}>
+      <label ${labelStyle}>Room/Area</label>
+      <input list="master-room-types" id="t_room" value="${escapeAttr(isEdit ? editData.roomArea : "")}" placeholder="Select or type..." ${largeInput}>
+      <datalist id="master-room-types">${roomOptions}</datalist>
+      <label ${labelStyle}>Trade Category</label>
+      <input list="master-trade-cats" id="t_trade" value="${escapeAttr(isEdit ? editData.tradeCategory : "")}" placeholder="Select or type..." ${largeInput}>
+      <datalist id="master-trade-cats">${tradeOptions}</datalist>
       <label ${labelStyle}>Description</label><input id="t_desc" value="${escapeAttr(isEdit ? editData.description : "")}" ${largeInput}>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
         <input id="t_qty" placeholder="Quantity" value="${escapeAttr(isEdit ? editData.quantity : "")}" ${largeInput}>
         <select id="t_unit" ${largeInput}>
           <option value="" ${!isEdit ? "selected" : ""} disabled>Select unit</option>
-          <option value="sqm" ${isEdit && editData.unit === "sqm" ? "selected" : ""}>sqm</option>
-          <option value="m" ${isEdit && editData.unit === "m" ? "selected" : ""}>m</option>
-          <option value="pcs" ${isEdit && editData.unit === "pcs" ? "selected" : ""}>pcs</option>
+          ${unitOptions}
         </select>
       </div>
       <label ${labelStyle}>Remarks</label><textarea id="t_notes" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.scopeNotes : "")}</textarea>
@@ -2430,6 +3305,7 @@ function switchConsoleSegment(seg) {
   document.getElementById(`seg-btn-${seg}`).classList.add("active");
   if (seg === "inspections") loadInspectionListings();
   if (seg === "takeoff") loadTakeOffListings();
+  if (seg === "templates") loadTemplatesSegment();
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
   if (seg === "workorders") loadWorkOrdersListings();
@@ -2498,6 +3374,7 @@ async function loadTakeOffListings(forceRefresh = false) {
       <strong>${escapeHtml(i.roomArea)}</strong> | ${escapeHtml(i.tradeCategory)}<<br>
       ${escapeHtml(i.description)}<<br>
       <strong>${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</strong>
+      ${i.scopeNotes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(i.scopeNotes)}</div>` : ""}
     </div>
   `;
     })
@@ -3030,10 +3907,16 @@ window.refreshAllData = refreshAllData;
 window.handleReportScopePopulation = handleReportScopePopulation;
 window.handleReportFilterPopulation = handleReportFilterPopulation;
 window.compileFieldReport = compileFieldReport;
-window.shareReportWhatsApp = shareReportWhatsApp;
-window.shareReportEmail = shareReportEmail;
 window.loadAccountsView = loadAccountsView;
 window.updateAccountsSummary = updateAccountsSummary;
+window.saveReportPDF = saveReportPDF;
+window.shareReportWhatsApp = shareReportWhatsApp;
+window.shareReportEmail = shareReportEmail;
+window.previewTemplate = previewTemplate;
+window.applyTemplateToProject = applyTemplateToProject;
+window.openSaveAsTemplateModal = openSaveAsTemplateModal;
+window.loadTemplatesSegment = loadTemplatesSegment;
+window.deleteCustomTemplate = deleteCustomTemplate;
 
 // Service Worker & Events
 if ("serviceWorker" in navigator) {

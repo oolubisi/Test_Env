@@ -315,6 +315,13 @@
           </button>
           <button
             class="segment-btn"
+            id="seg-btn-templates"
+            onclick="switchConsoleSegment('templates')"
+          >
+            Templates
+          </button>
+          <button
+            class="segment-btn"
             id="seg-btn-progress"
             onclick="switchConsoleSegment('progress')"
           >
@@ -489,6 +496,9 @@
           >
             + New Take‑Off
           </button>
+        </div>
+        <div id="console-seg-templates" class="console-tab-window page-view">
+          <div id="console-templates-list"></div>
         </div>
         <div id="console-seg-progress" class="console-tab-window page-view">
           <div id="console-progress-feed"></div>
