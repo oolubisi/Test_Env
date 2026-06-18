@@ -823,7 +823,7 @@ function saveCustomTemplates(templates) {
 }
 
 function getAllTemplates() {
-  return [...getBuiltInTemplates(), ...getCustomTemplates()];
+  return [...getCustomTemplates(), ...getBuiltInTemplates()];
 }
 
 function findTemplateById(id) {
