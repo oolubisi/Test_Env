@@ -793,6 +793,13 @@ function generateTemplateId() {
   return "TMPL-CUST-" + Date.now();
 }
 
+function confirmDeleteTemplate(id) {
+  if (confirm("Delete this custom template?")) {
+    deleteCustomTemplate(id);
+    loadTemplatesSegment();
+  }
+}
+
 /* ---------- Templates UI ---------- */
 function loadTemplatesSegment() {
   const container = document.getElementById("console-templates-list");
@@ -853,7 +860,7 @@ function loadTemplatesSegment() {
               <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
                 <i class="fas fa-check"></i> Apply
               </button>
-              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="deleteCustomTemplate('${escapeAttr(t.id)}'); loadTemplatesSegment();"><i class="fas fa-trash"></i></button>` : ""}
+              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}')"><i class="fas fa-trash"></i></button>` : ""}
             </div>
           </div>
         </div>
@@ -1048,6 +1055,7 @@ function previewTemplate(id) {
     `,
     )
     .join("");
+  const isCustomPreview = !BUILT_IN_TEMPLATES.find((b) => b.id === t.id);
   body.innerHTML = `
     <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(t.description)} — ${t.items.length} items</p>
     <div style="max-height:50vh; overflow-y:auto;">
@@ -1063,6 +1071,16 @@ function previewTemplate(id) {
         <tbody>${rows}</tbody>
       </table>
     </div>
+    ${
+      isCustomPreview
+        ? `
+    <div style="margin-top:15px; text-align:center;">
+      <button class="action-btn" style="background:var(--danger); width:auto; padding:8px 16px; font-size:13px;" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}'); closeModal();">
+        <i class="fas fa-trash"></i> Delete Template
+      </button>
+    </div>`
+        : ""
+    }
   `;
   submit.style.display = "block";
   submit.innerText = "Close";
@@ -3493,6 +3511,54 @@ async function loadTakeOffListings(forceRefresh = false) {
     .join("");
 }
 
+// ======================== DELETE ALL TAKE-OFFS ========================
+async function deleteAllTakeOffsForProject() {
+  const projectId = getCurrentProjectId();
+  if (!projectId) {
+    alert("No project selected");
+    return;
+  }
+  const cache = getCache();
+  const projectItems = (cache.takeoffs || []).filter(
+    (i) => i.projectId === projectId,
+  );
+  if (!projectItems.length) {
+    alert("No take-off items to delete");
+    return;
+  }
+  if (
+    !confirm(
+      `Delete all ${projectItems.length} take-off items for this project? This cannot be undone.`,
+    )
+  ) {
+    return;
+  }
+
+  const btn = document.querySelector(
+    '#console-seg-takeoff button[onclick="deleteAllTakeOffsForProject()"]',
+  );
+  const originalText = btn ? btn.innerHTML : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Deleting...`;
+  }
+
+  try {
+    for (const item of projectItems) {
+      await callApi("deleteTakeOffItem", { itemId: item.itemId });
+    }
+    await loadTakeOffListings(true);
+    alert(`Deleted ${projectItems.length} take-off items`);
+  } catch (e) {
+    alert("Error deleting take-off items: " + (e.message || "Unknown error"));
+  } finally {
+    if (btn && originalText) {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  }
+}
+
 // ======================== PROGRESS LOGS ========================
 async function loadProgressTimelineFeed(forceRefresh = false) {
   const container = document.getElementById("console-progress-feed");
@@ -4029,6 +4095,8 @@ window.applyTemplateToProject = applyTemplateToProject;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
 window.loadTemplatesSegment = loadTemplatesSegment;
 window.deleteCustomTemplate = deleteCustomTemplate;
+window.confirmDeleteTemplate = confirmDeleteTemplate;
+window.deleteAllTakeOffsForProject = deleteAllTakeOffsForProject;
 window.openEditTemplateModal = openEditTemplateModal;
 window.addEditTemplateItemRow = addEditTemplateItemRow;
 
