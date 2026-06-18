@@ -344,6 +344,151 @@ function applyLocalMutation(action, data) {
 // ===== reports.js =====
 // reports.js
 
+/* ---------- PDF Engine ---------- */
+async function generateReportPDF() {
+  const container = document.getElementById("report-print-container");
+  if (!container || !container.innerText.trim()) {
+    alert("Generate a report first");
+    return null;
+  }
+  if (typeof html2canvas === "undefined" || typeof jspdf === "undefined") {
+    alert(
+      "PDF libraries not loaded. Add html2canvas and jsPDF CDNs to index.html.",
+    );
+    return null;
+  }
+
+  const originalDisplay = container.style.display;
+  const originalVisibility = container.style.visibility;
+  const originalPosition = container.style.position;
+  const originalLeft = container.style.left;
+  const originalTop = container.style.top;
+  const originalWidth = container.style.width;
+  const originalZIndex = container.style.zIndex;
+  const originalBackground = container.style.background;
+  const originalPadding = container.style.padding;
+
+  container.style.display = "block";
+  container.style.visibility = "visible";
+  container.style.position = "fixed";
+  container.style.left = "0";
+  container.style.top = "0";
+  container.style.width = "210mm";
+  container.style.zIndex = "-9999";
+  container.style.background = "white";
+  container.style.padding = "15mm";
+
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: 794,
+    });
+
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+    const pdf = new jspdf.jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    const imgProps = pdf.getImageProperties(imgData);
+    const imgWidth = imgProps.width;
+    const imgHeight = imgProps.height;
+    const ratio = pdfWidth / imgWidth;
+    const scaledHeight = imgHeight * ratio;
+
+    let heightLeft = scaledHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - scaledHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
+      heightLeft -= pdfHeight;
+    }
+
+    return pdf;
+  } catch (err) {
+    console.error("PDF generation failed:", err);
+    alert("Failed to generate PDF.");
+    return null;
+  } finally {
+    container.style.display = originalDisplay;
+    container.style.visibility = originalVisibility;
+    container.style.position = originalPosition;
+    container.style.left = originalLeft;
+    container.style.top = originalTop;
+    container.style.width = originalWidth;
+    container.style.zIndex = originalZIndex;
+    container.style.background = originalBackground;
+    container.style.padding = originalPadding;
+  }
+}
+
+async function saveReportPDF() {
+  const pdf = await generateReportPDF();
+  if (pdf) pdf.save("FieldScan_Report.pdf");
+}
+
+async function sharePDFNative(pdf, filename, fallbackFn) {
+  if (!navigator.canShare || !navigator.share) {
+    fallbackFn();
+    return;
+  }
+  const blob = pdf.output("blob");
+  const file = new File([blob], filename, { type: "application/pdf" });
+  if (navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: "FieldScan Pro Report",
+        text: "FieldScan Pro Report",
+      });
+      return;
+    } catch (err) {
+      if (err.name !== "AbortError") console.error(err);
+    }
+  }
+  fallbackFn();
+}
+
+async function shareReportWhatsApp() {
+  const pdf = await generateReportPDF();
+  if (!pdf) return;
+  const fallback = () => {
+    const container = document.getElementById("report-print-container");
+    let text = "*FieldScan Pro Report*\n\n";
+    text += container.innerText.replace(/\s+/g, " ").trim().substring(0, 3000);
+    text += "\n\n_Generated from FieldScan Pro_";
+    window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+  };
+  await sharePDFNative(pdf, "FieldScan_Report.pdf", fallback);
+}
+
+async function shareReportEmail() {
+  const pdf = await generateReportPDF();
+  if (!pdf) return;
+  const fallback = () => {
+    const container = document.getElementById("report-print-container");
+    const subject = "FieldScan Pro Report";
+    let body = container.innerText
+      .replace(/\s+/g, " ")
+      .trim()
+      .substring(0, 8000);
+    body += "\n\nGenerated from FieldScan Pro";
+    window.location.href =
+      "mailto:?subject=" +
+      encodeURIComponent(subject) +
+      "&body=" +
+      encodeURIComponent(body);
+  };
+  await sharePDFNative(pdf, "FieldScan_Report.pdf", fallback);
+}
+
+/* ---------- Report Console ---------- */
 async function initReportsConsoleEngine() {
   const cache = getCache();
   if (!cache.projects || !cache.projects.length) {
@@ -368,7 +513,6 @@ function handleReportScopePopulation() {
   const filterWrap = document.getElementById("rep-filter-wrap");
   if (!typeSel || !scopeSel) return;
 
-  // Hide Scope label & field from UI (still driven by JS)
   scopeSel.style.display = "none";
   const scopeLabel = scopeSel.previousElementSibling;
   if (scopeLabel && scopeLabel.tagName === "LABEL")
@@ -479,7 +623,7 @@ async function handleReportFilterPopulation() {
   }
 }
 
-/* ---------- Field Selector for Financial Summary (All Projects) ---------- */
+/* ---------- Field Selector (Financial Summary) ---------- */
 function updateFieldSelectorVisibility() {
   const type = document.getElementById("rep-type-sel").value;
   let wrap = document.getElementById("rep-field-selector-wrap");
@@ -493,7 +637,9 @@ function updateFieldSelectorVisibility() {
       wrap.innerHTML = `
         <label style="display:block; font-weight:800; margin-bottom:6px;">Fields to Print</label>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:13px;">
-          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="project" checked style="width:auto;"> Project</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:default; opacity:0.7;">
+            <input type="checkbox" class="rep-field-chk" value="project" checked disabled style="width:auto;"> Project (always)
+          </label>
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="subtotal" checked style="width:auto;"> Subtotal</label>
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="vat" checked style="width:auto;"> VAT</label>
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="totalContract" checked style="width:auto;"> Total</label>
@@ -517,21 +663,7 @@ function updateFieldSelectorVisibility() {
 function getSelectedFinancialFields() {
   const checkboxes = document.querySelectorAll(".rep-field-chk:checked");
   const fields = Array.from(checkboxes).map((cb) => cb.value);
-  if (!fields.length) {
-    return [
-      "project",
-      "subtotal",
-      "vat",
-      "totalContract",
-      "wht",
-      "totalReceived",
-      "totalOutgoing",
-      "smallExpenses",
-      "totalPending",
-      "balanceExpected",
-      "netProfit",
-    ];
-  }
+  if (!fields.includes("project")) fields.unshift("project");
   return fields;
 }
 
@@ -720,6 +852,34 @@ function renderFinancialAll(projects, payments, selectedFields) {
     tBal = 0,
     tPro = 0;
 
+  const cellMapFn = (f) => ({
+    project: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(f.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(f.clientName)}</span></td>`,
+    subtotal: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.subtotal)}</td>`,
+    vat: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.vat)}</td>`,
+    totalContract: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800;">₦${moneyValue(f.totalContract)}</td>`,
+    wht: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.wht)}</td>`,
+    totalReceived: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--success); font-weight:700;">₦${moneyValue(f.totalReceived)}</td>`,
+    totalOutgoing: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--danger); font-weight:700;">₦${moneyValue(f.totalOutgoing)}</td>`,
+    smallExpenses: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.smallExpenses)}</td>`,
+    totalPending: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:#fd7e14; font-weight:700;">₦${moneyValue(f.totalPending)}</td>`,
+    balanceExpected: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.balanceExpected)}</td>`,
+    netProfit: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800; color:${f.netProfit >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(f.netProfit)}</td>`,
+  });
+
+  const totalMapFn = () => ({
+    project: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>GRAND TOTAL</strong></td>`,
+    subtotal: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td>`,
+    vat: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td>`,
+    totalContract: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td>`,
+    wht: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td>`,
+    totalReceived: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td>`,
+    totalOutgoing: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td>`,
+    smallExpenses: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td>`,
+    totalPending: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:#fd7e14;">₦${moneyValue(tPen)}</td>`,
+    balanceExpected: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tBal)}</td>`,
+    netProfit: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:${tPro >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(tPro)}</td>`,
+  });
+
   const rows = projects
     .map((p) => {
       const f = computeProjectFinancials(p, payments);
@@ -733,39 +893,17 @@ function renderFinancialAll(projects, payments, selectedFields) {
       tPen = roundMoney(tPen + f.totalPending);
       tBal = roundMoney(tBal + f.balanceExpected);
       tPro = roundMoney(tPro + f.netProfit);
-
-      const cellMap = {
-        project: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; ${cols.find((c) => c.key === "project")?.tdStyle || ""}"><strong>${escapeHtml(p.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(p.clientName)}</span></td>`,
-        subtotal: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.subtotal)}</td>`,
-        vat: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.vat)}</td>`,
-        totalContract: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800;">₦${moneyValue(f.totalContract)}</td>`,
-        wht: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.wht)}</td>`,
-        totalReceived: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--success); font-weight:700;">₦${moneyValue(f.totalReceived)}</td>`,
-        totalOutgoing: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--danger); font-weight:700;">₦${moneyValue(f.totalOutgoing)}</td>`,
-        smallExpenses: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.smallExpenses)}</td>`,
-        totalPending: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:#fd7e14; font-weight:700;">₦${moneyValue(f.totalPending)}</td>`,
-        balanceExpected: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.balanceExpected)}</td>`,
-        netProfit: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800; color:${f.netProfit >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(f.netProfit)}</td>`,
-      };
-      return `<tr>${cols.map((c) => cellMap[c.key]).join("")}</tr>`;
+      const cells = cellMapFn({
+        ...f,
+        projectId: p.projectId,
+        clientName: p.clientName,
+      });
+      return `<tr>${cols.map((c) => cells[c.key]).join("")}</tr>`;
     })
     .join("");
 
-  const totalMap = {
-    project: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>GRAND TOTAL</strong></td>`,
-    subtotal: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td>`,
-    vat: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td>`,
-    totalContract: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td>`,
-    wht: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td>`,
-    totalReceived: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td>`,
-    totalOutgoing: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td>`,
-    smallExpenses: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td>`,
-    totalPending: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:#fd7e14;">₦${moneyValue(tPen)}</td>`,
-    balanceExpected: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tBal)}</td>`,
-    netProfit: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:${tPro >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(tPro)}</td>`,
-  };
-
-  const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalMap[c.key]).join("")}</tr>`;
+  const totalCells = totalMapFn();
+  const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalCells[c.key]).join("")}</tr>`;
 
   return `
     ${generateReportHeader("Financial Summary — All Projects", null)}
@@ -1160,7 +1298,6 @@ async function compileFieldReport() {
   const cache = getCache();
   let html = "";
 
-  // Ensure datasets are loaded
   const ensure = async (key, action) => {
     if (!cache[key] || !cache[key].length) {
       try {
@@ -1257,41 +1394,6 @@ async function compileFieldReport() {
   if (printContainer) printContainer.innerHTML = html;
   if (card) card.style.display = "block";
   window.scrollTo(0, document.body.scrollHeight);
-}
-
-/* ---------- Share / Export ---------- */
-function shareReportWhatsApp() {
-  const printContainer = document.getElementById("report-print-container");
-  if (!printContainer || !printContainer.innerText.trim()) {
-    alert("Generate a report first");
-    return;
-  }
-  let text = "*FieldScan Pro Report*\n\n";
-  text += printContainer.innerText
-    .replace(/\s+/g, " ")
-    .trim()
-    .substring(0, 3000);
-  text += "\n\n_Generated from FieldScan Pro_";
-  window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
-}
-
-function shareReportEmail() {
-  const printContainer = document.getElementById("report-print-container");
-  if (!printContainer || !printContainer.innerText.trim()) {
-    alert("Generate a report first");
-    return;
-  }
-  const subject = "FieldScan Pro Report";
-  let body = printContainer.innerText
-    .replace(/\s+/g, " ")
-    .trim()
-    .substring(0, 8000);
-  body += "\n\nGenerated from FieldScan Pro";
-  window.location.href =
-    "mailto:?subject=" +
-    encodeURIComponent(subject) +
-    "&body=" +
-    encodeURIComponent(body);
 }
 
 // ===== accounts.js (inlined) =====
