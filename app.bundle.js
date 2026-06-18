@@ -856,7 +856,7 @@ function hideAllBuiltInTemplates() {
 }
 
 function showAllBuiltInTemplates() {
-  localStorage.removeItem("fb_hiddenBuiltInTemplates");
+  localStorage.setItem("fb_hiddenBuiltInTemplates", JSON.stringify([]));
   loadTemplatesSegment();
 }
 
