@@ -849,6 +849,7 @@ function loadTemplatesSegment() {
               <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')">
                 <i class="fas fa-eye"></i>
               </button>
+              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button>` : ""}
               <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
                 <i class="fas fa-check"></i> Apply
               </button>
@@ -915,6 +916,117 @@ function openSaveAsTemplateModal() {
   };
 }
 
+function openEditTemplateModal(id) {
+  const t = findTemplateById(id);
+  if (!t) return;
+  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
+    alert("Built-in templates cannot be edited");
+    return;
+  }
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Edit Template";
+  overlay.style.display = "flex";
+
+  const roomOptions = MASTER_ROOM_TYPES.map(
+    (r) => `<option value="${escapeAttr(r)}">`,
+  ).join("");
+  const tradeOptions = MASTER_TRADE_CATEGORIES.map(
+    (t) => `<option value="${escapeAttr(t)}">`,
+  ).join("");
+
+  const itemsHtml = t.items
+    .map(
+      (item, idx) => `
+      <div class="tmpl-edit-row" style="display:grid; grid-template-columns: 1fr 1fr 1fr 80px 30px; gap:6px; margin-bottom:8px; align-items:center;">
+        <input list="edit-room-types" value="${escapeAttr(item.roomArea)}" placeholder="Room" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+        <input list="edit-trade-cats" value="${escapeAttr(item.tradeCategory)}" placeholder="Trade" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+        <input value="${escapeAttr(item.description)}" placeholder="Description" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+        <input value="${escapeAttr(item.unit)}" placeholder="Unit" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+        <button onclick="this.parentElement.remove()" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; height:32px; font-size:16px;">×</button>
+      </div>
+    `,
+    )
+    .join("");
+
+  body.innerHTML = `
+    <datalist id="edit-room-types">${roomOptions}</datalist>
+    <datalist id="edit-trade-cats">${tradeOptions}</datalist>
+    <label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Template Name</label>
+    <input id="edit_tmpl_name" value="${escapeAttr(t.name)}" style="width:100%; padding:12px; font-size:16px; border:1.5px solid var(--border); border-radius:12px;">
+    <label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Description</label>
+    <textarea id="edit_tmpl_desc" rows="2" style="width:100%; padding:12px; font-size:16px; border:1.5px solid var(--border); border-radius:12px;">${escapeHtml(t.description)}</textarea>
+    <div style="margin-top:16px; margin-bottom:8px; font-weight:800; font-size:13px; text-transform:uppercase;">Items</div>
+    <div id="edit_tmpl_items">${itemsHtml}</div>
+    <button class="action-btn" style="margin-top:10px; background:var(--card-light); color:var(--text);" onclick="addEditTemplateItemRow()">
+      <i class="fas fa-plus"></i> Add Item
+    </button>
+  `;
+
+  submit.style.display = "block";
+  submit.innerText = "Save Changes";
+  submit.onclick = () => {
+    const name = document.getElementById("edit_tmpl_name").value.trim();
+    const desc = document.getElementById("edit_tmpl_desc").value.trim();
+    if (!name) {
+      alert("Enter a template name");
+      return;
+    }
+
+    const rows = document.querySelectorAll("#edit_tmpl_items > .tmpl-edit-row");
+    const newItems = [];
+    rows.forEach((row) => {
+      const inputs = row.querySelectorAll("input");
+      const description = inputs[2].value.trim();
+      if (description) {
+        newItems.push({
+          roomArea: inputs[0].value.trim(),
+          tradeCategory: inputs[1].value.trim(),
+          description: description,
+          unit: inputs[3].value.trim() || "pcs",
+          quantity: 0,
+        });
+      }
+    });
+
+    if (!newItems.length) {
+      alert("Template must have at least one item with a description");
+      return;
+    }
+
+    const custom = getCustomTemplates();
+    const idx = custom.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      custom[idx].name = name;
+      custom[idx].description = desc || "Custom template";
+      custom[idx].items = newItems;
+      saveCustomTemplates(custom);
+      closeModal();
+      loadTemplatesSegment();
+      alert("Template updated");
+    }
+  };
+}
+
+function addEditTemplateItemRow() {
+  const container = document.getElementById("edit_tmpl_items");
+  if (!container) return;
+  const div = document.createElement("div");
+  div.className = "tmpl-edit-row";
+  div.style.cssText =
+    "display:grid; grid-template-columns: 1fr 1fr 1fr 80px 30px; gap:6px; margin-bottom:8px; align-items:center;";
+  div.innerHTML = `
+    <input list="edit-room-types" placeholder="Room" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+    <input list="edit-trade-cats" placeholder="Trade" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+    <input placeholder="Description" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+    <input placeholder="Unit" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+    <button onclick="this.parentElement.remove()" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; height:32px; font-size:16px;">×</button>
+  `;
+  container.appendChild(div);
+}
+
 function previewTemplate(id) {
   const t = findTemplateById(id);
   if (!t) return;
@@ -928,10 +1040,10 @@ function previewTemplate(id) {
     .map(
       (i) => `
       <tr>
-        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px;">${escapeHtml(i.roomArea)}</td>
-        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px;">${escapeHtml(i.tradeCategory)}</td>
-        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px;">${escapeHtml(i.description)}</td>
-        <td style="border-bottom:1px solid var(--border); padding:6px; font-size:12px; text-align:right;">${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(i.roomArea)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(i.tradeCategory)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(i.description)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; font-weight:700;">${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</td>
       </tr>
     `,
     )
@@ -942,10 +1054,10 @@ function previewTemplate(id) {
       <table style="width:100%; border-collapse:collapse; font-size:12px;">
         <thead>
           <tr style="background:#000; color:#fff;">
-            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Room</th>
-            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Trade</th>
-            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
-            <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase;">Qty</th>
+            <th style="padding:8px; text-align:left; font-size:10px; text-transform:uppercase;">Room</th>
+            <th style="padding:8px; text-align:left; font-size:10px; text-transform:uppercase;">Trade</th>
+            <th style="padding:8px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+            <th style="padding:8px; text-align:right; font-size:10px; text-transform:uppercase;">Qty</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -3917,6 +4029,8 @@ window.applyTemplateToProject = applyTemplateToProject;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
 window.loadTemplatesSegment = loadTemplatesSegment;
 window.deleteCustomTemplate = deleteCustomTemplate;
+window.openEditTemplateModal = openEditTemplateModal;
+window.addEditTemplateItemRow = addEditTemplateItemRow;
 
 // Service Worker & Events
 if ("serviceWorker" in navigator) {
