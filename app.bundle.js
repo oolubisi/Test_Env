@@ -777,11 +777,7 @@ function saveCustomTemplates(templates) {
 }
 
 function getAllTemplates() {
-  const deleted = new Set(getDeletedBuiltInIds());
-  return [
-    ...getBuiltInTemplates().filter((t) => !deleted.has(t.id)),
-    ...getCustomTemplates(),
-  ];
+  return [...getBuiltInTemplates(), ...getCustomTemplates()];
 }
 
 function findTemplateById(id) {
@@ -789,27 +785,12 @@ function findTemplateById(id) {
 }
 
 function deleteCustomTemplate(id) {
-  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
-    const deleted = getDeletedBuiltInIds();
-    if (!deleted.includes(id)) {
-      deleted.push(id);
-      saveDeletedBuiltInIds(deleted);
-    }
-  } else {
-    const filtered = getCustomTemplates().filter((t) => t.id !== id);
-    saveCustomTemplates(filtered);
-  }
+  const filtered = getCustomTemplates().filter((t) => t.id !== id);
+  saveCustomTemplates(filtered);
 }
 
 function generateTemplateId() {
   return "TMPL-CUST-" + Date.now();
-}
-
-function confirmDeleteTemplate(id) {
-  if (confirm("Delete this custom template?")) {
-    deleteCustomTemplate(id);
-    loadTemplatesSegment();
-  }
 }
 
 /* ---------- Templates UI ---------- */
@@ -872,7 +853,7 @@ function loadTemplatesSegment() {
               <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
                 <i class="fas fa-check"></i> Apply
               </button>
-              <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}')"><i class="fas fa-trash"></i></button>
+              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="deleteCustomTemplate('${escapeAttr(t.id)}'); loadTemplatesSegment();"><i class="fas fa-trash"></i></button>` : ""}
             </div>
           </div>
         </div>
@@ -938,7 +919,10 @@ function openSaveAsTemplateModal() {
 function openEditTemplateModal(id) {
   const t = findTemplateById(id);
   if (!t) return;
-  /* Built-in templates can now be edited and deleted */
+  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
+    alert("Built-in templates cannot be edited");
+    return;
+  }
   const body = document.getElementById("modalBody");
   const submit = document.getElementById("modalSubmit");
   const title = document.getElementById("modalTitle");
@@ -1078,11 +1062,6 @@ function previewTemplate(id) {
         </thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>
-    <div style="margin-top:15px; text-align:center;">
-      <button class="action-btn" style="background:var(--danger); width:auto; padding:8px 16px; font-size:13px;" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}'); closeModal();">
-        <i class="fas fa-trash"></i> Delete Template
-      </button>
     </div>
   `;
   submit.style.display = "block";
@@ -3514,54 +3493,6 @@ async function loadTakeOffListings(forceRefresh = false) {
     .join("");
 }
 
-// ======================== DELETE ALL TAKE-OFFS ========================
-async function deleteAllTakeOffsForProject() {
-  const projectId = getCurrentProjectId();
-  if (!projectId) {
-    alert("No project selected");
-    return;
-  }
-  const cache = getCache();
-  const projectItems = (cache.takeoffs || []).filter(
-    (i) => i.projectId === projectId,
-  );
-  if (!projectItems.length) {
-    alert("No take-off items to delete");
-    return;
-  }
-  if (
-    !confirm(
-      `Delete all ${projectItems.length} take-off items for this project? This cannot be undone.`,
-    )
-  ) {
-    return;
-  }
-
-  const btn = document.querySelector(
-    '#console-seg-takeoff button[onclick="deleteAllTakeOffsForProject()"]',
-  );
-  const originalText = btn ? btn.innerHTML : null;
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Deleting...`;
-  }
-
-  try {
-    for (const item of projectItems) {
-      await callApi("deleteTakeOffItem", { itemId: item.itemId });
-    }
-    await loadTakeOffListings(true);
-    alert(`Deleted ${projectItems.length} take-off items`);
-  } catch (e) {
-    alert("Error deleting take-off items: " + (e.message || "Unknown error"));
-  } finally {
-    if (btn && originalText) {
-      btn.disabled = false;
-      btn.innerHTML = originalText;
-    }
-  }
-}
-
 // ======================== PROGRESS LOGS ========================
 async function loadProgressTimelineFeed(forceRefresh = false) {
   const container = document.getElementById("console-progress-feed");
@@ -4098,8 +4029,6 @@ window.applyTemplateToProject = applyTemplateToProject;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
 window.loadTemplatesSegment = loadTemplatesSegment;
 window.deleteCustomTemplate = deleteCustomTemplate;
-window.confirmDeleteTemplate = confirmDeleteTemplate;
-window.deleteAllTakeOffsForProject = deleteAllTakeOffsForProject;
 window.openEditTemplateModal = openEditTemplateModal;
 window.addEditTemplateItemRow = addEditTemplateItemRow;
 
