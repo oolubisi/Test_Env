@@ -435,36 +435,31 @@ async function loadAccountsView() {
         )
         .join("");
   }
+  // Render immediately from cache — no async blocking
   updateAccountsSummary();
+  // Background fetch only if payments are missing
+  if (!cache.payments || !cache.payments.length) {
+    callApi("getPayments", {})
+      .then((payments) => {
+        cache.payments = payments || [];
+        setCache(cache);
+        updateAccountsSummary();
+      })
+      .catch(() => {});
+  }
 }
 
-async function updateAccountsSummary() {
+function updateAccountsSummary() {
   const pId = document.getElementById("accounts-project-sel").value;
   const cache = getCache();
   const proj = cache.projects.find((p) => p.projectId === pId);
-  const subtotalInput = document.getElementById("accounts-contract-subtotal");
-
-  if (subtotalInput) {
-    subtotalInput.value = proj ? roundMoney(proj.contractSubtotal || 0) : "";
-    subtotalInput.disabled = !proj;
-  }
 
   if (!pId || !proj) {
-    setAccountsAmounts(0, 0, 0, 0, 0, 0);
+    setAccountsAmounts(0, 0, 0, 0, 0, 0, 0);
     return;
   }
 
-  let payments = cache.payments || [];
-  if (!payments.length) {
-    try {
-      payments = await callApi("getPayments", {});
-      cache.payments = payments || [];
-      setCache(cache);
-    } catch (e) {
-      console.warn("Could not load payments for accounts:", e);
-    }
-  }
-
+  const payments = cache.payments || [];
   const projectPayments = payments.filter((p) => p.projectId === pId);
   const clearedPayments = projectPayments.filter((p) => p.status !== "Pending");
   const pendingPayments = projectPayments.filter(
@@ -495,6 +490,7 @@ async function updateAccountsSummary() {
   );
 
   setAccountsAmounts(
+    subtotal,
     totalReceived,
     totalOutgoing,
     smallExpenses,
@@ -505,6 +501,7 @@ async function updateAccountsSummary() {
 }
 
 function setAccountsAmounts(
+  subtotal,
   received,
   outgoing,
   small,
@@ -513,6 +510,7 @@ function setAccountsAmounts(
   profit,
 ) {
   const els = {
+    "acc-contract-subtotal": subtotal,
     "acc-client-receipts": received,
     "acc-total-outgoing": outgoing,
     "acc-small-expenses": small,
@@ -523,28 +521,6 @@ function setAccountsAmounts(
   for (const [id, val] of Object.entries(els)) {
     const el = document.getElementById(id);
     if (el) el.innerText = "₦" + moneyValue(val);
-  }
-}
-
-async function saveAccountsContractSubtotal() {
-  const pId = document.getElementById("accounts-project-sel").value;
-  const val = roundMoney(
-    Number(document.getElementById("accounts-contract-subtotal").value) || 0,
-  );
-  if (!pId) return;
-
-  const cache = getCache();
-  const proj = cache.projects.find((p) => p.projectId === pId);
-  if (!proj) return;
-
-  const payload = { ...proj, contractSubtotal: val };
-  try {
-    await callApi("updateProject", payload);
-    proj.contractSubtotal = val;
-    setCache(cache);
-    updateAccountsSummary();
-  } catch (e) {
-    alert("Failed to save contract subtotal");
   }
 }
 
@@ -2078,7 +2054,6 @@ window.handleReportOptionsPopulation = handleReportOptionsPopulation;
 window.compileFieldReport = compileFieldReport;
 window.loadAccountsView = loadAccountsView;
 window.updateAccountsSummary = updateAccountsSummary;
-window.saveAccountsContractSubtotal = saveAccountsContractSubtotal;
 
 // Service Worker & Events
 if ("serviceWorker" in navigator) {
