@@ -1,567 +1,405 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes"
-    />
-    <title>FieldScan Pro</title>
-    <link rel="manifest" href="manifest.json" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <link rel="stylesheet" href="style.css" />
-    <base target="_blank" />
-  </head>
-  <body>
-    <div class="main">
-      <!-- Top Bar -->
-      <div class="page-header">
-        <div class="header-group">
-          <button class="home-btn" onclick="showPage('dashboard')">
-            <i class="fas fa-home"></i>
-          </button>
-          <h2>FieldScan<span style="font-weight: 400"> Pro</span></h2>
-        </div>
-        <div
-          id="sync-status"
-          style="
-            background: #000;
-            color: #fff;
-            padding: 6px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 800;
-            display: none;
-          "
-        ></div>
-      </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <meta name="theme-color" content="#F1F3F5">
 
-      <!-- Segment Bar -->
-      <div class="segment-bar">
-        <button class="segment-btn" onclick="showPage('dashboard')">
-          <i class="fas fa-chart-line"></i> Projects
-        </button>
-        <button class="segment-btn" onclick="showPage('vendors')">
-          <i class="fas fa-truck"></i> Vendors
-        </button>
-        <button class="segment-btn" onclick="showPage('accounts')">
-          <i class="fas fa-file-invoice-dollar"></i> Accounts
-        </button>
-        <button class="segment-btn" onclick="showPage('reports')">
-          <i class="fas fa-file-alt"></i> Reports
-        </button>
-        <button
-          id="sync-now-btn"
-          class="segment-btn sync-btn"
-          onclick="triggerManualSync()"
-        >
-          <i class="fas fa-sync-alt"></i> Sync Now
-          <span
-            id="sync-pending-badge"
-            class="sync-count-badge"
-            style="display: none"
-            >0</span
-          >
-        </button>
-        <button
-          id="refresh-data-btn"
-          class="segment-btn"
-          onclick="refreshAllData()"
-        >
-          <i class="fas fa-database"></i> Refresh
-        </button>
-      </div>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Facility Pro">
+  
+  <link rel="apple-touch-icon" href="logo.png">
+  
+  <link rel="icon" type="image/png" href="logo.png">
+  <title>Facility Pro Mobile</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
-      <!-- Dashboard View (Projects) -->
+  <link rel="stylesheet" href="styles.css">
+
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <div id="sync-status" style="position:fixed; top:0; right:10px; z-index:9999; font-size:11px; background:rgba(0,0,0,0.7); color:#fff; padding:4px 10px; border-radius:0 0 8px 8px; font-weight:bold; display:none;">
+    <i class="fas fa-sync-alt fa-spin"></i> Syncing Offline Data...
+  </div>
+
+  <div class="app">
+    <main class="main">
+      
       <div id="view-dashboard" class="page-view active-view">
-        <div style="display: flex; gap: 10px; margin-bottom: 15px">
-          <input
-            type="text"
-            id="search-projects"
-            placeholder="Search client or project ID..."
-            style="flex: 1; font-size: 16px"
-          />
-          <button
-            class="action-btn"
-            style="width: auto; padding: 0 20px"
-            onclick="openModal('project', null)"
-          >
-            <i class="fas fa-plus"></i> New
-          </button>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--card-light);">
+          <img id="app-header-logo" src="" alt="Logo" style="height: 45px; max-width: 130px; object-fit: contain;" onerror="this.style.display='none';">
+          <h2 id="app-header-title" style="color:var(--primary); font-weight:800; margin: 0;">Facility Pro</h2>
         </div>
-        <div id="project-master-list"></div>
+
+        <div id="pms-alert-banner" class="alert-banner" onclick="showPage('assets')">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span id="pms-alert-text">0 Heavy Assets Overdue for Scheduled PM Check</span>
+        </div>
+        
+        <div class="nav-grid">
+          <div class="nav-card" onclick="showPage('apartments')">
+            <i class="fas fa-building"></i>
+            <div id="s-tenancy" class="count">--</div>
+            <small>Apartments</small>
+          </div>
+          <div class="nav-card" onclick="showPage('assets')">
+            <i class="fas fa-tools"></i>
+            <div id="s-asset" class="count">--</div>
+            <small>Assets</small>
+          </div>
+          <div class="nav-card" onclick="showPage('inventory')">
+            <i class="fas fa-boxes"></i>
+            <div id="s-inv" class="count">--</div>
+            <small>Inventory</small>
+          </div>
+          <div class="nav-card" onclick="showPage('maint')">
+            <i class="fas fa-clipboard-list"></i>
+            <div id="count-maint" class="count">--</div> 
+            <small>Tickets</small>
+          </div>
+          <div class="nav-card" onclick="showPage('workorders')">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <div id="s-wo" class="count">--</div>
+            <small>Pending Work Orders</small>
+          </div>
+          <div class="nav-card" onclick="showPage('assets')">
+            <i class="fas fa-clock"></i>
+            <div id="s-pm-due" class="count" style="color:var(--danger);">--</div>
+            <small>PM Due</small>
+          </div>
+        </div>
+
+        <button class="action-btn" style="background:var(--card-light); border:2px solid var(--border); color:#000; margin-top: 8px;" onclick="showPage('more')">
+          <i class="fas fa-ellipsis-h"></i> More...
+        </button>
       </div>
 
-      <!-- Vendors View -->
+      <div id="view-more" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>More Options</h2>
+          </div>
+        </div>
+        
+        <div class="nav-grid">
+          <div class="nav-card-small" onclick="showPage('serviceunits')">
+            <i class="fas fa-warehouse"></i>
+            <small>Service Units</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('utilities')">
+            <i class="fas fa-bolt"></i>
+            <small>Utilities & Plant</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('expenserequests')">
+            <i class="fas fa-file-signature"></i>
+            <small>Expense Req</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('cashexpenses')">
+            <i class="fas fa-money-bill-wave"></i>
+            <small>Cash Expenses</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('payments')">
+            <i class="fas fa-wallet"></i>
+            <small>Ledger</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('staff')">
+            <i class="fas fa-users"></i>
+            <small>Staff</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('vendors')">
+            <i class="fas fa-truck"></i>
+            <small>Vendors</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('archived')">
+            <i class="fas fa-archive"></i>
+            <small>Archive Bin</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('reports')" style="grid-column: span 2;">
+            <i class="fas fa-print"></i>
+            <small>Reports Console</small>
+          </div>
+          <div class="nav-card-small" onclick="showPage('settings')" style="grid-column: span 2; background: #e9ecef;">
+            <i class="fas fa-cog" style="color: #6c757d;"></i>
+            <small style="color: #6c757d;">Settings</small>
+          </div>
+        </div>
+      </div>
+
+      <div id="view-apartments" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Apartments</h2>
+          </div>
+        </div>
+        <div id="apt-list"></div>
+      </div>
+
+      <div id="view-serviceunits" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Service Units</h2>
+          </div>
+        </div>
+        <div id="service-list"></div>
+      </div>
+
+      <div id="view-assets" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Assets</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('asset')">Add</button>
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label>VIEW BY UNIT:</label>
+          <select id="asset-unit-filter" onchange="refreshData('assets')">
+            <option value="ALL">-- ALL ASSETS --</option>
+          </select>
+        </div>
+        <div id="asset-list"></div>
+      </div>
+
+      <div id="view-maint" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Maintenance</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('maintenance')">Add</button>
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label>FILTER BY STATUS:</label>
+          <select id="maint-status-filter" onchange="refreshData('maintenance')">
+            <option value="ALL">-- ALL TICKETS --</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+        </div>
+        <div id="maint-list"></div>
+      </div>
+
+      <div id="view-workorders" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Work Orders</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('workorder')">Add</button>
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label>FILTER BY STATUS:</label>
+          <select id="wo-status-filter" onchange="refreshData('workorders')">
+            <option value="ALL">-- ALL RECORDS --</option>
+            <option value="Pending Approval">Pending Approval</option>
+            <option value="Approved">Approved</option>
+            <option value="Declined">Declined</option>
+          </select>
+        </div>
+        <div id="wo-list"></div>
+      </div>
+
+      <div id="view-expenserequests" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Expense Requests</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('expenserequest')">Add</button>
+        </div>
+        <div id="expense-req-list"></div>
+      </div>
+
+      <div id="view-cashexpenses" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Cash Expenses</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('cashexpense')">Add</button>
+        </div>
+        <div id="cash-expense-list"></div>
+      </div>
+      
+      <div id="view-inventory" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Inventory</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('inventory')">Add</button>
+        </div>
+        <div id="inventory-list"></div>
+      </div>
+
+      <div id="view-payments" class="page-view">
+        <div class="page-header" style="flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: 3px solid var(--text); padding-bottom:15px;">
+          <div style="display:flex; width:100%; justify-content:space-between; align-items:center;">
+            <div class="header-group">
+              <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+              <h2>Ledger Transactions</h2>
+            </div>
+            <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('payment')">Add</button>
+          </div>
+        </div>
+        <div id="ledger-balance-card" class="card" style="background:#E8F0FE; border-color:#B3D1FF; margin-bottom:15px;">
+          <h4><i class="fas fa-chart-pie"></i> Net Financial Position</h4>
+          <p style="font-size:14px; font-weight:600; margin-top:4px;">Inflow (Payments) vs. Outflow (Cash Expenses)</p>
+          <div id="s-ledger-balance" style="font-size:26px; font-weight:900; color:var(--text); margin-top:5px;">₦0.00</div>
+        </div>
+        <div id="payment-list" style="margin-top:15px;"></div>
+      </div>
+
+      <div id="view-utilities" class="page-view">
+        <div class="page-header" style="flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: 3px solid var(--text); padding-bottom:15px;">
+          <div style="display:flex; width:100%; justify-content:space-between; align-items:center;">
+            <div class="header-group">
+              <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+              <h2>Utilities & Plant</h2>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; width:100%;">
+            <button class="action-btn" style="flex:1; padding:12px; font-size:16px;" onclick="openModal('utility')"><i class="fas fa-bolt"></i> Meter Log</button>
+            <button class="action-btn" style="flex:1; padding:12px; font-size:16px; background:var(--primary);" onclick="openModal('generator')"><i class="fas fa-charging-station"></i> Plant Log</button>
+          </div>
+        </div>
+        <div id="generator-efficiency-card" class="card" style="background:#E8F0FE; border-color:#B3D1FF; display:none; margin-bottom:15px;"></div>
+        <div id="util-list" style="margin-top:15px;"></div>
+      </div>
+
+      <div id="view-staff" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Staff Directory</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('staff')">Add</button>
+        </div>
+        <div id="staff-list"></div>
+      </div>
+
       <div id="view-vendors" class="page-view">
-        <div
-          style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap"
-        >
-          <input
-            type="text"
-            id="search-vendor"
-            placeholder="Search vendor..."
-            style="flex: 2; font-size: 16px"
-          />
-          <select
-            id="filter-vendor-trade"
-            style="flex: 1; font-size: 16px"
-          ></select>
-          <button
-            class="action-btn"
-            style="width: auto; padding: 0 20px"
-            onclick="openModal('vendor', null)"
-          >
-            <i class="fas fa-plus"></i> Add
-          </button>
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Vendors</h2>
+          </div>
+          <button class="action-btn" style="width:auto; padding:10px 20px;" onclick="openModal('vendor')">Add</button>
         </div>
-        <div id="vendor-master-list"></div>
+        <div id="vendor-list"></div>
       </div>
 
-      <!-- Accounts View -->
-      <div id="view-accounts" class="page-view">
-        <div class="card">
-          <label>Select Project</label>
-          <select
-            id="accounts-project-sel"
-            onchange="updateAccountsSummary()"
-          ></select>
-        </div>
-        <div class="card" id="accounts-summary-card">
-          <div class="accounts-row">
-            <span>Contract Subtotal</span>
-            <span class="accounts-amount" id="acc-contract-subtotal"
-              >₦0.00</span
-            >
-          </div>
-          <div class="accounts-row">
-            <span>Total of Client Receipts</span>
-            <span
-              class="accounts-amount accounts-green"
-              id="acc-client-receipts"
-              >₦0.00</span
-            >
-          </div>
-          <div class="accounts-row">
-            <span>Total Outgoing</span>
-            <span class="accounts-amount accounts-red" id="acc-total-outgoing"
-              >₦0.00</span
-            >
-          </div>
-          <div class="accounts-row">
-            <span>Small Expenses</span>
-            <span class="accounts-amount" id="acc-small-expenses">₦0.00</span>
-          </div>
-          <div class="accounts-row">
-            <span>Pending Payments</span>
-            <span
-              class="accounts-amount accounts-orange"
-              id="acc-pending-payments"
-              >₦0.00</span
-            >
-          </div>
-          <div style="border-top: 1px solid var(--border); margin: 8px 0"></div>
-          <div class="accounts-row">
-            <span>Balance Expected</span>
-            <span class="accounts-amount" id="acc-balance-expected">₦0.00</span>
-          </div>
-          <div class="accounts-row">
-            <span>Net Profit</span>
-            <span class="accounts-amount" id="acc-net-profit">₦0.00</span>
+      <div id="view-archived" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Archive Bin</h2>
           </div>
         </div>
+        <div style="margin-bottom: 15px;">
+          <label>FILTER BY SYSTEM SEGMENT:</label>
+          <select id="archive-segment-filter" onchange="refreshData('archived')">
+            <option value="ALL">-- ALL ARCHIVED RECORDS --</option>
+            <option value="assets">Assets</option>
+            <option value="inventory">Inventory</option>
+            <option value="staff">Staff</option>
+            <option value="vendors">Vendors</option>
+          </select>
+        </div>
+        <div id="archived-list"></div>
       </div>
 
-      <!-- Reports View -->
       <div id="view-reports" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Reports Console</h2>
+          </div>
+        </div>
         <div class="card">
-          <label>Report Type</label>
-          <select id="rep-type-sel" onchange="handleReportScopePopulation()">
-            <option value="">-- Select Report --</option>
-            <option value="financial_all">
-              Financial Summary (All Projects)
-            </option>
-            <option value="financial_project">
-              Financial Report (Project)
-            </option>
-            <option value="financial_client">Financial Report (Client)</option>
-            <option value="financial_vendor">Financial Report (Vendor)</option>
-            <option value="scope">Project Scope</option>
-            <option value="snags">Snags Report</option>
-            <option value="progress">Progress Report</option>
-            <option value="takeoff">Take-Off Report</option>
+          <label>SELECT CATEGORY PROFILE</label>
+          <select id="rep-profile-selector" onchange="handleReportProfileSwitch()">
+            <option value="">-- Select Category --</option>
+            <option value="apartments">Apartments & Tenancy</option>
+            <option value="equipment">Assets, Equipment & Maintenance</option>
+            <option value="financials">Financials & Ledger</option>
+            <option value="executive">Executive & Dashboards (Phase 3)</option>
           </select>
 
-          <label>Scope</label>
-          <select id="rep-scope-sel" onchange="handleReportFilterPopulation()">
-            <option value="all">All Projects</option>
-            <option value="project">Specific Project</option>
-            <option value="client">Specific Client</option>
-            <option value="vendor">Specific Vendor</option>
-          </select>
+          <label>SELECT PRINT TYPE CONFIGURATION</label>
+          <select id="rep-layout-selector" onchange="handleReportLayoutSwitch()"></select>
+          <div id="rep-dynamic-parameters-frame"></div>
+          <button class="action-btn" style="background:var(--primary); margin-top:15px;" onclick="compileReportPreview()">Generate Preview</button>
+        </div>
 
-          <div id="rep-filter-wrap" style="margin-top: 10px; display: none">
-            <label id="rep-filter-label">Select</label>
-            <select id="rep-filter-sel"></select>
+        <div id="report-onscreen-preview-card" class="card" style="display:none; border:3px dashed var(--text);">
+          <h4 style="text-transform:uppercase; font-weight:800; margin-bottom:10px;"><i class="fas fa-eye"></i> Layout Print Preview</h4>
+          <div id="report-preview-viewport" style="max-height:320px; overflow-y:auto; font-size:12px; background:#ffffff; border:1px solid var(--border); padding:10px;"></div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;">
+            <button class="action-btn" style="background:var(--success); font-size:14px; padding:13px;" onclick="downloadCurrentReportPDF()"><i class="fas fa-share-alt"></i> Share / Save PDF</button>
+            <button class="action-btn" style="background:var(--text); font-size:14px; padding:13px;" onclick="printCurrentReport()"><i class="fas fa-print"></i> Print</button>
           </div>
-
-          <button
-            class="action-btn"
-            style="margin-top: 15px"
-            onclick="compileFieldReport()"
-          >
-            Generate Report
-          </button>
-        </div>
-        <div
-          id="report-onscreen-preview-card"
-          class="card"
-          style="display: none"
-        >
-          <div id="report-preview-viewport"></div>
-          <div
-            style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap"
-          >
-            <button
-              class="action-btn"
-              style="flex: 1; min-width: 120px"
-              onclick="saveReportPDF()"
-            >
-              <i class="fas fa-file-pdf"></i> Save PDF
-            </button>
-            <button
-              class="action-btn"
-              style="flex: 1; min-width: 120px; background: #25d366"
-              onclick="shareReportWhatsApp()"
-            >
-              <i class="fab fa-whatsapp"></i> WhatsApp
-            </button>
-            <button
-              class="action-btn"
-              style="flex: 1; min-width: 120px; background: #495057"
-              onclick="shareReportEmail()"
-            >
-              <i class="fas fa-envelope"></i> Email
-            </button>
-          </div>
-        </div>
-        <div id="report-print-container" style="display: none"></div>
-      </div>
-
-      <!-- Project Console -->
-      <div id="view-project-console" class="page-view">
-        <div
-          class="page-header"
-          style="margin-bottom: 10px; padding-bottom: 10px"
-        >
-          <div>
-            <button
-              class="home-btn"
-              onclick="showPage('dashboard')"
-              style="width: 40px; height: 40px"
-            >
-              <i class="fas fa-arrow-left"></i>
-            </button>
-          </div>
-          <div style="text-align: right">
-            <div
-              id="console-title-text"
-              style="font-weight: 800; font-size: 20px"
-            ></div>
-            <button
-              style="background: none; border: none; font-size: 12px"
-              onclick="triggerEditProjectProfile()"
-            >
-              <i class="fas fa-edit"></i> Edit Project
-            </button>
-          </div>
-        </div>
-        <div class="segment-bar" style="margin-bottom: 10px">
-          <button
-            class="segment-btn"
-            id="seg-btn-profile"
-            onclick="switchConsoleSegment('profile')"
-          >
-            Profile
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-scope"
-            onclick="switchConsoleSegment('scope')"
-          >
-            Scope
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-inspections"
-            onclick="switchConsoleSegment('inspections')"
-          >
-            Inspections
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-takeoff"
-            onclick="switchConsoleSegment('takeoff')"
-          >
-            Take‑Off
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-templates"
-            onclick="switchConsoleSegment('templates')"
-          >
-            Templates
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-progress"
-            onclick="switchConsoleSegment('progress')"
-          >
-            Progress
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-snags"
-            onclick="switchConsoleSegment('snags')"
-          >
-            Snags
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-workorders"
-            onclick="switchConsoleSegment('workorders')"
-          >
-            Work Orders
-          </button>
-          <button
-            class="segment-btn"
-            id="seg-btn-payments"
-            onclick="switchConsoleSegment('payments')"
-          >
-            Payments
-          </button>
-        </div>
-        <div id="console-seg-profile" class="console-tab-window page-view">
-          <div class="card">
-            <div><strong>Client:</strong> <span id="c-meta-name"></span></div>
-            <div><strong>Location:</strong> <span id="c-meta-loc"></span></div>
-            <div>
-              <strong>Phone:</strong> <a id="c-meta-phone" href="#"></a>
-            </div>
-            <div>
-              <strong>Notes:</strong>
-              <textarea
-                id="c-meta-notes"
-                rows="3"
-                readonly
-                style="background: #f5f5f5"
-              ></textarea>
-            </div>
-
-            <div
-              style="
-                margin-top: 12px;
-                padding-top: 12px;
-                border-top: 1px solid var(--border);
-              "
-            >
-              <div
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  margin-bottom: 4px;
-                "
-              >
-                <span>Contract Subtotal</span>
-                <strong id="c-meta-subtotal">₦0.00</strong>
-              </div>
-              <div
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  color: var(--muted);
-                  margin-bottom: 4px;
-                "
-              >
-                <span>VAT (<span id="c-meta-vat-rate">7.5%</span>)</span>
-                <span id="c-meta-vat">₦0.00</span>
-              </div>
-              <div
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  color: var(--muted);
-                  margin-bottom: 4px;
-                "
-              >
-                <span>WHT (<span id="c-meta-wht-rate">5%</span>)</span>
-                <span id="c-meta-wht">₦0.00</span>
-              </div>
-              <div
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  margin-top: 6px;
-                  padding-top: 6px;
-                  border-top: 1px solid var(--border);
-                "
-              >
-                <strong>Total Contract Value</strong>
-                <strong id="c-meta-total">₦0.00</strong>
-              </div>
-              <div
-                style="
-                  display: flex;
-                  justify-content: space-between;
-                  color: var(--muted);
-                  margin-top: 4px;
-                  font-size: 13px;
-                "
-              >
-                <span>Net Receivable (after WHT)</span>
-                <span id="c-meta-net">₦0.00</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="console-seg-scope" class="console-tab-window page-view">
-          <div class="card">
-            <div
-              style="
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-              "
-            >
-              <strong>Project Scope</strong>
-              <label
-                style="
-                  display: flex;
-                  align-items: center;
-                  gap: 6px;
-                  font-size: 13px;
-                  font-weight: 700;
-                  cursor: pointer;
-                "
-              >
-                <input
-                  type="checkbox"
-                  id="scope-edit-toggle"
-                  style="width: auto"
-                  onchange="toggleScopeEdit(this.checked)"
-                />
-                Edit
-              </label>
-            </div>
-            <textarea
-              id="c-meta-scope"
-              rows="8"
-              readonly
-              style="background: #f5f5f5; margin-top: 8px"
-            ></textarea>
-            <button
-              class="action-btn"
-              id="scope-save-btn"
-              style="margin-top: 10px; display: none"
-              onclick="saveProjectScope()"
-            >
-              Save Scope
-            </button>
-          </div>
-        </div>
-        <div id="console-seg-inspections" class="console-tab-window page-view">
-          <div id="console-inspections-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('inspection', null)"
-          >
-            + New Inspection
-          </button>
-        </div>
-        <div id="console-seg-takeoff" class="console-tab-window page-view">
-          <div id="console-takeoff-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('takeoff_item', null)"
-          >
-            + New Take‑Off
-          </button>
-        </div>
-        <div id="console-seg-templates" class="console-tab-window page-view">
-          <div id="console-templates-list"></div>
-        </div>
-        <div id="console-seg-progress" class="console-tab-window page-view">
-          <div id="console-progress-feed"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('progress_entry', null)"
-          >
-            + Log Progress
-          </button>
-        </div>
-        <div id="console-seg-snags" class="console-tab-window page-view">
-          <div id="console-snags-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('snag', null)"
-          >
-            + New Snag
-          </button>
-        </div>
-        <div id="console-seg-workorders" class="console-tab-window page-view">
-          <div id="console-workorders-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('workorder', null)"
-          >
-            + New Work Order
-          </button>
-        </div>
-        <div id="console-seg-payments" class="console-tab-window page-view">
-          <div id="console-payments-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('payment', null)"
-          >
-            + Log Payment
-          </button>
         </div>
       </div>
 
-      <!-- Modal Overlay -->
-      <div id="modalOverlay" class="modal-overlay">
-        <div id="modalContent" class="modal">
-          <div style="display: flex; justify-content: space-between">
-            <h3 id="modalTitle">Modal</h3>
-            <span
-              onclick="closeModal()"
-              style="font-size: 28px; cursor: pointer"
-              >&times;</span
-            >
+      <div id="view-settings" class="page-view">
+        <div class="page-header">
+          <div class="header-group">
+            <button class="home-btn" onclick="showPage('dashboard')"><i class="fas fa-home"></i></button>
+            <h2>Settings Console</h2>
           </div>
-          <div id="modalBody"></div>
-          <button id="modalSubmit" class="action-btn" style="margin-top: 20px">
-            Save
-          </button>
         </div>
+        <div class="card">
+          <h4 style="font-weight: 800; text-transform: uppercase; margin-bottom: 10px; color: var(--primary);">Printout & Header Meta Configurations</h4>
+          
+          <label>ESTATE NAME</label>
+          <input type="text" id="cfg-estate-name" placeholder="Loading...">
+          
+          <label>ESTATE ADDRESS</label>
+          <input type="text" id="cfg-estate-address" placeholder="Loading...">
+          
+          <label>FM COMPANY NAME</label>
+          <input type="text" id="cfg-fm-name" placeholder="Loading...">
+          
+          <label>FM COMPANY ADDRESS</label>
+          <input type="text" id="cfg-fm-address" placeholder="Loading...">
+          
+          <label>COMPANY LOGO URL</label>
+          <input type="text" id="cfg-logo-url" placeholder="Loading...">
+          
+          <button class="action-btn" style="background: var(--success); margin-top: 15px;" onclick="commitApplicationSettingsData()">Save Settings</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <div id="report-print-container"></div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h3 id="modalTitle">Form</h3>
+      <div id="modalBody" style="margin-top:15px;"></div>
+      <div style="display:flex; gap:10px; margin-top:20px;">
+        <button class="action-btn" style="background:#444" onclick="closeModal()">Cancel</button>
+        <button class="action-btn" id="modalSubmit">Save</button>
       </div>
     </div>
+  </div>
 
-    <script src="app.bundle.js"></script>
   </body>
 </html>
