@@ -19,7 +19,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="style.css" />
-    <base target="_blank" />
   </head>
   <body>
     <div class="main">
@@ -490,22 +489,13 @@
         </div>
         <div id="console-seg-takeoff" class="console-tab-window page-view">
           <div id="console-takeoff-list"></div>
-          <div style="display: flex; gap: 10px; margin-top: 10px">
-            <button
-              class="action-btn"
-              style="flex: 1; background: var(--danger)"
-              onclick="deleteAllTakeOffsForProject()"
-            >
-              <i class="fas fa-trash-alt"></i> Delete All
-            </button>
-            <button
-              class="action-btn"
-              style="flex: 1"
-              onclick="openModal('takeoff_item', null)"
-            >
-              + New Take‑Off
-            </button>
-          </div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openModal('takeoff_item', null)"
+          >
+            + New Take‑Off
+          </button>
         </div>
         <div id="console-seg-templates" class="console-tab-window page-view">
           <div id="console-templates-list"></div>
