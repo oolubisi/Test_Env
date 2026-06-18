@@ -705,6 +705,7 @@ function processExpenseAction(actionType, reqId) {
 }
 
 // --- DATA REFRESH ---
+// --- DATA REFRESH ---
 function refreshData(p) {
   const idMap = { 
     'apartments': 'apt-list', 'serviceunits': 'service-list', 'assets': 'asset-list', 
@@ -828,6 +829,8 @@ function renderList(p, listEl, displayData) {
     return;
   }
 
+  const isMaintPage = (p === 'maintenance' || p === 'maint');
+
   listEl.innerHTML = displayData.map((item, idx) => {
     if (!item) return '';
     const unitId = escapeHtml(getUnitNumber(item));
@@ -865,7 +868,7 @@ function renderList(p, listEl, displayData) {
           <div style="font-size:15px; font-weight:600; color:#000;">${escapeHtml(item.description || '')}</div>
         </div>`;
     }
-    else if (isMaint) {
+    else if (isMaintPage) {
       const status = String(item.status || '').toLowerCase();
       return `
         <div class="card" onclick="openRecordRow('maintenance', '${escapeHtml(item.ticketId || item.TicketId)}')">
@@ -1004,7 +1007,7 @@ function renderList(p, listEl, displayData) {
           </div>
         </div>`;
     }
-    else {
+    else if (p === 'apartments' || p === 'serviceunits') {
       const status = String(item.status || item.Status || '').toLowerCase();
       const statusBg = status === 'occupied' ? 'var(--success)' : status === 'common area' ? 'var(--primary)' : 'var(--danger)';
       return `
@@ -1015,9 +1018,16 @@ function renderList(p, listEl, displayData) {
           </div>
         </div>`;
     }
+    else {
+      // Fallback for any unknown page type
+      return `
+        <div class="card">
+          <div style="font-size:16px; font-weight:700;">Unit ${unitId}</div>
+          <div style="font-size:13px; color:var(--muted);">${escapeHtml(JSON.stringify(item).substring(0, 100))}...</div>
+        </div>`;
+    }
   }).join('');
 }
-
 function renderArchiveBinDashboardView(targetContainerElement) {
   if (!targetContainerElement) return;
   let archiveBundleHTML = "";
