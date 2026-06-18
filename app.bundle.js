@@ -368,6 +368,12 @@ function handleReportScopePopulation() {
   const filterWrap = document.getElementById("rep-filter-wrap");
   if (!typeSel || !scopeSel) return;
 
+  // Hide Scope label & field from UI (still driven by JS)
+  scopeSel.style.display = "none";
+  const scopeLabel = scopeSel.previousElementSibling;
+  if (scopeLabel && scopeLabel.tagName === "LABEL")
+    scopeLabel.style.display = "none";
+
   const type = typeSel.value;
   let validScopes = [];
 
@@ -413,7 +419,9 @@ function handleReportScopePopulation() {
     filterWrap.style.display =
       type === "financial_all" || !type ? "none" : "block";
   }
+
   handleReportFilterPopulation();
+  updateFieldSelectorVisibility();
 }
 
 async function handleReportFilterPopulation() {
@@ -469,6 +477,62 @@ async function handleReportFilterPopulation() {
       )
       .join("");
   }
+}
+
+/* ---------- Field Selector for Financial Summary (All Projects) ---------- */
+function updateFieldSelectorVisibility() {
+  const type = document.getElementById("rep-type-sel").value;
+  let wrap = document.getElementById("rep-field-selector-wrap");
+  const btn = document.querySelector('button[onclick="compileFieldReport()"]');
+
+  if (type === "financial_all") {
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.id = "rep-field-selector-wrap";
+      wrap.style.marginTop = "15px";
+      wrap.innerHTML = `
+        <label style="display:block; font-weight:800; margin-bottom:6px;">Fields to Print</label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:13px;">
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="project" checked style="width:auto;"> Project</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="subtotal" checked style="width:auto;"> Subtotal</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="vat" checked style="width:auto;"> VAT</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="totalContract" checked style="width:auto;"> Total</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="wht" checked style="width:auto;"> WHT</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="totalReceived" checked style="width:auto;"> Received</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="totalOutgoing" checked style="width:auto;"> Outgoing</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="smallExpenses" checked style="width:auto;"> Small Exp.</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="totalPending" checked style="width:auto;"> Pending</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="balanceExpected" checked style="width:auto;"> Balance</label>
+          <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="netProfit" checked style="width:auto;"> Net Profit</label>
+        </div>
+      `;
+      if (btn) btn.parentNode.insertBefore(wrap, btn);
+    }
+    wrap.style.display = "block";
+  } else {
+    if (wrap) wrap.style.display = "none";
+  }
+}
+
+function getSelectedFinancialFields() {
+  const checkboxes = document.querySelectorAll(".rep-field-chk:checked");
+  const fields = Array.from(checkboxes).map((cb) => cb.value);
+  if (!fields.length) {
+    return [
+      "project",
+      "subtotal",
+      "vat",
+      "totalContract",
+      "wht",
+      "totalReceived",
+      "totalOutgoing",
+      "smallExpenses",
+      "totalPending",
+      "balanceExpected",
+      "netProfit",
+    ];
+  }
+  return fields;
 }
 
 /* ---------- Standard Report Header ---------- */
@@ -569,7 +633,82 @@ function financialRowHTML(label, amount, isBold, color) {
 }
 
 /* ---------- Renderers ---------- */
-function renderFinancialAll(projects, payments) {
+function renderFinancialAll(projects, payments, selectedFields) {
+  const allCols = [
+    {
+      key: "project",
+      label: "Project",
+      thStyle: "text-align:left;",
+      tdStyle: "vertical-align:top;",
+    },
+    {
+      key: "subtotal",
+      label: "Subtotal",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top;",
+    },
+    {
+      key: "vat",
+      label: "VAT",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top;",
+    },
+    {
+      key: "totalContract",
+      label: "Total",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top; font-weight:800;",
+    },
+    {
+      key: "wht",
+      label: "WHT",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top;",
+    },
+    {
+      key: "totalReceived",
+      label: "Received",
+      thStyle: "text-align:right;",
+      tdStyle:
+        "text-align:right; vertical-align:top; color:var(--success); font-weight:700;",
+    },
+    {
+      key: "totalOutgoing",
+      label: "Outgoing",
+      thStyle: "text-align:right;",
+      tdStyle:
+        "text-align:right; vertical-align:top; color:var(--danger); font-weight:700;",
+    },
+    {
+      key: "smallExpenses",
+      label: "Small Exp.",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top;",
+    },
+    {
+      key: "totalPending",
+      label: "Pending",
+      thStyle: "text-align:right;",
+      tdStyle:
+        "text-align:right; vertical-align:top; color:#fd7e14; font-weight:700;",
+    },
+    {
+      key: "balanceExpected",
+      label: "Balance",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top;",
+    },
+    {
+      key: "netProfit",
+      label: "Net Profit",
+      thStyle: "text-align:right;",
+      tdStyle: "text-align:right; vertical-align:top; font-weight:800;",
+    },
+  ];
+
+  const cols = allCols.filter((c) => selectedFields.includes(c.key));
+  const thead = `<tr>${cols.map((c) => `<th style="background:#000; color:#fff; ${c.thStyle} padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">${c.label}</th>`).join("")}</tr>`;
+
   let tSub = 0,
     tVat = 0,
     tWht = 0,
@@ -594,57 +733,47 @@ function renderFinancialAll(projects, payments) {
       tPen = roundMoney(tPen + f.totalPending);
       tBal = roundMoney(tBal + f.balanceExpected);
       tPro = roundMoney(tPro + f.netProfit);
-      return `
-        <tr>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(p.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(p.clientName)}</span></td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.subtotal)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.vat)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.wht)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800;">₦${moneyValue(f.totalContract)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--success); font-weight:700;">₦${moneyValue(f.totalReceived)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--danger); font-weight:700;">₦${moneyValue(f.totalOutgoing)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.smallExpenses)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:#fd7e14; font-weight:700;">₦${moneyValue(f.totalPending)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.balanceExpected)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800; color:${f.netProfit >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(f.netProfit)}</td>
-        </tr>
-      `;
+
+      const cellMap = {
+        project: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; ${cols.find((c) => c.key === "project")?.tdStyle || ""}"><strong>${escapeHtml(p.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(p.clientName)}</span></td>`,
+        subtotal: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.subtotal)}</td>`,
+        vat: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.vat)}</td>`,
+        totalContract: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800;">₦${moneyValue(f.totalContract)}</td>`,
+        wht: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.wht)}</td>`,
+        totalReceived: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--success); font-weight:700;">₦${moneyValue(f.totalReceived)}</td>`,
+        totalOutgoing: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--danger); font-weight:700;">₦${moneyValue(f.totalOutgoing)}</td>`,
+        smallExpenses: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.smallExpenses)}</td>`,
+        totalPending: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:#fd7e14; font-weight:700;">₦${moneyValue(f.totalPending)}</td>`,
+        balanceExpected: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.balanceExpected)}</td>`,
+        netProfit: `<td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800; color:${f.netProfit >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(f.netProfit)}</td>`,
+      };
+      return `<tr>${cols.map((c) => cellMap[c.key]).join("")}</tr>`;
     })
     .join("");
+
+  const totalMap = {
+    project: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>GRAND TOTAL</strong></td>`,
+    subtotal: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td>`,
+    vat: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td>`,
+    totalContract: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td>`,
+    wht: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td>`,
+    totalReceived: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td>`,
+    totalOutgoing: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td>`,
+    smallExpenses: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td>`,
+    totalPending: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:#fd7e14;">₦${moneyValue(tPen)}</td>`,
+    balanceExpected: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tBal)}</td>`,
+    netProfit: `<td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:${tPro >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(tPro)}</td>`,
+  };
+
+  const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalMap[c.key]).join("")}</tr>`;
 
   return `
     ${generateReportHeader("Financial Summary — All Projects", null)}
     <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;">
-      <thead>
-        <tr>
-          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Project</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Subtotal</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">VAT</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">WHT</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Total</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Received</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Outgoing</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Small Exp.</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Pending</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Balance</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Net Profit</th>
-        </tr>
-      </thead>
+      <thead>${thead}</thead>
       <tbody>
-        ${rows || '<tr><td colspan="11" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>'}
-        <tr style="background:#e9ecef; font-weight:900;">
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>GRAND TOTAL</strong></td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:#fd7e14;">₦${moneyValue(tPen)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tBal)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:${tPro >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(tPro)}</td>
-        </tr>
+        ${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}
+        ${totalRow}
       </tbody>
     </table>
   `;
@@ -657,8 +786,9 @@ function renderFinancialProject(project, payments) {
     <div style="max-width: 420px; margin: 0 auto;">
       ${financialRowHTML("Contract Subtotal", f.subtotal)}
       ${financialRowHTML("VAT (" + formatTaxRate(getTaxRate("VAT")) + ")", f.vat)}
-      ${financialRowHTML("WHT (" + formatTaxRate(getTaxRate("WHT")) + ")", f.wht)}
       ${financialRowHTML("Total Contract Value", f.totalContract, true)}
+      ${financialRowHTML("WHT (" + formatTaxRate(getTaxRate("WHT")) + ")", f.wht)}
+      ${financialRowHTML("Net Receivable (after WHT)", f.netReceivable, true)}
       <div style="height: 10px;"></div>
       ${financialRowHTML("Client Receipts (Cleared)", f.totalReceived, false, "var(--success)")}
       ${financialRowHTML("Total Outgoing (Cleared)", f.totalOutgoing, false, "var(--danger)")}
@@ -667,8 +797,6 @@ function renderFinancialProject(project, payments) {
       <div style="height: 10px;"></div>
       ${financialRowHTML("Balance Expected", f.balanceExpected, true)}
       ${financialRowHTML("Net Profit", f.netProfit, true, f.netProfit >= 0 ? "var(--success)" : "var(--danger)")}
-      <div style="height: 10px;"></div>
-      ${financialRowHTML("Net Receivable (after WHT)", f.netReceivable, true)}
     </div>
   `;
 }
@@ -704,8 +832,8 @@ function renderFinancialClient(clientName, projects, payments) {
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(p.projectId)}</strong><br><span style="font-size:11px; color:#495057;">${escapeHtml(p.siteLocation)}</span></td>
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.subtotal)}</td>
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.vat)}</td>
-          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.wht)}</td>
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:800;">₦${moneyValue(f.totalContract)}</td>
+          <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.wht)}</td>
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--success); font-weight:700;">₦${moneyValue(f.totalReceived)}</td>
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; color:var(--danger); font-weight:700;">₦${moneyValue(f.totalOutgoing)}</td>
           <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(f.smallExpenses)}</td>
@@ -736,8 +864,8 @@ function renderFinancialClient(clientName, projects, payments) {
           <th style="background:#000; color:#fff; text-align:left; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Project</th>
           <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Subtotal</th>
           <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">VAT</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">WHT</th>
           <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Total</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">WHT</th>
           <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Received</th>
           <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Outgoing</th>
           <th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Small Exp.</th>
@@ -752,8 +880,8 @@ function renderFinancialClient(clientName, projects, payments) {
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td>
-          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td>
+          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td>
@@ -1048,7 +1176,16 @@ async function compileFieldReport() {
   await ensure("takeoffs", "getTakeOffItems");
 
   if (type === "financial_all") {
-    html = renderFinancialAll(cache.projects || [], cache.payments || []);
+    const selectedFields = getSelectedFinancialFields();
+    if (!selectedFields.length) {
+      alert("Select at least one field to print");
+      return;
+    }
+    html = renderFinancialAll(
+      cache.projects || [],
+      cache.payments || [],
+      selectedFields,
+    );
   } else if (type === "financial_project") {
     const project = (cache.projects || []).find((p) => p.projectId === filter);
     if (!project) {
