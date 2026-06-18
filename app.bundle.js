@@ -25,15 +25,20 @@ function escapeAttr(str) {
     .replace(/'/g, "&#39;")
     .replace(/`/g, "&#96;");
 }
-function moneyValue(val) {
-  const n = Number(val || 0);
-  return isNaN(n)
-    ? "0.00"
-    : n.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
+
+// Round to exactly 2 decimal places for all money math
+function roundMoney(val) {
+  return Math.round((Number(val) || 0) * 100) / 100;
 }
+
+function moneyValue(val) {
+  const n = roundMoney(val);
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function splitAttachments(val) {
   return String(val || "")
     .split(ATTACHMENT_DELIMITER)
@@ -136,7 +141,7 @@ function formatTaxRate(rate) {
   return (rate * 100).toFixed(1) + "%";
 }
 function calculateTax(amount, key) {
-  return Math.round((Number(amount) || 0) * getTaxRate(key));
+  return roundMoney((Number(amount) || 0) * getTaxRate(key));
 }
 
 // ===== db.js =====
@@ -391,13 +396,17 @@ async function compileFieldReport() {
   if (layout === "inspection_report") {
     html += `<h3>Inspections</h3>${inspections.map((i) => `<div>${i.inspectionDate}: ${i.areaInspected} - ${i.siteCondition}</div>`).join("")}`;
   } else if (layout === "payment_summary") {
-    const totalIn = payments
-      .filter((p) => p.paymentDirection === "Client Receipt")
-      .reduce((s, p) => s + Number(p.amount), 0);
-    const totalOut = payments
-      .filter((p) => p.paymentDirection !== "Client Receipt")
-      .reduce((s, p) => s + Number(p.amount), 0);
-    html += `<h3>Payments</h3><div>Received: ₦${moneyValue(totalIn)}</div><div>Paid Out: ₦${moneyValue(totalOut)}</div><div>Balance: ₦${moneyValue(totalIn - totalOut)}</div>`;
+    const totalIn = roundMoney(
+      payments
+        .filter((p) => p.paymentDirection === "Client Receipt")
+        .reduce((s, p) => roundMoney(s + Number(p.amount)), 0),
+    );
+    const totalOut = roundMoney(
+      payments
+        .filter((p) => p.paymentDirection !== "Client Receipt")
+        .reduce((s, p) => roundMoney(s + Number(p.amount)), 0),
+    );
+    html += `<h3>Payments</h3><div>Received: ₦${moneyValue(totalIn)}</div><div>Paid Out: ₦${moneyValue(totalOut)}</div><div>Balance: ₦${moneyValue(roundMoney(totalIn - totalOut))}</div>`;
   } else {
     const openSnags = snags.filter((s) => s.status !== "Completed").length;
     html += `<h3>Master Dossier</h3><div>${inspections.length} inspections, ${payments.length} payments, ${snags.length} snags (${openSnags} open)</div>`;
@@ -436,7 +445,7 @@ async function updateAccountsSummary() {
   const subtotalInput = document.getElementById("accounts-contract-subtotal");
 
   if (subtotalInput) {
-    subtotalInput.value = proj ? proj.contractSubtotal || 0 : "";
+    subtotalInput.value = proj ? roundMoney(proj.contractSubtotal || 0) : "";
     subtotalInput.disabled = !proj;
   }
 
@@ -464,25 +473,26 @@ async function updateAccountsSummary() {
 
   const totalReceived = clearedPayments
     .filter(isClientReceipt)
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .reduce((sum, p) => roundMoney(sum + Number(p.amount || 0)), 0);
   const totalOutgoing = clearedPayments
     .filter((p) => !isClientReceipt(p) && !isPettyExpense(p))
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .reduce((sum, p) => roundMoney(sum + Number(p.amount || 0)), 0);
   const smallExpenses = clearedPayments
     .filter(isPettyExpense)
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .reduce((sum, p) => roundMoney(sum + Number(p.amount || 0)), 0);
   const totalPending = pendingPayments.reduce(
-    (sum, p) => sum + Number(p.amount || 0),
+    (sum, p) => roundMoney(sum + Number(p.amount || 0)),
     0,
   );
 
-  const subtotal = Number(proj.contractSubtotal) || 0;
+  const subtotal = roundMoney(Number(proj.contractSubtotal) || 0);
   const vat = calculateTax(subtotal, "VAT");
-  const totalContract = subtotal + vat;
+  const totalContract = roundMoney(subtotal + vat);
 
-  const balanceExpected = totalContract - totalReceived;
-  const netProfit =
-    totalReceived - totalOutgoing - smallExpenses - totalPending;
+  const balanceExpected = roundMoney(totalContract - totalReceived);
+  const netProfit = roundMoney(
+    totalReceived - totalOutgoing - smallExpenses - totalPending,
+  );
 
   setAccountsAmounts(
     totalReceived,
@@ -518,8 +528,9 @@ function setAccountsAmounts(
 
 async function saveAccountsContractSubtotal() {
   const pId = document.getElementById("accounts-project-sel").value;
-  const val =
-    Number(document.getElementById("accounts-contract-subtotal").value) || 0;
+  const val = roundMoney(
+    Number(document.getElementById("accounts-contract-subtotal").value) || 0,
+  );
   if (!pId) return;
 
   const cache = getCache();
@@ -691,8 +702,9 @@ async function openModal(type, editData = null) {
         clientPhone: phone,
         clientEmail: document.getElementById("p_email").value,
         projectStatus: document.getElementById("p_status").value,
-        contractSubtotal:
+        contractSubtotal: roundMoney(
           Number(document.getElementById("p_contract_subtotal").value) || 0,
+        ),
         notes: document.getElementById("p_notes").value,
       };
       callApi(isEdit ? "updateProject" : "saveProject", payload)
@@ -1020,7 +1032,9 @@ async function openModal(type, editData = null) {
         projectId: getCurrentProjectId(),
         vendorId: vendorId,
         description: document.getElementById("wo_desc").value,
-        amount: document.getElementById("wo_amount").value,
+        amount: roundMoney(
+          Number(document.getElementById("wo_amount").value) || 0,
+        ),
         status: document.getElementById("wo_status").value,
         attachments: normalizeAttachments(currentModalFiles),
       };
@@ -1237,7 +1251,9 @@ async function openModal(type, editData = null) {
         payee: payee,
         expenseCategory: document.getElementById("pay_cat").value,
         referenceId: "",
-        amount: amount,
+        amount: roundMoney(
+          Number(document.getElementById("pay_amount").value) || 0,
+        ),
         paymentMethod: document.getElementById("pay_method").value,
         status: document.getElementById("pay_status").value,
         notes: document.getElementById("pay_notes").value,
@@ -1370,12 +1386,12 @@ async function loadProjectConsoleHub(projectId) {
     : "#";
   document.getElementById("c-meta-notes").value = proj.notes || "";
 
-  // Tax breakdown
-  const subtotal = Number(proj.contractSubtotal) || 0;
+  // Tax breakdown — all rounded to 2 decimals
+  const subtotal = roundMoney(Number(proj.contractSubtotal) || 0);
   const vat = calculateTax(subtotal, "VAT");
   const wht = calculateTax(subtotal, "WHT");
-  const totalContract = subtotal + vat;
-  const netReceivable = totalContract - wht;
+  const totalContract = roundMoney(subtotal + vat);
+  const netReceivable = roundMoney(totalContract - wht);
   const subtotalEl = document.getElementById("c-meta-subtotal");
   if (subtotalEl) subtotalEl.innerText = "₦" + moneyValue(subtotal);
   const vatEl = document.getElementById("c-meta-vat");
@@ -1667,18 +1683,18 @@ async function loadPaymentsListings(forceRefresh = false) {
   );
   const totalReceived = clearedPayments
     .filter(isClientReceipt)
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .reduce((sum, p) => roundMoney(sum + Number(p.amount || 0)), 0);
   const totalExpenses = clearedPayments
     .filter((p) => !isClientReceipt(p))
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .reduce((sum, p) => roundMoney(sum + Number(p.amount || 0)), 0);
   const smallExpenses = clearedPayments
     .filter(isPettyExpense)
-    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    .reduce((sum, p) => roundMoney(sum + Number(p.amount || 0)), 0);
   const totalPending = pendingPayments.reduce(
-    (sum, p) => sum + Number(p.amount || 0),
+    (sum, p) => roundMoney(sum + Number(p.amount || 0)),
     0,
   );
-  const netBalance = totalReceived - totalExpenses - totalPending;
+  const netBalance = roundMoney(totalReceived - totalExpenses - totalPending);
 
   const totalsHtml = `
     <div class="card" style="background:var(--card); border-color:#000; padding:12px;">
