@@ -777,7 +777,11 @@ function saveCustomTemplates(templates) {
 }
 
 function getAllTemplates() {
-  return [...getBuiltInTemplates(), ...getCustomTemplates()];
+  const deleted = new Set(getDeletedBuiltInIds());
+  return [
+    ...getBuiltInTemplates().filter((t) => !deleted.has(t.id)),
+    ...getCustomTemplates(),
+  ];
 }
 
 function findTemplateById(id) {
@@ -785,8 +789,16 @@ function findTemplateById(id) {
 }
 
 function deleteCustomTemplate(id) {
-  const filtered = getCustomTemplates().filter((t) => t.id !== id);
-  saveCustomTemplates(filtered);
+  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
+    const deleted = getDeletedBuiltInIds();
+    if (!deleted.includes(id)) {
+      deleted.push(id);
+      saveDeletedBuiltInIds(deleted);
+    }
+  } else {
+    const filtered = getCustomTemplates().filter((t) => t.id !== id);
+    saveCustomTemplates(filtered);
+  }
 }
 
 function generateTemplateId() {
@@ -860,7 +872,7 @@ function loadTemplatesSegment() {
               <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
                 <i class="fas fa-check"></i> Apply
               </button>
-              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}')"><i class="fas fa-trash"></i></button>` : ""}
+              <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}')"><i class="fas fa-trash"></i></button>
             </div>
           </div>
         </div>
@@ -926,10 +938,7 @@ function openSaveAsTemplateModal() {
 function openEditTemplateModal(id) {
   const t = findTemplateById(id);
   if (!t) return;
-  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
-    alert("Built-in templates cannot be edited");
-    return;
-  }
+  /* Built-in templates can now be edited and deleted */
   const body = document.getElementById("modalBody");
   const submit = document.getElementById("modalSubmit");
   const title = document.getElementById("modalTitle");
@@ -1055,7 +1064,6 @@ function previewTemplate(id) {
     `,
     )
     .join("");
-  const isCustomPreview = !BUILT_IN_TEMPLATES.find((b) => b.id === t.id);
   body.innerHTML = `
     <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(t.description)} — ${t.items.length} items</p>
     <div style="max-height:50vh; overflow-y:auto;">
@@ -1071,16 +1079,11 @@ function previewTemplate(id) {
         <tbody>${rows}</tbody>
       </table>
     </div>
-    ${
-      isCustomPreview
-        ? `
     <div style="margin-top:15px; text-align:center;">
       <button class="action-btn" style="background:var(--danger); width:auto; padding:8px 16px; font-size:13px;" onclick="confirmDeleteTemplate('${escapeAttr(t.id)}'); closeModal();">
         <i class="fas fa-trash"></i> Delete Template
       </button>
-    </div>`
-        : ""
-    }
+    </div>
   `;
   submit.style.display = "block";
   submit.innerText = "Close";
