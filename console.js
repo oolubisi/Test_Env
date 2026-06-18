@@ -16,16 +16,17 @@ export async function loadProjectConsoleHub(projectId) {
   document.getElementById('c-meta-phone').innerHTML = proj.clientPhone || "No phone";
   document.getElementById('c-meta-phone').href = proj.clientPhone ? "tel:"+proj.clientPhone : "#";
   document.getElementById('c-meta-notes').value = proj.notes || "";
-  const scopeEl = document.getElementById('c-meta-scope');
-  if (scopeEl) {
-    scopeEl.value = proj.scope || "";
-    scopeEl.readOnly = true;
-    scopeEl.style.background = '#f5f5f5';
+  const cSubtotalEl = document.getElementById('c-meta-contract-subtotal');
+  if (cSubtotalEl) {
+    const n = proj.contractSubtotal != null ? Number(proj.contractSubtotal) : 0;
+    cSubtotalEl.value = isNaN(n) ? "0.00" : n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    cSubtotalEl.readOnly = true;
+    cSubtotalEl.style.background = '#f5f5f5';
   }
-  const scopeToggle = document.getElementById('scope-edit-toggle');
-  if (scopeToggle) scopeToggle.checked = false;
-  const scopeSaveBtn = document.getElementById('scope-save-btn');
-  if (scopeSaveBtn) scopeSaveBtn.style.display = 'none';
+  const editToggle = document.getElementById('contract-subtotal-edit-toggle');
+  if (editToggle) editToggle.checked = false;
+  const saveBtn = document.getElementById('contract-subtotal-save-btn');
+  if (saveBtn) saveBtn.style.display = 'none';
   showPage('project-console');
   switchConsoleSegment('profile');
 }

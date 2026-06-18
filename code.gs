@@ -1,13 +1,14 @@
          const SECRET_TOKEN = "FieldScan2025!SecureToken"; // Must match frontend
 const SHEET_SCHEMAS = {
-  Projects: ["projectId","clientName","siteLocation","clientPhone","clientEmail","projectStatus","scope","notes","lastModified"],
+  Projects: ["projectId","clientName","siteLocation","clientPhone","clientEmail","projectStatus","scope","contractSubtotal","notes","lastModified"],
   Inspections: ["inspectionId","projectId","inspectionDate","inspectionType","areaInspected","siteCondition","recommendations","attachments","lastModified"],
   TakeOffItems: ["itemId","projectId","roomArea","tradeCategory","description","quantity","unit","beforePhotoUrl","scopeNotes","lastModified"],
   ProgressLogs: ["logId","projectId","tradeCategory","completionPercentage","commentNarrative","progressPhotoUrl","dateRecorded","lastModified"],
   Snags: ["snagId","projectId","notes","photoUrl","assigned","dateLogged","dateCompleted","status","lastModified"],
   Vendors: ["vendorId","company","trade","contactName","phone1","phone2","email","passport","attachments","archived","lastModified"],
   WorkOrders: ["workOrderId","projectId","vendorId","description","amount","status","attachments","dateCreated","lastModified"],
-  Payments: ["paymentId","projectId","paymentDate","paymentDirection","payee","expenseCategory","referenceId","amount","paymentMethod","status","notes","attachments","lastModified"]
+  Payments: ["paymentId","projectId","paymentDate","paymentDirection","payee","expenseCategory","referenceId","amount","paymentMethod","status","notes","attachments","lastModified"],
+  settings: ["vatPercent","whtPercent","lastModified"]
 };
 
 function doPost(e) {
@@ -29,6 +30,7 @@ function doPost(e) {
     else if (action === "saveProject") result = saveProject(data);
     else if (action === "updateProject") result = updateProject(data);
     else if (action === "updateProjectScope") result = updateProjectScope(data);
+    else if (action === "updateProjectContractSubtotal") result = updateProjectContractSubtotal(data);
     else if (action === "saveInspection") result = saveInspection(data);
     else if (action === "updateInspection") result = updateInspection(data);
     else if (action === "saveTakeOffItem") result = saveTakeOffItem(data);
@@ -99,14 +101,36 @@ function saveProject(data) {
     clientPhone: "'"+validatePhone(data.clientPhone),
     clientEmail: sanitize(data.clientEmail),
     projectStatus: sanitize(data.projectStatus),
+    // Keep legacy "scope" column for dashboard/backwards compatibility.
+    // New/Edit project modal now sends contractSubtotal; scope may be omitted.
     scope: sanitize(data.scope),
+    contractSubtotal: Number(data.contractSubtotal) || 0,
     notes: sanitize(data.notes),
     lastModified: Date.now()
   });
   return { success: true, projectId: id };
 }
-function updateProject(data) { return modifyRow("Projects", data.projectId, { clientName: sanitize(data.clientName), siteLocation: sanitize(data.siteLocation), clientPhone: "'"+validatePhone(data.clientPhone), clientEmail: sanitize(data.clientEmail), projectStatus: sanitize(data.projectStatus), scope: sanitize(data.scope), notes: sanitize(data.notes), lastModified: Date.now() }, 0); }
+function updateProject(data) {
+  return modifyRow("Projects", data.projectId, {
+    clientName: sanitize(data.clientName),
+    siteLocation: sanitize(data.siteLocation),
+    clientPhone: "'"+validatePhone(data.clientPhone),
+    clientEmail: sanitize(data.clientEmail),
+    projectStatus: sanitize(data.projectStatus),
+    scope: sanitize(data.scope),
+    contractSubtotal: (data.contractSubtotal !== undefined && data.contractSubtotal !== null) ? (Number(data.contractSubtotal) || 0) : "",
+    notes: sanitize(data.notes),
+    lastModified: Date.now()
+  }, 0);
+}
 function updateProjectScope(data) { return modifyRow("Projects", data.projectId, { scope: sanitize(data.scope), lastModified: Date.now() }, 0); }
+
+function updateProjectContractSubtotal(data) {
+  return modifyRow("Projects", data.projectId, {
+    contractSubtotal: Number(data.contractSubtotal) || 0,
+    lastModified: Date.now()
+  }, 0);
+}
 function saveInspection(data) {
   appendObjectRow("Inspections", {
     inspectionId: data.inspectionId,
@@ -309,6 +333,18 @@ function ensureSheet(name) {
   if (!headers.includes(normalizeHeader("lastModified"))) {
     sheet.getRange(1, sheet.getLastColumn()+1).setValue("lastModified");
   }
+
+  // Populate default settings row for the "settings" sheet.
+  if (normalizeHeader(name) === normalizeHeader("settings")) {
+    // settings sheet is expected to have at least 2 numeric defaults and lastModified.
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      // Write as percentages, per requirements: VAT 7.5%, WHT 5%.
+      // Store numeric percent values, not decimals.
+      sheet.appendRow([7.5, 5, Date.now()]);
+    }
+  }
+
   return sheet;
 }
 function appendRow(sheetName, row) { ensureSheet(sheetName).appendRow(row); }
