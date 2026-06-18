@@ -8,6 +8,9 @@ const GAS_URL =
 const AUTH_TOKEN = "FieldScan2025!SecureToken";
 const ATTACHMENT_DELIMITER = "|||";
 
+let selectedTakeOffIds = new Set();
+let selectedTemplateIds = new Set();
+
 // ===== utils.js =====
 // utils.js
 
@@ -142,6 +145,49 @@ function formatTaxRate(rate) {
 }
 function calculateTax(amount, key) {
   return roundMoney((Number(amount) || 0) * getTaxRate(key));
+}
+
+/* ---------- Bulk-selection helpers ---------- */
+function toggleTakeOffSelection(itemId, checked) {
+  if (checked) selectedTakeOffIds.add(itemId);
+  else selectedTakeOffIds.delete(itemId);
+  loadTakeOffListings();
+}
+
+function toggleTemplateSelection(tmplId, checked) {
+  if (checked) selectedTemplateIds.add(tmplId);
+  else selectedTemplateIds.delete(tmplId);
+  loadTemplatesSegment();
+}
+
+async function deleteSelectedTakeOffs() {
+  if (!selectedTakeOffIds.size) return;
+  if (!confirm(`Delete ${selectedTakeOffIds.size} selected take-off items?`))
+    return;
+  const projectId = getCurrentProjectId();
+  const cache = getCache();
+  for (const itemId of Array.from(selectedTakeOffIds)) {
+    try {
+      await callApi("deleteTakeOffItem", { itemId });
+      cache.takeoffs = cache.takeoffs.filter((i) => i.itemId !== itemId);
+    } catch (e) {
+      console.error("Failed to delete", itemId, e);
+    }
+  }
+  selectedTakeOffIds.clear();
+  setCache(cache);
+  loadTakeOffListings(true);
+}
+
+function deleteSelectedTemplates() {
+  if (!selectedTemplateIds.size) return;
+  if (!confirm(`Delete ${selectedTemplateIds.size} selected custom templates?`))
+    return;
+  const custom = getCustomTemplates();
+  const remaining = custom.filter((t) => !selectedTemplateIds.has(t.id));
+  saveCustomTemplates(remaining);
+  selectedTemplateIds.clear();
+  loadTemplatesSegment();
 }
 
 // ===== templates.js =====
@@ -787,6 +833,7 @@ function findTemplateById(id) {
 function deleteCustomTemplate(id) {
   const filtered = getCustomTemplates().filter((t) => t.id !== id);
   saveCustomTemplates(filtered);
+  selectedTemplateIds.delete(id);
 }
 
 function generateTemplateId() {
@@ -826,19 +873,38 @@ function loadTemplatesSegment() {
   if (!all.length) {
     html += `<p style="text-align:center; padding:20px; color:var(--muted);">No templates available.</p>`;
     container.innerHTML = html;
+    selectedTemplateIds.clear();
     return;
   }
 
   html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in & Custom Templates</div>`;
 
+  // Clean up stale template selections
+  const allIds = new Set(all.map((t) => t.id));
+  for (const id of selectedTemplateIds) {
+    if (!allIds.has(id)) selectedTemplateIds.delete(id);
+  }
+
+  const customTemplates = getCustomTemplates();
+  if (customTemplates.length > 0 && selectedTemplateIds.size > 0) {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;">
+      <span style="font-size:13px; font-weight:700;">${selectedTemplateIds.size} selected</span>
+      <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--danger);" onclick="window.deleteSelectedTemplates()">
+        <i class="fas fa-trash"></i> Delete Selected
+      </button>
+    </div>`;
+  }
+
   html += all
     .map((t) => {
       const isCustom = !BUILT_IN_TEMPLATES.find((b) => b.id === t.id);
+      const isChecked = selectedTemplateIds.has(t.id);
       return `
         <div class="card" style="cursor: default;">
           <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
             <div style="flex:1;">
               <div style="display:flex; align-items:center; gap:8px;">
+                ${isCustom ? `<input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)">` : '<div style="width:18px; flex-shrink:0;"></div>'}
                 <strong style="font-size:16px;">${escapeHtml(t.name)}</strong>
                 ${isCustom ? `<span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span>` : ""}
               </div>
@@ -3472,28 +3538,55 @@ async function loadTakeOffListings(forceRefresh = false) {
   }
   const projectId = getCurrentProjectId();
   const projectItems = cache.takeoffs.filter((i) => i.projectId === projectId);
+
+  // Clean up stale selections
+  const validIds = new Set(projectItems.map((i) => i.itemId));
+  for (const id of selectedTakeOffIds) {
+    if (!validIds.has(id)) selectedTakeOffIds.delete(id);
+  }
+
   if (!projectItems.length) {
     container.innerHTML = `<p style="text-align:center;padding:20px;">No take‑off items yet.</p>`;
+    selectedTakeOffIds.clear();
     return;
   }
-  container.innerHTML = projectItems
+
+  let html = "";
+  if (selectedTakeOffIds.size > 0) {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span style="font-size:13px; font-weight:700;">${selectedTakeOffIds.size} selected</span>
+      <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--danger);" onclick="window.deleteSelectedTakeOffs()">
+        <i class="fas fa-trash"></i> Delete Selected
+      </button>
+    </div>`;
+  }
+
+  html += projectItems
     .map((i) => {
       const key = `takeoff_item:${i.itemId}`;
       window.modalRecordCache = window.modalRecordCache || {};
       window.modalRecordCache[key] = i;
+      const isChecked = selectedTakeOffIds.has(i.itemId);
       return `
-    <div class="card" data-modal-type="takeoff_item" data-modal-key="${key}" onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])" style="cursor:pointer;">
-      <strong>${escapeHtml(i.roomArea)}</strong> | ${escapeHtml(i.tradeCategory)}<<br>
-      ${escapeHtml(i.description)}<<br>
-      <strong>${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</strong>
-      ${i.scopeNotes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(i.scopeNotes)}</div>` : ""}
+    <div class="card" style="cursor:pointer; position:relative;">
+      <div style="display:flex; align-items:start; gap:10px;">
+        <input type="checkbox" style="width:auto; margin-top:2px; cursor:pointer;" ${isChecked ? "checked" : ""} 
+          onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
+        <div style="flex:1;" onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">
+          <strong>${escapeHtml(i.roomArea)}</strong> | ${escapeHtml(i.tradeCategory)}<br>
+          ${escapeHtml(i.description)}<br>
+          <strong>${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</strong>
+          ${i.scopeNotes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(i.scopeNotes)}</div>` : ""}
+        </div>
+      </div>
     </div>
   `;
     })
     .join("");
+
+  container.innerHTML = html;
 }
 
-// ======================== PROGRESS LOGS ========================
 async function loadProgressTimelineFeed(forceRefresh = false) {
   const container = document.getElementById("console-progress-feed");
   let cache = getCache();
@@ -4022,6 +4115,10 @@ window.compileFieldReport = compileFieldReport;
 window.loadAccountsView = loadAccountsView;
 window.updateAccountsSummary = updateAccountsSummary;
 window.saveReportPDF = saveReportPDF;
+window.toggleTakeOffSelection = toggleTakeOffSelection;
+window.toggleTemplateSelection = toggleTemplateSelection;
+window.deleteSelectedTakeOffs = deleteSelectedTakeOffs;
+window.deleteSelectedTemplates = deleteSelectedTemplates;
 window.shareReportWhatsApp = shareReportWhatsApp;
 window.shareReportEmail = shareReportEmail;
 window.previewTemplate = previewTemplate;

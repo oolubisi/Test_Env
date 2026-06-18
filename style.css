@@ -117,6 +117,13 @@ textarea {
   background: white;
   font-family: inherit;
 }
+
+input[type="checkbox"] {
+  width: auto;
+  padding: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
 .action-btn {
   background: var(--text);
   color: white;
