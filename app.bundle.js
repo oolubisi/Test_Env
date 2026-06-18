@@ -825,7 +825,11 @@ function saveCustomTemplates(templates) {
 function getHiddenBuiltInIds() {
   try {
     const raw = localStorage.getItem("fb_hiddenBuiltInTemplates");
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    if (raw) return new Set(JSON.parse(raw));
+    // First visit: hide all built-in templates by default
+    const allBuiltInIds = new Set(getBuiltInTemplates().map((t) => t.id));
+    saveHiddenBuiltInIds(allBuiltInIds);
+    return allBuiltInIds;
   } catch (e) {
     return new Set();
   }
@@ -842,6 +846,12 @@ function hideBuiltInTemplate(id) {
   const hidden = getHiddenBuiltInIds();
   hidden.add(id);
   saveHiddenBuiltInIds(hidden);
+  loadTemplatesSegment();
+}
+
+function hideAllBuiltInTemplates() {
+  const allIds = new Set(getBuiltInTemplates().map((t) => t.id));
+  saveHiddenBuiltInIds(allIds);
   loadTemplatesSegment();
 }
 
@@ -902,7 +912,7 @@ function loadTemplatesSegment() {
   const builtInTemplates = getBuiltInTemplates();
   const hiddenIds = getHiddenBuiltInIds();
   const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
-  const showBuiltIns = visibleBuiltIns.length > 0 || hiddenIds.size > 0;
+  const allBuiltInsHidden = visibleBuiltIns.length === 0;
 
   // Clean up stale template selections
   const allIds = new Set(all.map((t) => t.id));
@@ -917,6 +927,7 @@ function loadTemplatesSegment() {
     return;
   }
 
+  // Custom Templates section
   html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>`;
 
   if (customTemplates.length > 0 && selectedTemplateIds.size > 0) {
@@ -962,16 +973,24 @@ function loadTemplatesSegment() {
     html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>`;
   }
 
-  // Built-in templates section
+  // Built-in Templates section
   html += `<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>`;
-  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;">
-    <span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span>
-    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.showAllBuiltInTemplates()">
-      <i class="fas fa-eye"></i> Show All
-    </button>
-  </div>`;
 
-  if (visibleBuiltIns.length) {
+  if (allBuiltInsHidden) {
+    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">
+      All built-in templates are hidden.
+      <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; margin-left:8px;" onclick="window.showAllBuiltInTemplates()">
+        <i class="fas fa-eye"></i> Show All
+      </button>
+    </p>`;
+  } else {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;">
+      <span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span>
+      <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideAllBuiltInTemplates()">
+        <i class="fas fa-eye-slash"></i> Hide All
+      </button>
+    </div>`;
+
     html += visibleBuiltIns
       .map((t) => {
         return `
@@ -992,17 +1011,12 @@ function loadTemplatesSegment() {
                 <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
                   <i class="fas fa-check"></i> Apply
                 </button>
-                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideBuiltInTemplate('${escapeAttr(t.id)}')">
-                  <i class="fas fa-eye-slash"></i> Hide
-                </button>
               </div>
             </div>
           </div>
         `;
       })
       .join("");
-  } else {
-    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">All built-in templates are hidden. <button style="background:none; border:none; color:var(--primary); font-weight:700; cursor:pointer; font-size:13px;" onclick="window.showAllBuiltInTemplates()">Show all</button></p>`;
   }
 
   container.innerHTML = html;
@@ -4197,7 +4211,7 @@ window.toggleTakeOffSelection = toggleTakeOffSelection;
 window.toggleTemplateSelection = toggleTemplateSelection;
 window.deleteSelectedTakeOffs = deleteSelectedTakeOffs;
 window.deleteSelectedTemplates = deleteSelectedTemplates;
-window.hideBuiltInTemplate = hideBuiltInTemplate;
+window.hideAllBuiltInTemplates = hideAllBuiltInTemplates;
 window.showAllBuiltInTemplates = showAllBuiltInTemplates;
 window.shareReportWhatsApp = shareReportWhatsApp;
 window.shareReportEmail = shareReportEmail;
