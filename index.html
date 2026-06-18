@@ -181,13 +181,36 @@
       <!-- Reports View -->
       <div id="view-reports" class="page-view">
         <div class="card">
-          <label>Select Project</label>
-          <select
-            id="rep-project-sel"
-            onchange="handleReportOptionsPopulation()"
-          ></select>
-          <label>Report Template</label>
-          <select id="rep-template-sel"></select>
+          <label>Report Type</label>
+          <select id="rep-type-sel" onchange="handleReportScopePopulation()">
+            <option value="">-- Select Report --</option>
+            <option value="financial_all">
+              Financial Summary (All Projects)
+            </option>
+            <option value="financial_project">
+              Financial Report (Project)
+            </option>
+            <option value="financial_client">Financial Report (Client)</option>
+            <option value="financial_vendor">Financial Report (Vendor)</option>
+            <option value="scope">Project Scope</option>
+            <option value="snags">Snags Report</option>
+            <option value="progress">Progress Report</option>
+            <option value="takeoff">Take-Off Report</option>
+          </select>
+
+          <label>Scope</label>
+          <select id="rep-scope-sel" onchange="handleReportFilterPopulation()">
+            <option value="all">All Projects</option>
+            <option value="project">Specific Project</option>
+            <option value="client">Specific Client</option>
+            <option value="vendor">Specific Vendor</option>
+          </select>
+
+          <div id="rep-filter-wrap" style="margin-top: 10px; display: none">
+            <label id="rep-filter-label">Select</label>
+            <select id="rep-filter-sel"></select>
+          </div>
+
           <button
             class="action-btn"
             style="margin-top: 15px"
@@ -202,13 +225,31 @@
           style="display: none"
         >
           <div id="report-preview-viewport"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 15px"
-            onclick="window.print()"
+          <div
+            style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap"
           >
-            <i class="fas fa-print"></i> Print / PDF
-          </button>
+            <button
+              class="action-btn"
+              style="flex: 1; min-width: 120px"
+              onclick="window.print()"
+            >
+              <i class="fas fa-print"></i> Print / Save PDF
+            </button>
+            <button
+              class="action-btn"
+              style="flex: 1; min-width: 120px; background: #25d366"
+              onclick="shareReportWhatsApp()"
+            >
+              <i class="fab fa-whatsapp"></i> WhatsApp
+            </button>
+            <button
+              class="action-btn"
+              style="flex: 1; min-width: 120px; background: #495057"
+              onclick="shareReportEmail()"
+            >
+              <i class="fas fa-envelope"></i> Email
+            </button>
+          </div>
         </div>
         <div id="report-print-container" style="display: none"></div>
       </div>

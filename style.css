@@ -183,16 +183,6 @@ textarea {
 .timeline-node {
   margin-bottom: 20px;
 }
-.print-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-.print-table th,
-.print-table td {
-  border: 1px solid black;
-  padding: 6px;
-}
 
 /* Accounts View */
 .accounts-row {
@@ -225,7 +215,64 @@ textarea {
   color: #fd7e14;
 }
 
+/* Report Styles */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 10px;
+}
+.report-table th {
+  background: #000;
+  color: #fff;
+  text-align: left;
+  padding: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.report-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  vertical-align: top;
+}
+.report-table tr:nth-child(even) {
+  background: #f8f9fa;
+}
+
+/* Snags Report 2x3 Grid */
+.snags-report-page {
+  page-break-after: always;
+  break-after: page;
+}
+.snags-report-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+.snags-report-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 12px;
+  height: 100%;
+}
+.snag-report-card {
+  border: 1.5px solid #000;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  overflow: hidden;
+  background: #fff;
+}
+
 @media print {
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
   body * {
     visibility: hidden;
   }
@@ -234,10 +281,29 @@ textarea {
     visibility: visible;
   }
   #report-print-container {
-    display: block;
+    display: block !important;
     position: absolute;
-    top: 0;
     left: 0;
+    top: 0;
     width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  .report-header {
+    margin-bottom: 15px;
+  }
+  .snags-report-grid {
+    height: calc(297mm - 40mm);
+    page-break-inside: avoid;
+  }
+  .report-table thead {
+    display: table-header-group;
+  }
+  .report-table tr {
+    page-break-inside: avoid;
+  }
+  .accounts-row {
+    page-break-inside: avoid;
   }
 }
