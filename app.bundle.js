@@ -27,7 +27,12 @@ function escapeAttr(str) {
 }
 function moneyValue(val) {
   const n = Number(val || 0);
-  return isNaN(n) ? "0" : n.toLocaleString();
+  return isNaN(n)
+    ? "0.00"
+    : n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
 }
 function splitAttachments(val) {
   return String(val || "")
@@ -78,7 +83,6 @@ function getDirectImageUrl(url) {
   if (match && match[1]) {
     return `${GAS_URL}?id=${match[1]}&token=${AUTH_TOKEN}`;
   }
-  // Bare Drive file ID (e.g. returned directly by code.gs after upload) - no slashes, no scheme
   if (!/[\/\s]/.test(url) && !url.includes("://")) {
     return `${GAS_URL}?id=${url}&token=${AUTH_TOKEN}`;
   }
@@ -119,6 +123,20 @@ function isClientReceipt(p) {
 }
 function isPettyExpense(p) {
   return paymentDirectionOf(p) === "Small Expense";
+}
+
+// Tax helpers
+function getTaxRate(key) {
+  const cache = getCache();
+  const settings = cache.settings || {};
+  const rate = settings[key];
+  return typeof rate === "number" && !isNaN(rate) ? rate : 0;
+}
+function formatTaxRate(rate) {
+  return (rate * 100).toFixed(1) + "%";
+}
+function calculateTax(amount, key) {
+  return Math.round((Number(amount) || 0) * getTaxRate(key));
 }
 
 // ===== db.js =====
@@ -189,10 +207,6 @@ async function deleteQueuedRequest(id) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
-// ======================== SNAG PHOTOS (LOCAL ONLY - NEVER SYNCED) ========================
-// Snag photos are intentionally kept on-device only and are never sent to the server
-// or uploaded to Google Drive. They live in this dedicated IndexedDB store, keyed by snagId.
 
 async function saveSnagPhotosLocally(snagId, photoDataString) {
   const db = await openQueueDB();
@@ -394,6 +408,133 @@ async function compileFieldReport() {
   if (printContainer) printContainer.innerHTML = html;
   const card = document.getElementById("report-onscreen-preview-card");
   if (card) card.style.display = "block";
+}
+
+// ===== accounts.js (inlined) =====
+// accounts.js
+
+async function loadAccountsView() {
+  const cache = getCache();
+  const sel = document.getElementById("accounts-project-sel");
+  if (sel) {
+    sel.innerHTML =
+      '<option value="">-- Select Project --</option>' +
+      (cache.projects || [])
+        .map(
+          (p) =>
+            `<option value="${escapeAttr(p.projectId)}">${escapeHtml(p.clientName)} (${p.projectId})</option>`,
+        )
+        .join("");
+  }
+  updateAccountsSummary();
+}
+
+async function updateAccountsSummary() {
+  const pId = document.getElementById("accounts-project-sel").value;
+  const cache = getCache();
+  const proj = cache.projects.find((p) => p.projectId === pId);
+  const subtotalInput = document.getElementById("accounts-contract-subtotal");
+
+  if (subtotalInput) {
+    subtotalInput.value = proj ? proj.contractSubtotal || 0 : "";
+    subtotalInput.disabled = !proj;
+  }
+
+  if (!pId || !proj) {
+    setAccountsAmounts(0, 0, 0, 0, 0, 0);
+    return;
+  }
+
+  let payments = cache.payments || [];
+  if (!payments.length) {
+    try {
+      payments = await callApi("getPayments", {});
+      cache.payments = payments || [];
+      setCache(cache);
+    } catch (e) {
+      console.warn("Could not load payments for accounts:", e);
+    }
+  }
+
+  const projectPayments = payments.filter((p) => p.projectId === pId);
+  const clearedPayments = projectPayments.filter((p) => p.status !== "Pending");
+  const pendingPayments = projectPayments.filter(
+    (p) => p.status === "Pending" && !isClientReceipt(p),
+  );
+
+  const totalReceived = clearedPayments
+    .filter(isClientReceipt)
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalOutgoing = clearedPayments
+    .filter((p) => !isClientReceipt(p) && !isPettyExpense(p))
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const smallExpenses = clearedPayments
+    .filter(isPettyExpense)
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalPending = pendingPayments.reduce(
+    (sum, p) => sum + Number(p.amount || 0),
+    0,
+  );
+
+  const subtotal = Number(proj.contractSubtotal) || 0;
+  const vat = calculateTax(subtotal, "VAT");
+  const totalContract = subtotal + vat;
+
+  const balanceExpected = totalContract - totalReceived;
+  const netProfit =
+    totalReceived - totalOutgoing - smallExpenses - totalPending;
+
+  setAccountsAmounts(
+    totalReceived,
+    totalOutgoing,
+    smallExpenses,
+    totalPending,
+    balanceExpected,
+    netProfit,
+  );
+}
+
+function setAccountsAmounts(
+  received,
+  outgoing,
+  small,
+  pending,
+  balance,
+  profit,
+) {
+  const els = {
+    "acc-client-receipts": received,
+    "acc-total-outgoing": outgoing,
+    "acc-small-expenses": small,
+    "acc-pending-payments": pending,
+    "acc-balance-expected": balance,
+    "acc-net-profit": profit,
+  };
+  for (const [id, val] of Object.entries(els)) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = "₦" + moneyValue(val);
+  }
+}
+
+async function saveAccountsContractSubtotal() {
+  const pId = document.getElementById("accounts-project-sel").value;
+  const val =
+    Number(document.getElementById("accounts-contract-subtotal").value) || 0;
+  if (!pId) return;
+
+  const cache = getCache();
+  const proj = cache.projects.find((p) => p.projectId === pId);
+  if (!proj) return;
+
+  const payload = { ...proj, contractSubtotal: val };
+  try {
+    await callApi("updateProject", payload);
+    proj.contractSubtotal = val;
+    setCache(cache);
+    updateAccountsSummary();
+  } catch (e) {
+    alert("Failed to save contract subtotal");
+  }
 }
 
 // ===== modals.js =====
@@ -895,7 +1036,6 @@ async function openModal(type, editData = null) {
   else if (type === "snag") {
     const uniqueId = isEdit ? editData.snagId : "SNAG-" + Date.now();
     title.innerText = isEdit ? "Edit Snag" : "New Snag";
-    // Snag photos are local-only (never sent to the server / Drive) - load from IndexedDB
     currentModalFiles = [];
     if (isEdit) {
       try {
@@ -975,7 +1115,6 @@ async function openModal(type, editData = null) {
             ? document.getElementById("sn_date_completed").value
             : "",
         status: status,
-        // photoUrl intentionally omitted - photos never leave this device
       };
       try {
         await saveSnagPhotosLocally(
@@ -1230,6 +1369,28 @@ async function loadProjectConsoleHub(projectId) {
     ? "tel:" + proj.clientPhone
     : "#";
   document.getElementById("c-meta-notes").value = proj.notes || "";
+
+  // Tax breakdown
+  const subtotal = Number(proj.contractSubtotal) || 0;
+  const vat = calculateTax(subtotal, "VAT");
+  const wht = calculateTax(subtotal, "WHT");
+  const totalContract = subtotal + vat;
+  const netReceivable = totalContract - wht;
+  const subtotalEl = document.getElementById("c-meta-subtotal");
+  if (subtotalEl) subtotalEl.innerText = "₦" + moneyValue(subtotal);
+  const vatEl = document.getElementById("c-meta-vat");
+  if (vatEl) vatEl.innerText = "₦" + moneyValue(vat);
+  const vatRateEl = document.getElementById("c-meta-vat-rate");
+  if (vatRateEl) vatRateEl.innerText = formatTaxRate(getTaxRate("VAT"));
+  const whtEl = document.getElementById("c-meta-wht");
+  if (whtEl) whtEl.innerText = "₦" + moneyValue(wht);
+  const whtRateEl = document.getElementById("c-meta-wht-rate");
+  if (whtRateEl) whtRateEl.innerText = formatTaxRate(getTaxRate("WHT"));
+  const totalEl = document.getElementById("c-meta-total");
+  if (totalEl) totalEl.innerText = "₦" + moneyValue(totalContract);
+  const netEl = document.getElementById("c-meta-net");
+  if (netEl) netEl.innerText = "₦" + moneyValue(netReceivable);
+
   const scopeEl = document.getElementById("c-meta-scope");
   if (scopeEl) {
     scopeEl.value = proj.scope || "";
@@ -1519,31 +1680,25 @@ async function loadPaymentsListings(forceRefresh = false) {
   );
   const netBalance = totalReceived - totalExpenses - totalPending;
 
-  // Build totals card with safe flex + word‑break
   const totalsHtml = `
     <div class="card" style="background:var(--card); border-color:#000; padding:12px;">
       <div style="display: flex; flex-direction: column; gap: 12px;">
-        <!-- Client Received -->
         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0;">
           <span style="font-weight:800; text-transform:uppercase; font-size:13px; flex-shrink:0;">Client Received</span>
           <span style="font-size:18px; font-weight:900; color:var(--success); text-align:right; word-break:break-word; overflow-wrap:break-word; white-space:normal;">₦${moneyValue(totalReceived)}</span>
         </div>
-        <!-- Total Outgoing -->
         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0;">
           <span style="font-weight:800; text-transform:uppercase; font-size:13px; flex-shrink:0;">Total Outgoing</span>
           <span style="font-size:18px; font-weight:900; color:var(--danger); text-align:right; word-break:break-word; overflow-wrap:break-word; white-space:normal;">₦${moneyValue(totalExpenses)}</span>
         </div>
-        <!-- Small Expenses -->
         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0;">
           <span style="font-weight:800; text-transform:uppercase; font-size:13px; flex-shrink:0;">Small Expenses</span>
           <span style="font-size:16px; font-weight:900; text-align:right; word-break:break-word; overflow-wrap:break-word; white-space:normal;">₦${moneyValue(smallExpenses)}</span>
         </div>
-        <!-- Pending Payments -->
         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0;">
           <span style="font-weight:800; text-transform:uppercase; font-size:13px; flex-shrink:0;">Pending Payments</span>
           <span style="font-size:18px; font-weight:900; color:#fd7e14; text-align:right; word-break:break-word; overflow-wrap:break-word; white-space:normal;">₦${moneyValue(totalPending)}</span>
         </div>
-        <!-- Net Balance -->
         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; border-top: 1px solid var(--border); padding-top: 8px;">
           <span style="font-weight:800; text-transform:uppercase; font-size:14px; flex-shrink:0;">Net Balance</span>
           <span style="font-size:18px; font-weight:900; color:${netBalance >= 0 ? "var(--success)" : "var(--danger)"}; text-align:right; word-break:break-word; overflow-wrap:break-word; white-space:normal;">₦${moneyValue(netBalance)}</span>
@@ -1591,6 +1746,7 @@ let cache = {
   vendors: [],
   workorders: [],
   payments: [],
+  settings: {},
 };
 let currentSelectedProjectId = null;
 
@@ -1617,7 +1773,6 @@ async function callApi(action, data = {}) {
       body: JSON.stringify(payload),
     });
   } catch (err) {
-    // Network-level failure (offline, DNS, CORS) - GET falls back to cache, writes queue
     console.warn(`callApi [${action}] network error:`, err);
     if (isGet)
       return readBackup(
@@ -1631,7 +1786,6 @@ async function callApi(action, data = {}) {
     return { status: "queued" };
   }
 
-  // Non-2xx HTTP (redirect, auth error, etc.) - GET falls back to cache
   if (!response.ok) {
     console.warn(`callApi [${action}] HTTP ${response.status}`);
     if (isGet)
@@ -1655,7 +1809,6 @@ async function callApi(action, data = {}) {
     throw new Error("Invalid response from server");
   }
 
-  // Server logic/validation error - GET falls back to cache, writes surface error
   if (result && (result.status === "error" || result.success === false)) {
     const message =
       result.message || result.error || "Server rejected the request";
@@ -1837,6 +1990,12 @@ async function refreshAllData() {
     await callApi("getVendors", {});
     await callApi("getWorkOrders", {});
     await callApi("getPayments", {});
+    const settingsRes = await callApi("getSettings", {});
+    if (settingsRes && settingsRes.data) {
+      const cache = getCache();
+      cache.settings = settingsRes.data;
+      setCache(cache);
+    }
     await refreshMasterDashboard();
     if (currentSelectedProjectId) {
       loadInspectionListings(true);
@@ -1873,6 +2032,7 @@ function showPage(pageId) {
   if (!suppressPageRefresh) {
     if (pageId === "dashboard") refreshMasterDashboard();
     if (pageId === "vendors") refreshVendorsListView();
+    if (pageId === "accounts") loadAccountsView();
     if (pageId === "reports") initReportsConsoleEngine();
   }
   window.scrollTo(0, 0);
@@ -1900,6 +2060,9 @@ window.triggerManualSync = triggerManualSync;
 window.refreshAllData = refreshAllData;
 window.handleReportOptionsPopulation = handleReportOptionsPopulation;
 window.compileFieldReport = compileFieldReport;
+window.loadAccountsView = loadAccountsView;
+window.updateAccountsSummary = updateAccountsSummary;
+window.saveAccountsContractSubtotal = saveAccountsContractSubtotal;
 
 // Service Worker & Events
 if ("serviceWorker" in navigator) {
@@ -1917,5 +2080,12 @@ window.addEventListener("load", () => {
   updateSyncStatus();
   showPageWithoutRefresh("dashboard");
   refreshMasterDashboard();
+  callApi("getSettings", {})
+    .then((res) => {
+      const cache = getCache();
+      cache.settings = res && res.data ? res.data : {};
+      setCache(cache);
+    })
+    .catch(() => {});
   if (navigator.onLine) syncQueuedRequests();
 });
