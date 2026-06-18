@@ -822,6 +822,34 @@ function saveCustomTemplates(templates) {
   localStorage.setItem("fb_customTemplates", JSON.stringify(templates));
 }
 
+function getHiddenBuiltInIds() {
+  try {
+    const raw = localStorage.getItem("fb_hiddenBuiltInTemplates");
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function saveHiddenBuiltInIds(ids) {
+  localStorage.setItem(
+    "fb_hiddenBuiltInTemplates",
+    JSON.stringify(Array.from(ids)),
+  );
+}
+
+function hideBuiltInTemplate(id) {
+  const hidden = getHiddenBuiltInIds();
+  hidden.add(id);
+  saveHiddenBuiltInIds(hidden);
+  loadTemplatesSegment();
+}
+
+function showAllBuiltInTemplates() {
+  localStorage.removeItem("fb_hiddenBuiltInTemplates");
+  loadTemplatesSegment();
+}
+
 function getAllTemplates() {
   return [...getCustomTemplates(), ...getBuiltInTemplates()];
 }
@@ -870,14 +898,11 @@ function loadTemplatesSegment() {
     `;
   }
 
-  if (!all.length) {
-    html += `<p style="text-align:center; padding:20px; color:var(--muted);">No templates available.</p>`;
-    container.innerHTML = html;
-    selectedTemplateIds.clear();
-    return;
-  }
-
-  html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in & Custom Templates</div>`;
+  const customTemplates = getCustomTemplates();
+  const builtInTemplates = getBuiltInTemplates();
+  const hiddenIds = getHiddenBuiltInIds();
+  const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
+  const showBuiltIns = visibleBuiltIns.length > 0 || hiddenIds.size > 0;
 
   // Clean up stale template selections
   const allIds = new Set(all.map((t) => t.id));
@@ -885,7 +910,15 @@ function loadTemplatesSegment() {
     if (!allIds.has(id)) selectedTemplateIds.delete(id);
   }
 
-  const customTemplates = getCustomTemplates();
+  if (!customTemplates.length && !visibleBuiltIns.length) {
+    html += `<p style="text-align:center; padding:20px; color:var(--muted);">No templates available.</p>`;
+    container.innerHTML = html;
+    selectedTemplateIds.clear();
+    return;
+  }
+
+  html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>`;
+
   if (customTemplates.length > 0 && selectedTemplateIds.size > 0) {
     html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;">
       <span style="font-size:13px; font-weight:700;">${selectedTemplateIds.size} selected</span>
@@ -895,37 +928,82 @@ function loadTemplatesSegment() {
     </div>`;
   }
 
-  html += all
-    .map((t) => {
-      const isCustom = !BUILT_IN_TEMPLATES.find((b) => b.id === t.id);
-      const isChecked = selectedTemplateIds.has(t.id);
-      return `
-        <div class="card" style="cursor: default;">
-          <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
-            <div style="flex:1;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                ${isCustom ? `<input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)">` : '<div style="width:18px; flex-shrink:0;"></div>'}
-                <strong style="font-size:16px;">${escapeHtml(t.name)}</strong>
-                ${isCustom ? `<span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span>` : ""}
+  if (customTemplates.length) {
+    html += customTemplates
+      .map((t) => {
+        const isChecked = selectedTemplateIds.has(t.id);
+        return `
+          <div class="card" style="cursor: default;">
+            <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+              <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)">
+                  <strong style="font-size:16px;">${escapeHtml(t.name)}</strong>
+                  <span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span>
+                </div>
+                <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div>
               </div>
-              <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div>
-              <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div>
-            </div>
-            <div style="display:flex; gap:6px; flex-shrink:0;">
-              <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')">
-                <i class="fas fa-eye"></i>
-              </button>
-              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button>` : ""}
-              <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
-                <i class="fas fa-check"></i> Apply
-              </button>
-              ${isCustom ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="deleteCustomTemplate('${escapeAttr(t.id)}'); loadTemplatesSegment();"><i class="fas fa-trash"></i></button>` : ""}
+              <div style="display:flex; gap:6px; flex-shrink:0;">
+                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button>
+                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
+                  <i class="fas fa-check"></i> Apply
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("");
+  } else {
+    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>`;
+  }
+
+  // Built-in templates section
+  html += `<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>`;
+  html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;">
+    <span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.showAllBuiltInTemplates()">
+      <i class="fas fa-eye"></i> Show All
+    </button>
+  </div>`;
+
+  if (visibleBuiltIns.length) {
+    html += visibleBuiltIns
+      .map((t) => {
+        return `
+          <div class="card" style="cursor: default;">
+            <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+              <div style="flex:1;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <div style="width:18px; flex-shrink:0;"></div>
+                  <strong style="font-size:16px;">${escapeHtml(t.name)}</strong>
+                </div>
+                <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div>
+                <div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div>
+              </div>
+              <div style="display:flex; gap:6px; flex-shrink:0;">
+                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')">
+                  <i class="fas fa-check"></i> Apply
+                </button>
+                <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideBuiltInTemplate('${escapeAttr(t.id)}')">
+                  <i class="fas fa-eye-slash"></i> Hide
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  } else {
+    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">All built-in templates are hidden. <button style="background:none; border:none; color:var(--primary); font-weight:700; cursor:pointer; font-size:13px;" onclick="window.showAllBuiltInTemplates()">Show all</button></p>`;
+  }
 
   container.innerHTML = html;
 }
@@ -4119,6 +4197,8 @@ window.toggleTakeOffSelection = toggleTakeOffSelection;
 window.toggleTemplateSelection = toggleTemplateSelection;
 window.deleteSelectedTakeOffs = deleteSelectedTakeOffs;
 window.deleteSelectedTemplates = deleteSelectedTemplates;
+window.hideBuiltInTemplate = hideBuiltInTemplate;
+window.showAllBuiltInTemplates = showAllBuiltInTemplates;
 window.shareReportWhatsApp = shareReportWhatsApp;
 window.shareReportEmail = shareReportEmail;
 window.previewTemplate = previewTemplate;
