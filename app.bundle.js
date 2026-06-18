@@ -11,6 +11,7 @@ const ATTACHMENT_DELIMITER = "|||";
 // ===== utils.js =====
 // utils.js
 
+
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>]/g, function(m) {
     if (m === '&') return '&amp;';
@@ -177,6 +178,7 @@ async function deleteSnagPhotosLocally(snagId) {
 // ===== backup.js =====
 // backup.js
 
+
 const GET_ACTION_BY_STORE = {
   projects: "getProjects", inspections: "getInspections", takeoffs: "getTakeOffItems",
   progressLogs: "getProgressLogs", snags: "getSnags", vendors: "getVendors", workorders: "getWorkOrders", payments: "getPayments"
@@ -242,6 +244,8 @@ function applyLocalMutation(action, data) {
 // ===== reports.js =====
 // reports.js
 
+
+
 async function initReportsConsoleEngine() {
   const projects = await callApi('getProjects', {});
   const cache = getCache();
@@ -290,6 +294,11 @@ async function compileFieldReport() {
 
 // ===== modals.js =====
 // modals.js
+
+
+
+
+
 
 let currentModalFiles = [];
 let currentAvatarPhoto = "";
@@ -860,6 +869,10 @@ async function openModal(type, editData = null) {
 // ===== dashboard.js =====
 // dashboard.js
 
+
+
+
+
 async function refreshMasterDashboard() {
   const container = document.getElementById('project-master-list');
   if (container) container.innerHTML = '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
@@ -919,6 +932,10 @@ function renderVendors() {
 
 // ===== console.js =====
 // console.js
+
+
+
+
 
 // ======================== PROJECT CONSOLE LOADER ========================
 async function loadProjectConsoleHub(projectId) {
@@ -1240,6 +1257,11 @@ async function loadPaymentsListings(forceRefresh = false) {
 // ===== api.js =====
 // api.js
 
+
+
+
+
+
 let cache = { projects: [], inspections: [], takeoffs: [], progressLogs: [], snags: [], vendors: [], workorders: [], payments: [] };
 let currentSelectedProjectId = null;
 
@@ -1416,6 +1438,11 @@ async function refreshAllData() {
 // ===== app.js =====
 // app.js
 
+
+
+
+
+
 let appStarted = false;
 let suppressPageRefresh = false;
 
@@ -1473,4 +1500,5 @@ window.addEventListener('load', () => {
   refreshMasterDashboard();
   if (navigator.onLine) syncQueuedRequests();
 });
+
 
