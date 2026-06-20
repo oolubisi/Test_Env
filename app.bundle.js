@@ -1588,37 +1588,36 @@ async function sharePDFNative(pdf, filename, fallbackFn) {
   fallbackFn();
 }
 
-async function shareReportWhatsApp() {
+async function shareReport() {
   const pdf = await generateReportPDF();
   if (!pdf) return;
-  const fallback = () => {
-    const container = document.getElementById("report-print-container");
-    let text = "*FieldScan Pro Report*\n\n";
-    text += container.innerText.replace(/\s+/g, " ").trim().substring(0, 3000);
-    text += "\n\n_Generated from FieldScan Pro_";
-    window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
-  };
-  await sharePDFNative(pdf, "FieldScan_Report.pdf", fallback);
-}
 
-async function shareReportEmail() {
-  const pdf = await generateReportPDF();
-  if (!pdf) return;
-  const fallback = () => {
-    const container = document.getElementById("report-print-container");
-    const subject = "FieldScan Pro Report";
-    let body = container.innerText
-      .replace(/\s+/g, " ")
-      .trim()
-      .substring(0, 8000);
-    body += "\n\nGenerated from FieldScan Pro";
-    window.location.href =
-      "mailto:?subject=" +
-      encodeURIComponent(subject) +
-      "&body=" +
-      encodeURIComponent(body);
-  };
-  await sharePDFNative(pdf, "FieldScan_Report.pdf", fallback);
+  // Mobile: try native share API with PDF file
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent,
+    );
+  if (isMobile && navigator.canShare && navigator.share) {
+    try {
+      const blob = pdf.output("blob");
+      const file = new File([blob], "FieldScan_Report.pdf", {
+        type: "application/pdf",
+      });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "FieldScan Pro Report",
+          text: "FieldScan Pro Report",
+        });
+        return;
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") console.error("Native share failed:", err);
+    }
+  }
+
+  // Desktop fallback: download PDF directly
+  pdf.save("FieldScan_Report.pdf");
 }
 
 /* ---------- Report Console ---------- */
@@ -2410,123 +2409,155 @@ function renderTakeoffReport(project, items) {
 }
 
 /* ---------- Main Compiler ---------- */
-async function compileFieldReport() {
-  const typeSel = document.getElementById("rep-type-sel");
-  const scopeSel = document.getElementById("rep-scope-sel");
-  const filterSel = document.getElementById("rep-filter-sel");
-  if (!typeSel || !typeSel.value) {
-    alert("Select a report type");
-    return;
+async function compileFieldReport(btn) {
+  // Loading state: find button, disable, show spinner
+  if (!btn) {
+    btn = document.activeElement;
+    if (!btn || btn.tagName !== "BUTTON") {
+      btn = document.querySelector('button[onclick*="compileFieldReport"]');
+    }
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.dataset.originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
   }
 
-  const type = typeSel.value;
-  const scope = scopeSel ? scopeSel.value : "all";
-  const filter = filterSel ? filterSel.value : "";
+  try {
+    const typeSel = document.getElementById("rep-type-sel");
+    const scopeSel = document.getElementById("rep-scope-sel");
+    const filterSel = document.getElementById("rep-filter-sel");
+    if (!typeSel || !typeSel.value) {
+      alert("Select a report type");
+      return;
+    }
 
-  if (type !== "financial_all" && scope !== "all" && !filter) {
-    alert("Please select a " + scope.replace("Specific ", "").toLowerCase());
-    return;
+    const type = typeSel.value;
+    const scope = scopeSel ? scopeSel.value : "all";
+    const filter = filterSel ? filterSel.value : "";
+
+    if (type !== "financial_all" && scope !== "all" && !filter) {
+      alert("Please select a " + scope.replace("Specific ", "").toLowerCase());
+      return;
+    }
+
+    const cache = getCache();
+    let html = "";
+
+    const ensure = async (key, action) => {
+      if (!cache[key] || !cache[key].length) {
+        try {
+          cache[key] = (await callApi(action, {})) || [];
+          setCache(cache);
+        } catch (e) {}
+      }
+    };
+    await ensure("payments", "getPayments");
+    await ensure("workorders", "getWorkOrders");
+    await ensure("snags", "getSnags");
+    await ensure("progressLogs", "getProgressLogs");
+    await ensure("takeoffs", "getTakeOffItems");
+
+    if (type === "financial_all") {
+      const selectedFields = getSelectedFinancialFields();
+      if (!selectedFields.length) {
+        alert("Select at least one field to print");
+        return;
+      }
+      html = renderFinancialAll(
+        cache.projects || [],
+        cache.payments || [],
+        selectedFields,
+      );
+    } else if (type === "financial_project") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      html = renderFinancialProject(project, cache.payments || []);
+    } else if (type === "financial_client") {
+      html = renderFinancialClient(
+        filter,
+        cache.projects || [],
+        cache.payments || [],
+      );
+    } else if (type === "financial_vendor") {
+      const vendor = (cache.vendors || []).find((v) => v.vendorId === filter);
+      if (!vendor) {
+        alert("Vendor not found");
+        return;
+      }
+      html = renderFinancialVendor(
+        vendor,
+        cache.projects || [],
+        cache.workorders || [],
+        cache.payments || [],
+      );
+    } else if (type === "scope") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      html = renderScopeReport(project);
+    } else if (type === "snags") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      const projectSnags = (cache.snags || []).filter(
+        (s) => s.projectId === filter,
+      );
+      html = renderSnagsReport(project, projectSnags);
+    } else if (type === "progress") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      const projectLogs = (cache.progressLogs || []).filter(
+        (l) => l.projectId === filter,
+      );
+      html = renderProgressReport(project, projectLogs);
+    } else if (type === "takeoff") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      const projectItems = (cache.takeoffs || []).filter(
+        (i) => i.projectId === filter,
+      );
+      html = renderTakeoffReport(project, projectItems);
+    }
+
+    const preview = document.getElementById("report-preview-viewport");
+    const printContainer = document.getElementById("report-print-container");
+    const card = document.getElementById("report-onscreen-preview-card");
+    if (preview) preview.innerHTML = html;
+    if (printContainer) printContainer.innerHTML = html;
+    if (card) card.style.display = "block";
+    window.scrollTo(0, document.body.scrollHeight);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML =
+        btn.dataset.originalHtml ||
+        '<i class="fas fa-file-alt"></i> Generate Report';
+    }
   }
-
-  const cache = getCache();
-  let html = "";
-
-  const ensure = async (key, action) => {
-    if (!cache[key] || !cache[key].length) {
-      try {
-        cache[key] = (await callApi(action, {})) || [];
-        setCache(cache);
-      } catch (e) {}
-    }
-  };
-  await ensure("payments", "getPayments");
-  await ensure("workorders", "getWorkOrders");
-  await ensure("snags", "getSnags");
-  await ensure("progressLogs", "getProgressLogs");
-  await ensure("takeoffs", "getTakeOffItems");
-
-  if (type === "financial_all") {
-    const selectedFields = getSelectedFinancialFields();
-    if (!selectedFields.length) {
-      alert("Select at least one field to print");
-      return;
-    }
-    html = renderFinancialAll(
-      cache.projects || [],
-      cache.payments || [],
-      selectedFields,
-    );
-  } else if (type === "financial_project") {
-    const project = (cache.projects || []).find((p) => p.projectId === filter);
-    if (!project) {
-      alert("Project not found");
-      return;
-    }
-    html = renderFinancialProject(project, cache.payments || []);
-  } else if (type === "financial_client") {
-    html = renderFinancialClient(
-      filter,
-      cache.projects || [],
-      cache.payments || [],
-    );
-  } else if (type === "financial_vendor") {
-    const vendor = (cache.vendors || []).find((v) => v.vendorId === filter);
-    if (!vendor) {
-      alert("Vendor not found");
-      return;
-    }
-    html = renderFinancialVendor(
-      vendor,
-      cache.projects || [],
-      cache.workorders || [],
-      cache.payments || [],
-    );
-  } else if (type === "scope") {
-    const project = (cache.projects || []).find((p) => p.projectId === filter);
-    if (!project) {
-      alert("Project not found");
-      return;
-    }
-    html = renderScopeReport(project);
-  } else if (type === "snags") {
-    const project = (cache.projects || []).find((p) => p.projectId === filter);
-    if (!project) {
-      alert("Project not found");
-      return;
-    }
-    const projectSnags = (cache.snags || []).filter(
-      (s) => s.projectId === filter,
-    );
-    html = renderSnagsReport(project, projectSnags);
-  } else if (type === "progress") {
-    const project = (cache.projects || []).find((p) => p.projectId === filter);
-    if (!project) {
-      alert("Project not found");
-      return;
-    }
-    const projectLogs = (cache.progressLogs || []).filter(
-      (l) => l.projectId === filter,
-    );
-    html = renderProgressReport(project, projectLogs);
-  } else if (type === "takeoff") {
-    const project = (cache.projects || []).find((p) => p.projectId === filter);
-    if (!project) {
-      alert("Project not found");
-      return;
-    }
-    const projectItems = (cache.takeoffs || []).filter(
-      (i) => i.projectId === filter,
-    );
-    html = renderTakeoffReport(project, projectItems);
-  }
-
-  const preview = document.getElementById("report-preview-viewport");
-  const printContainer = document.getElementById("report-print-container");
-  const card = document.getElementById("report-onscreen-preview-card");
-  if (preview) preview.innerHTML = html;
-  if (printContainer) printContainer.innerHTML = html;
-  if (card) card.style.display = "block";
-  window.scrollTo(0, document.body.scrollHeight);
 }
 
 // ===== accounts.js (inlined) =====
@@ -4222,8 +4253,7 @@ window.deleteSelectedTakeOffs = deleteSelectedTakeOffs;
 window.deleteSelectedTemplates = deleteSelectedTemplates;
 window.hideAllBuiltInTemplates = hideAllBuiltInTemplates;
 window.showAllBuiltInTemplates = showAllBuiltInTemplates;
-window.shareReportWhatsApp = shareReportWhatsApp;
-window.shareReportEmail = shareReportEmail;
+window.shareReport = shareReport;
 window.previewTemplate = previewTemplate;
 window.applyTemplateToProject = applyTemplateToProject;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
