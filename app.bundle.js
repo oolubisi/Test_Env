@@ -1927,12 +1927,15 @@ function renderProgressReport(project, logs) {
 
 function renderTakeoffReport(project, items) {
   const rows = items
-    .map(
-      (i) =>
-        `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(i.roomArea)}</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.tradeCategory)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.description)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">${escapeHtml(i.quantity)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.unit)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; color:#495057;">${escapeHtml(i.scopeNotes || "—")}</td></tr>`,
-    )
+    .map((i) => {
+      const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
+      if (isHeader) {
+        return `<tr style="background:#e9ecef;"><td colspan="4" style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; font-weight:900; text-transform:uppercase;">${escapeHtml(i.description)}</td></tr>`;
+      }
+      return `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.description)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">${escapeHtml(i.quantity)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.unit)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; color:#495057;">${escapeHtml(i.scopeNotes || "—")}</td></tr>`;
+    })
     .join("");
-  return `${generateReportHeader("Take-Off Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Room/Area</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Qty</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Unit</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Remarks</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:#495057;">No take-off items recorded.</td></tr>'}</tbody></table>`;
+  return `${generateReportHeader("Take-Off Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Qty</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Unit</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Remarks</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No take-off items recorded.</td></tr>'}</tbody></table>`;
 }
 
 function renderWorkOrderReport(project, workorders, vendors, settings) {
@@ -2447,12 +2450,6 @@ async function openModal(type, editData = null) {
     title.innerText = isEdit ? "Edit Take-Off" : "New Take-Off";
     if (isEdit && editData.beforePhotoUrl)
       currentModalFiles = splitAttachments(editData.beforePhotoUrl);
-    const roomOptions = MASTER_ROOM_TYPES.map(
-      (r) => `<option value="${escapeAttr(r)}">`,
-    ).join("");
-    const tradeOptions = MASTER_TRADE_CATEGORIES.map(
-      (t) => `<option value="${escapeAttr(t)}">`,
-    ).join("");
     const unitOptions = MASTER_UNITS.map(
       (u) =>
         `<option value="${escapeAttr(u.value)}">${escapeHtml(u.label)}</option>`,
@@ -2460,37 +2457,42 @@ async function openModal(type, editData = null) {
 
     let rows = [];
     if (isEdit) {
+      const isHeader = String(editData.scopeNotes || "").startsWith(
+        "__HEADER__:",
+      );
       rows = [
         {
           itemId: editData.itemId,
-          roomArea: editData.roomArea || "",
-          tradeCategory: editData.tradeCategory || "",
           description: editData.description || "",
           quantity: editData.quantity || "",
           unit: editData.unit || "",
-          notes: editData.scopeNotes || "",
+          notes: isHeader
+            ? editData.scopeNotes.substring(11)
+            : editData.scopeNotes || "",
+          isHeader: isHeader,
         },
       ];
     } else {
       rows = [
         {
           itemId: "",
-          roomArea: "",
-          tradeCategory: "",
           description: "",
           quantity: "",
           unit: "",
           notes: "",
+          isHeader: false,
         },
       ];
     }
 
     const rowHtml = rows
-      .map(
-        (row) =>
-          `<tr class="to-line-row" data-item-id="${escapeAttr(row.itemId)}">
-        <td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-room-types" class="to-line-room" value="${escapeAttr(row.roomArea)}" placeholder="Room" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
-        <td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-trade-cats" class="to-line-trade" value="${escapeAttr(row.tradeCategory)}" placeholder="Trade" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+      .map((row) =>
+        row.isHeader
+          ? `<tr class="to-line-row to-header-row" data-item-id="${escapeAttr(row.itemId)}">
+        <td colspan="4" style="padding:4px; border-bottom:1px solid var(--border); background:#e9ecef;"><input class="to-line-desc" value="${escapeAttr(row.description)}" placeholder="Header text..." style="width:100%; padding:10px; font-size:15px; font-weight:800; border:1.5px solid var(--border); border-radius:8px; background:#fff;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center; background:#e9ecef;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>
+      </tr>`
+          : `<tr class="to-line-row" data-item-id="${escapeAttr(row.itemId)}">
         <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(row.description)}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
         <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="to-line-qty" type="number" value="${escapeAttr(row.quantity)}" placeholder="Qty" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
         <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><select class="to-line-unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><option value="" disabled ${!row.unit ? "selected" : ""}>Select unit</option>${unitOptions}</select></td>
@@ -2500,14 +2502,12 @@ async function openModal(type, editData = null) {
       )
       .join("");
 
-    body.innerHTML = `<datalist id="master-room-types">${roomOptions}</datalist><datalist id="master-trade-cats">${tradeOptions}</datalist>
+    body.innerHTML = `
     <label ${labelStyle}>Line Items</label>
     <div style="overflow-x:auto;">
-    <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px; min-width:600px;">
+    <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px;">
       <thead>
         <tr style="background:#000; color:#fff;">
-          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Room</th>
-          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Trade</th>
           <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
           <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
           <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase; width:90px;">U/M</th>
@@ -2518,7 +2518,10 @@ async function openModal(type, editData = null) {
       <tbody id="to_line_items_body">${rowHtml}</tbody>
     </table>
     </div>
-    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.addTakeOffLineItem()"><i class="fas fa-plus"></i> Add Line Item</button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.addTakeOffLineItem()"><i class="fas fa-plus"></i> Add Line Item</button>
+      <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--primary);" onclick="window.addTakeOffHeader()"><i class="fas fa-heading"></i> Add Header</button>
+    </div>
     <div id="takeoffAttachmentsPreviews" class="modal-preview-grid" style="display:none; margin-top:12px;"></div>
     <label class="icon-upload-label" style="margin-top:10px;"><i class="fas fa-paperclip"></i><input type="file" id="t_photo" accept="image/*" multiple style="display:none"></label>
     ${isEdit ? `<button class="action-btn" id="t_delete_btn" style="background:var(--danger); margin-top:10px;">Delete Item</button>` : ""}`;
@@ -2556,36 +2559,52 @@ async function openModal(type, editData = null) {
       let errorCount = 0;
 
       for (const row of Array.from(tableRows)) {
-        const room = row.querySelector(".to-line-room").value.trim();
         const desc = row.querySelector(".to-line-desc").value.trim();
         if (!desc) continue;
-        const unit = row.querySelector(".to-line-unit").value;
-        if (!unit) {
-          alert("Select a unit for all line items");
-          submit.disabled = false;
-          submit.innerText = "Save";
-          return;
-        }
+        const isHeader = row.classList.contains("to-header-row");
         const itemId =
           row.dataset.itemId ||
           "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5);
-        const finalNotes =
-          row.querySelector(".to-line-notes").value +
-          (gps !== "GPS Unavailable"
-            ? `
+
+        let payload;
+        if (isHeader) {
+          payload = {
+            itemId: itemId,
+            projectId: projectId,
+            roomArea: "",
+            tradeCategory: "",
+            description: desc,
+            quantity: 0,
+            unit: "",
+            beforePhotoUrl: "",
+            scopeNotes: "__HEADER__:" + desc,
+          };
+        } else {
+          const unit = row.querySelector(".to-line-unit").value;
+          if (!unit) {
+            alert("Select a unit for all line items");
+            submit.disabled = false;
+            submit.innerText = "Save";
+            return;
+          }
+          const finalNotes =
+            row.querySelector(".to-line-notes").value +
+            (gps !== "GPS Unavailable"
+              ? `
 📍 ${gps}`
-            : "");
-        const payload = {
-          itemId: itemId,
-          projectId: projectId,
-          roomArea: room,
-          tradeCategory: row.querySelector(".to-line-trade").value,
-          description: desc,
-          quantity: row.querySelector(".to-line-qty").value,
-          unit: unit,
-          beforePhotoUrl: photoUrl,
-          scopeNotes: finalNotes,
-        };
+              : "");
+          payload = {
+            itemId: itemId,
+            projectId: projectId,
+            roomArea: "",
+            tradeCategory: "",
+            description: desc,
+            quantity: row.querySelector(".to-line-qty").value,
+            unit: unit,
+            beforePhotoUrl: photoUrl,
+            scopeNotes: finalNotes,
+          };
+        }
         try {
           await callApi(
             row.dataset.itemId ? "updateTakeOffItem" : "saveTakeOffItem",
@@ -3292,13 +3311,21 @@ function addTakeOffLineItem(rowData) {
   row.className = "to-line-row";
   row.dataset.itemId =
     rowData && rowData.itemId ? escapeAttr(rowData.itemId) : "";
-  row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-room-types" class="to-line-room" value="${escapeAttr(rowData && rowData.roomArea ? rowData.roomArea : "")}" placeholder="Room" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
-  <td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-trade-cats" class="to-line-trade" value="${escapeAttr(rowData && rowData.tradeCategory ? rowData.tradeCategory : "")}" placeholder="Trade" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
-  <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(rowData && rowData.description ? rowData.description : "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(rowData && rowData.description ? rowData.description : "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
   <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="to-line-qty" type="number" value="${escapeAttr(rowData && rowData.quantity ? rowData.quantity : "")}" placeholder="Qty" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
   <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><select class="to-line-unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><option value="" disabled ${!(rowData && rowData.unit) ? "selected" : ""}>Select unit</option>${unitOptions}</select></td>
   <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-notes" value="${escapeAttr(rowData && rowData.notes ? rowData.notes : "")}" placeholder="Notes" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
   <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>`;
+  tbody.appendChild(row);
+}
+
+function addTakeOffHeader() {
+  const tbody = document.getElementById("to_line_items_body");
+  if (!tbody) return;
+  const row = document.createElement("tr");
+  row.className = "to-line-row to-header-row";
+  row.innerHTML = `<td colspan="4" style="padding:4px; border-bottom:1px solid var(--border); background:#e9ecef;"><input class="to-line-desc" value="" placeholder="Header text..." style="width:100%; padding:10px; font-size:15px; font-weight:800; border:1.5px solid var(--border); border-radius:8px; background:#fff;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center; background:#e9ecef;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>`;
   tbody.appendChild(row);
 }
 
@@ -3737,7 +3764,11 @@ async function loadTakeOffListings(forceRefresh = false) {
       window.modalRecordCache = window.modalRecordCache || {};
       window.modalRecordCache[key] = i;
       const isChecked = selectedTakeOffIds.has(i.itemId);
-      return `<div class="card" style="cursor:pointer; position:relative;"><div style="display:flex; align-items:start; gap:10px;"><input type="checkbox" style="width:auto; margin-top:2px; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)"><div style="flex:1;" onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])"><strong>${escapeHtml(i.roomArea)}</strong> | ${escapeHtml(i.tradeCategory)}<br>${escapeHtml(i.description)}<br><strong>${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.scopeNotes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(i.scopeNotes)}</div>` : ""}</div></div></div>`;
+      const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
+      if (isHeader) {
+        return `<div class="card" style="background:var(--card-light); border-left:4px solid var(--primary); cursor:default; padding:10px 16px; margin-bottom:8px;"><div style="display:flex; align-items:center; gap:10px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)"><strong style="font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHtml(i.description)}</strong></div></div>`;
+      }
+      return `<div class="card" style="cursor:pointer; position:relative;"><div style="display:flex; align-items:start; gap:10px;"><input type="checkbox" style="width:auto; margin-top:2px; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)"><div style="flex:1;" onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">${escapeHtml(i.description)}<br><strong>${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.scopeNotes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(i.scopeNotes)}</div>` : ""}</div></div></div>`;
     })
     .join("");
   container.innerHTML = html;
@@ -4235,6 +4266,7 @@ window.addWorkOrderLineItem = addWorkOrderLineItem;
 window.recalcWorkOrderTotal = recalcWorkOrderTotal;
 window.populateWorkOrderDropdown = populateWorkOrderDropdown;
 window.addTakeOffLineItem = addTakeOffLineItem;
+window.addTakeOffHeader = addTakeOffHeader;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
