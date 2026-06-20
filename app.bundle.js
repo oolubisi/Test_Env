@@ -82,6 +82,79 @@ async function compressImageToTargetLimit(base64, maxBytes = 190000) {
   });
 }
 
+function showPdfCompressing() {
+  let overlay = document.getElementById("pdf-compress-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "pdf-compress-overlay";
+    overlay.style.cssText =
+      "position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;justify-content:center;align-items:center;z-index:6000;";
+    overlay.innerHTML = `<div style="background:white;border-radius:20px;padding:24px;text-align:center;max-width:280px;"><div style="font-size:32px;margin-bottom:12px;"><i class="fas fa-cog fa-spin"></i></div><div style="font-weight:800;font-size:16px;">Compressing PDF…</div><div style="font-size:13px;color:#495057;margin-top:6px;">Please wait</div></div>`;
+    document.body.appendChild(overlay);
+  } else {
+    overlay.style.display = "flex";
+  }
+}
+
+function hidePdfCompressing() {
+  const overlay = document.getElementById("pdf-compress-overlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+async function compressPdfToTargetLimit(base64, maxBytes = 300000) {
+  if (typeof PDFLib === "undefined") {
+    throw new Error(
+      "PDF library not loaded. Please check your connection and retry.",
+    );
+  }
+  const originalSize = (base64.length / 1024).toFixed(0);
+  if (base64.length > 10000000) {
+    if (
+      !confirm(`This PDF is ${originalSize} KB. Compressing large files may take a moment and could freeze the app briefly.
+
+Continue?`)
+    ) {
+      throw new Error("User cancelled large PDF compression.");
+    }
+  }
+  showPdfCompressing();
+  // Yield to UI thread so the overlay renders before heavy work begins
+  await new Promise((r) => setTimeout(r, 50));
+  try {
+    const { PDFDocument } = PDFLib;
+    const base64Data = base64.split(",")[1];
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const pdfDoc = await PDFDocument.load(bytes, { updateMetadata: false });
+    const compressed = await pdfDoc.save({ useObjectStreams: true });
+    // Convert back to base64 in chunks to avoid stack overflow
+    const chunks = [];
+    const chunkSize = 0x8000;
+    for (let i = 0; i < compressed.length; i += chunkSize) {
+      chunks.push(
+        String.fromCharCode.apply(null, compressed.subarray(i, i + chunkSize)),
+      );
+    }
+    const newBase64 = "data:application/pdf;base64," + btoa(chunks.join(""));
+    if (newBase64.length > maxBytes) {
+      throw new Error(
+        `PDF too large (${(newBase64.length / 1024).toFixed(0)} KB). Max allowed: ${(maxBytes / 1024).toFixed(0)} KB. Try a smaller file or scan at lower resolution.`,
+      );
+    }
+    return newBase64;
+  } catch (err) {
+    if (err.message && err.message.includes("Max allowed")) throw err;
+    throw new Error(
+      "PDF compression failed: " + (err.message || "Unknown error"),
+    );
+  } finally {
+    hidePdfCompressing();
+  }
+}
+
 function getDirectImageUrl(url) {
   if (!url || url.startsWith("data:")) return url;
   const match = url.match(/\/d\/(.+?)\//) || url.match(/id=([^&]+)/);
@@ -2313,10 +2386,17 @@ function processIncomingMultiAttachments(files, previewId) {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       let data = ev.target.result;
-      if (!file.type.includes("pdf"))
-        data = await compressImageToTargetLimit(data, 190000);
-      currentModalFiles.push(data);
-      populateModalInlineImageGalleryPreviews(previewId);
+      try {
+        if (!file.type.includes("pdf")) {
+          data = await compressImageToTargetLimit(data, 190000);
+        } else {
+          data = await compressPdfToTargetLimit(data, 300000);
+        }
+        currentModalFiles.push(data);
+        populateModalInlineImageGalleryPreviews(previewId);
+      } catch (err) {
+        alert("⚠️ " + (err.message || "Failed to process file."));
+      }
     };
     reader.readAsDataURL(file);
   });
