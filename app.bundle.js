@@ -1808,6 +1808,11 @@ function getSelectedFinancialFields() {
 
 function generateReportHeader(title, project, settings) {
   if (settings && settings.data) settings = settings.data;
+  if (!settings) {
+    const cache = getCache();
+    settings = cache.settings || {};
+    if (settings.data) settings = settings.data;
+  }
   const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -1825,6 +1830,38 @@ function generateReportHeader(title, project, settings) {
     html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px;"><div><strong style="color:#000;">Client:</strong> ${escapeHtml(project.clientName || "—")}</div><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div><strong style="color:#000;">Location:</strong> ${escapeHtml(project.siteLocation || "—")}</div><div><strong style="color:#000;">Phone:</strong> ${escapeHtml(project.clientPhone || "—")}</div></div></div>`;
   html += `</div>`;
   return html;
+}
+
+function generateReportFooter() {
+  return `<div class="report-footer">
+    <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+    <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+  </div>`;
+}
+
+function generateSignatureBlock(settings) {
+  if (settings && settings.data) settings = settings.data;
+  if (!settings) {
+    const cache = getCache();
+    settings = cache.settings || {};
+    if (settings.data) settings = settings.data;
+  }
+  const signName =
+    settings && settings.Name_Signed ? escapeHtml(settings.Name_Signed) : "";
+  const signImg =
+    settings && settings.Sign_Signed
+      ? getDirectImageUrl(settings.Sign_Signed)
+      : "";
+  const hasSignature = signName || signImg;
+  if (!hasSignature) return "";
+  return `<div style="margin-top: 32px; page-break-inside: avoid; text-align: left;">
+    <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
+    <div style="display: inline-block; text-align: center;">
+      ${signImg ? `<div style="margin-bottom: 4px;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
+      <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
+      <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
+    </div>
+  </div>`;
 }
 
 function computeProjectFinancials(project, payments) {
@@ -2011,12 +2048,28 @@ function renderFinancialAll(projects, payments, selectedFields) {
     .join("");
   const totalCells = totalMapFn();
   const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalCells[c.key]).join("")}</tr>`;
-  return `${generateReportHeader("Financial Summary — All Projects", null)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead>${thead}</thead><tbody>${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}${totalRow}</tbody></table>`;
+  const table = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead>${thead}</thead><tbody>${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}${totalRow}</tbody></table>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Financial Summary — All Projects", null)}
+      ${table}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderFinancialProject(project, payments) {
   const f = computeProjectFinancials(project, payments);
-  return `${generateReportHeader("Financial Report — Project", project)}<div style="max-width: 420px; margin: 0 auto;">${financialRowHTML("Contract Subtotal", f.subtotal)}${financialRowHTML("VAT (" + formatTaxRate(getTaxRate("VAT")) + ")", f.vat)}${financialRowHTML("Total Contract Value", f.totalContract, true)}${financialRowHTML("WHT (" + formatTaxRate(getTaxRate("WHT")) + ")", f.wht)}${financialRowHTML("Net Receivable (after WHT)", f.netReceivable, true)}<div style="height: 10px;"></div>${financialRowHTML("Client Receipts (Cleared)", f.totalReceived, false, "var(--success)")}${financialRowHTML("Total Outgoing (Cleared)", f.totalOutgoing, false, "var(--danger)")}${financialRowHTML("Small Expenses (Cleared)", f.smallExpenses)}${financialRowHTML("Pending Payments", f.totalPending, false, "#fd7e14")}<div style="height: 10px;"></div>${financialRowHTML("Balance Expected", f.balanceExpected, true)}${financialRowHTML("Net Profit", f.netProfit, true, f.netProfit >= 0 ? "var(--success)" : "var(--danger)")}</div>`;
+  const body = `<div style="max-width: 420px; margin: 0 auto;">${financialRowHTML("Contract Subtotal", f.subtotal)}${financialRowHTML("VAT (" + formatTaxRate(getTaxRate("VAT")) + ")", f.vat)}${financialRowHTML("Total Contract Value", f.totalContract, true)}${financialRowHTML("WHT (" + formatTaxRate(getTaxRate("WHT")) + ")", f.wht)}${financialRowHTML("Net Receivable (after WHT)", f.netReceivable, true)}<div style="height: 10px;"></div>${financialRowHTML("Client Receipts (Cleared)", f.totalReceived, false, "var(--success)")}${financialRowHTML("Total Outgoing (Cleared)", f.totalOutgoing, false, "var(--danger)")}${financialRowHTML("Small Expenses (Cleared)", f.smallExpenses)}${financialRowHTML("Pending Payments", f.totalPending, false, "#fd7e14")}<div style="height: 10px;"></div>${financialRowHTML("Balance Expected", f.balanceExpected, true)}${financialRowHTML("Net Profit", f.netProfit, true, f.netProfit >= 0 ? "var(--success)" : "var(--danger)")}</div>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Financial Report — Project", project)}
+      ${body}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderFinancialClient(clientName, projects, payments) {
@@ -2057,7 +2110,15 @@ function renderFinancialClient(clientName, projects, payments) {
   tPen = roundMoney(tPen);
   tBal = roundMoney(tBal);
   tPro = roundMoney(tPro);
-  return `${generateReportHeader(`Financial Report — Client: ${clientName}`, null)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Project</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Subtotal</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">VAT</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Total</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">WHT</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Received</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Outgoing</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Small Exp.</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Pending</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Balance</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Net Profit</th></tr></thead><tbody>${rows || '<tr><td colspan="11" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:#fd7e14;">₦${moneyValue(tPen)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tBal)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:${tPro >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(tPro)}</td></tr></tbody></table>`;
+  const tableHtml = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Project</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Subtotal</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">VAT</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Total</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">WHT</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Received</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Outgoing</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Small Exp.</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Pending</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Balance</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-weight:700; text-transform:uppercase; font-size:10px;">Net Profit</th></tr></thead><tbody>${rows || '<tr><td colspan="11" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSub)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tVat)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tCon)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tWht)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--success);">₦${moneyValue(tRec)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:var(--danger);">₦${moneyValue(tOut)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tSml)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:#fd7e14;">₦${moneyValue(tPen)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(tBal)}</td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right; color:${tPro >= 0 ? "var(--success)" : "var(--danger)"};">₦${moneyValue(tPro)}</td></tr></tbody></table>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader(`Financial Report — Client: ${clientName}`, null)}
+      ${tableHtml}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderFinancialVendor(vendor, projects, workorders, payments) {
@@ -2090,42 +2151,31 @@ function renderFinancialVendor(vendor, projects, workorders, payments) {
       return `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(p.paymentDate)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(proj ? proj.projectId : p.projectId)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(p.expenseCategory || "-")}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; font-weight:700;">₦${moneyValue(p.amount)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:center;">${escapeHtml(p.status)}</td></tr>`;
     })
     .join("");
-  return `${generateReportHeader(`Financial Report — Vendor: ${vendor.company}`, null)}<div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;"><div><strong>Trade:</strong> ${escapeHtml(vendor.trade || "—")}</div><div><strong>Contact:</strong> ${escapeHtml(vendor.contactName || "—")}</div><div><strong>Phone:</strong> ${escapeHtml(vendor.phone1 || "—")}</div><div><strong>Email:</strong> ${escapeHtml(vendor.email || "—")}</div></div><h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Work Orders</h3><table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">WO ID</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Project</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th><th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th></tr></thead><tbody>${woRows || '<tr><td colspan="5" style="padding:8px; text-align:center; color:#495057;">No work orders</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td><td style="border-bottom:2px solid #000; padding:8px;"></td></tr></tbody></table><h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Payments</h3><table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Project</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Category</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th><th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th></tr></thead><tbody>${payRows || '<tr><td colspan="5" style="padding:8px; text-align:center; color:#495057;">No payments</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL CLEARED</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalPaid)}</td><td style="border-bottom:2px solid #000; padding:8px;"></td></tr></tbody></table><div style="max-width: 350px; margin: 20px 0 0 auto;">${financialRowHTML("Total Work Order Value", totalWO, true)}${financialRowHTML("Total Paid (Cleared)", totalPaid, false, "var(--danger)")}${financialRowHTML("Pending Payments", totalPending, false, "#fd7e14")}${financialRowHTML("Balance / Outstanding", balance, true, balance > 0 ? "var(--danger)" : "var(--success)")}</div>`;
+  const body = `<div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;"><div><strong>Trade:</strong> ${escapeHtml(vendor.trade || "—")}</div><div><strong>Contact:</strong> ${escapeHtml(vendor.contactName || "—")}</div><div><strong>Phone:</strong> ${escapeHtml(vendor.phone1 || "—")}</div><div><strong>Email:</strong> ${escapeHtml(vendor.email || "—")}</div></div><h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Work Orders</h3><table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">WO ID</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Project</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th><th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th></tr></thead><tbody>${woRows || '<tr><td colspan="5" style="padding:8px; text-align:center; color:#495057;">No work orders</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td><td style="border-bottom:2px solid #000; padding:8px;"></td></tr></tbody></table><h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Payments</h3><table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Project</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Category</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th><th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th></tr></thead><tbody>${payRows || '<tr><td colspan="5" style="padding:8px; text-align:center; color:#495057;">No payments</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL CLEARED</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalPaid)}</td><td style="border-bottom:2px solid #000; padding:8px;"></td></tr></tbody></table><div style="max-width: 350px; margin: 20px 0 0 auto;">${financialRowHTML("Total Work Order Value", totalWO, true)}${financialRowHTML("Total Paid (Cleared)", totalPaid, false, "var(--danger)")}${financialRowHTML("Pending Payments", totalPending, false, "#fd7e14")}${financialRowHTML("Balance / Outstanding", balance, true, balance > 0 ? "var(--danger)" : "var(--success)")}</div>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader(`Financial Report — Vendor: ${vendor.company}`, null)}
+      ${body}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderScopeReport(project, settings) {
-  // Normalize: getSettings returns {data: {...}} or the cache may hold the raw response
   if (settings && settings.data) settings = settings.data;
-  const signName =
-    settings && settings.Name_Signed ? escapeHtml(settings.Name_Signed) : "";
-  const signImg =
-    settings && settings.Sign_Signed
-      ? getDirectImageUrl(settings.Sign_Signed)
-      : "";
-  const hasSignature = signName || signImg;
-
-  let signatureBlock = "";
-  if (hasSignature) {
-    signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid; text-align: left;">
-      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
-      <div style="display: inline-block; text-align: center;">
-        ${signImg ? `<div style="margin-bottom: 4px;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
-        <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
-        <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
-      </div>
-    </div>`;
+  if (!settings) {
+    const cache = getCache();
+    settings = cache.settings || {};
+    if (settings.data) settings = settings.data;
   }
-
   return `<div class="report-page-wrapper">
     <div class="report-content">
       ${generateReportHeader("Project Scope", project, settings)}
       <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>
-      ${signatureBlock}
+      ${generateSignatureBlock(settings)}
     </div>
-    <div class="report-footer">
-      <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
-      <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
-    </div>
+    ${generateReportFooter()}
   </div>`;
 }
 
@@ -2136,6 +2186,10 @@ function renderSnagsReport(project, snags) {
   const pages = [];
   for (let i = 0; i < sorted.length; i += 6) pages.push(sorted.slice(i, i + 6));
   if (!pages.length) pages.push([]);
+  const footer = `<div style="position:absolute; bottom:8px; left:0; right:0; padding-top:12px; border-top:1px solid #adb5bd; font-size:10px; color:#495057; line-height:1.5; text-align:center;">
+    <div style="font-weight:700; margin-bottom:4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+    <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+  </div>`;
   return pages
     .map((pageSnags, idx) => {
       const header =
@@ -2155,7 +2209,7 @@ function renderSnagsReport(project, snags) {
           `<div class="snag-report-card" style="opacity:0.3;"><div style="height:100%; display:flex; align-items:center; justify-content:center; font-size:12px; color:#adb5bd; font-weight:700;">—</div></div>`,
         )
         .join("");
-      return `<div class="snags-report-page">${header}<div class="snags-report-grid">${cards}${emptyCards}</div></div>`;
+      return `<div class="snags-report-page" style="position:relative; min-height:calc(297mm - 30mm);">${header}<div class="snags-report-grid">${cards}${emptyCards}</div>${footer}</div>`;
     })
     .join("");
 }
@@ -2170,7 +2224,15 @@ function renderProgressReport(project, logs) {
         `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; white-space:nowrap;">${escapeHtml(l.dateRecorded)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(l.tradeCategory)}</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><div style="background:#e9ecef; border-radius:4px; height:16px; width:100px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:8px;"><div style="background:var(--primary); height:100%; width:${Math.min(100, Math.max(0, Number(l.completionPercentage) || 0))}%;"></div></div><strong>${escapeHtml(l.completionPercentage)}%</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(l.commentNarrative || "—")}</td></tr>`,
     )
     .join("");
-  return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
+  const table = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Progress Report", project)}
+      ${table}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderTakeoffReport(project, items) {
@@ -2183,11 +2245,19 @@ function renderTakeoffReport(project, items) {
       return `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.description)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">${escapeHtml(i.quantity)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(i.unit)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; color:#495057;">${escapeHtml(i.scopeNotes || "—")}</td></tr>`;
     })
     .join("");
-  return `${generateReportHeader("Take-Off Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Qty</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Unit</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Remarks</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No take-off items recorded.</td></tr>'}</tbody></table>`;
+  const table = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Qty</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Unit</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Remarks</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No take-off items recorded.</td></tr>'}</tbody></table>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Take-Off Report", project)}
+      ${table}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderWorkOrderReport(project, workorders, vendors, settings) {
-  // Build terms & conditions from settings WO1-W10
+  if (settings && settings.data) settings = settings.data;
   const terms = [];
   for (let i = 1; i <= 10; i++) {
     const key = `WO${i}`;
@@ -2219,8 +2289,7 @@ function renderWorkOrderReport(project, workorders, vendors, settings) {
       </ol>
     </div>`;
   }
-  return `${generateReportHeader("Work Orders Report", project)}
-    <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
+  const body = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
       <thead>
         <tr>
           <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">WO ID</th>
@@ -2241,6 +2310,14 @@ function renderWorkOrderReport(project, workorders, vendors, settings) {
       </tbody>
     </table>
     ${termsHtml}`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Work Orders Report", project)}
+      ${body}
+      ${generateSignatureBlock(settings)}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 async function compileFieldReport(btn) {
@@ -3631,6 +3708,7 @@ function populateWorkOrderDropdown() {
 }
 
 function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
+  if (settings && settings.data) settings = settings.data;
   const vendor = vendors.find((v) => v.vendorId === workorder.vendorId);
   const terms = [];
   for (let i = 1; i <= 10; i++) {
@@ -3692,8 +3770,7 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
     </div>`;
   }
 
-  return `${generateReportHeader("Work Order", project)}
-    <div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+  const body = `<div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
       <div><strong>Work Order ID:</strong> ${escapeHtml(workorder.workOrderId)}</div>
       <div><strong>Vendor:</strong> ${escapeHtml(vendor ? vendor.company : workorder.vendorId)}${vendor && vendor.trade ? ` (${escapeHtml(vendor.trade)})` : ""}</div>
       <div><strong>Contact:</strong> ${escapeHtml(vendor ? vendor.contactName : "—")}</div>
@@ -3720,6 +3797,14 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
     </table>
     ${notesHtml}
     ${termsHtml}`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Work Order", project)}
+      ${body}
+      ${generateSignatureBlock(settings)}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 // ===== dashboard.js =====
