@@ -1454,6 +1454,7 @@ const GET_ACTION_BY_STORE = {
 const MUTATION_MAP = {
   saveProject: { store: "projects", idKey: "projectId", mode: "upsert" },
   updateProject: { store: "projects", idKey: "projectId", mode: "upsert" },
+  updateProjectScope: { store: "projects", idKey: "projectId", mode: "upsert" },
   saveTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
@@ -1859,6 +1860,23 @@ function generateReportHeader(title, project, settings) {
     html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px;"><div><strong style="color:#000;">Client:</strong> ${escapeHtml(project.clientName || "—")}</div><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div><strong style="color:#000;">Location:</strong> ${escapeHtml(project.siteLocation || "—")}</div><div><strong style="color:#000;">Phone:</strong> ${escapeHtml(project.clientPhone || "—")}</div></div></div>`;
   html += `</div>`;
   return html;
+}
+
+function generateSignatureBlock() {
+  return `<div style="margin-top: 32px; page-break-inside: avoid;">
+    <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
+    <div style="display: inline-block; text-align: center;">
+      <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
+      <div style="font-size: 12px; font-weight: 700;">_________________________</div>
+    </div>
+  </div>`;
+}
+
+function generateReportFooter() {
+  return `<div class="report-footer">
+    <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+    <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+  </div>`;
 }
 
 function computeProjectFinancials(project, payments) {
@@ -3307,11 +3325,20 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
       window.onPaymentDirectionChange();
     };
     window.recalcPaymentBalance();
+    document.getElementById("pay_amount").addEventListener("input", () => {
+      if (document.getElementById("pay_dir").value === "Small Expense") {
+        const amt = document.getElementById("pay_amount").value;
+        document.getElementById("pay_total_invoice").value = amt;
+        window.recalcPaymentBalance();
+      }
+    });
     submit.onclick = () => {
+      const direction = document.getElementById("pay_dir").value;
+      const isSmall = direction === "Small Expense";
       const totalInvoice = roundMoney(
         Number(document.getElementById("pay_total_invoice").value) || 0,
       );
-      if (!totalInvoice || totalInvoice <= 0) {
+      if (!isSmall && (!totalInvoice || totalInvoice <= 0)) {
         alert("Enter a valid Total Invoice amount");
         return;
       }
@@ -3356,7 +3383,7 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
         expenseCategory: document.getElementById("pay_cat").value,
         referenceId: "",
         amount: stageAmount,
-        totalInvoice: totalInvoice,
+        totalInvoice: isSmall ? stageAmount : totalInvoice,
         paymentMethod: document.getElementById("pay_method").value,
         status: "",
         stage: stage,
