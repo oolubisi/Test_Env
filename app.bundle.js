@@ -1759,7 +1759,7 @@ async function handleReportFilterPopulation() {
 function updateFieldSelectorVisibility() {
   const type = document.getElementById("rep-type-sel").value;
   let wrap = document.getElementById("rep-field-selector-wrap");
-  const btn = document.querySelector('button[onclick="compileFieldReport()"]');
+  const btn = document.querySelector('button[onclick*="compileFieldReport"]');
 
   if (type === "financial_all") {
     if (!wrap) {
@@ -1784,7 +1784,14 @@ function updateFieldSelectorVisibility() {
           <label style="display:flex; align-items:center; gap:6px; cursor:pointer;"><input type="checkbox" class="rep-field-chk" value="netProfit" checked style="width:auto;"> Net Profit</label>
         </div>
       `;
-      if (btn) btn.parentNode.insertBefore(wrap, btn);
+      if (btn && btn.parentNode) {
+        btn.parentNode.insertBefore(wrap, btn);
+      } else {
+        const filterWrap = document.getElementById("rep-filter-wrap");
+        if (filterWrap && filterWrap.parentNode) {
+          filterWrap.parentNode.insertBefore(wrap, filterWrap.nextSibling);
+        }
+      }
     }
     wrap.style.display = "block";
   } else {
