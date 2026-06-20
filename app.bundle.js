@@ -2444,7 +2444,6 @@ async function openModal(type, editData = null) {
         .catch(resetSubmitOnError(submit));
     };
   } else if (type === "takeoff_item") {
-    const uniqueId = isEdit ? editData.itemId : "TO-" + Date.now();
     title.innerText = isEdit ? "Edit Take-Off" : "New Take-Off";
     if (isEdit && editData.beforePhotoUrl)
       currentModalFiles = splitAttachments(editData.beforePhotoUrl);
@@ -2456,9 +2455,74 @@ async function openModal(type, editData = null) {
     ).join("");
     const unitOptions = MASTER_UNITS.map(
       (u) =>
-        `<option value="${escapeAttr(u.value)}" ${isEdit && editData.unit === u.value ? "selected" : ""}>${escapeHtml(u.label)}</option>`,
+        `<option value="${escapeAttr(u.value)}">${escapeHtml(u.label)}</option>`,
     ).join("");
-    body.innerHTML = `<label ${labelStyle}>Room/Area</label><input list="master-room-types" id="t_room" value="${escapeAttr(isEdit ? editData.roomArea : "")}" placeholder="Select or type..." ${largeInput}><datalist id="master-room-types">${roomOptions}</datalist><label ${labelStyle}>Trade Category</label><input list="master-trade-cats" id="t_trade" value="${escapeAttr(isEdit ? editData.tradeCategory : "")}" placeholder="Select or type..." ${largeInput}><datalist id="master-trade-cats">${tradeOptions}</datalist><label ${labelStyle}>Description</label><input id="t_desc" value="${escapeAttr(isEdit ? editData.description : "")}" ${largeInput}><div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><input id="t_qty" placeholder="Quantity" value="${escapeAttr(isEdit ? editData.quantity : "")}" ${largeInput}><select id="t_unit" ${largeInput}><option value="" ${!isEdit ? "selected" : ""} disabled>Select unit</option>${unitOptions}</select></div><label ${labelStyle}>Remarks</label><textarea id="t_notes" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.scopeNotes : "")}</textarea><div id="takeoffAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div><label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="t_photo" accept="image/*" multiple style="display:none"></label>${isEdit ? `<button class="action-btn" id="t_delete_btn" style="background:var(--danger); margin-top:10px;">Delete</button>` : ""}`;
+
+    let rows = [];
+    if (isEdit) {
+      rows = [
+        {
+          itemId: editData.itemId,
+          roomArea: editData.roomArea || "",
+          tradeCategory: editData.tradeCategory || "",
+          description: editData.description || "",
+          quantity: editData.quantity || "",
+          unit: editData.unit || "",
+          notes: editData.scopeNotes || "",
+        },
+      ];
+    } else {
+      rows = [
+        {
+          itemId: "",
+          roomArea: "",
+          tradeCategory: "",
+          description: "",
+          quantity: "",
+          unit: "",
+          notes: "",
+        },
+      ];
+    }
+
+    const rowHtml = rows
+      .map(
+        (row) =>
+          `<tr class="to-line-row" data-item-id="${escapeAttr(row.itemId)}">
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-room-types" class="to-line-room" value="${escapeAttr(row.roomArea)}" placeholder="Room" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-trade-cats" class="to-line-trade" value="${escapeAttr(row.tradeCategory)}" placeholder="Trade" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(row.description)}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="to-line-qty" type="number" value="${escapeAttr(row.quantity)}" placeholder="Qty" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><select class="to-line-unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><option value="" disabled ${!row.unit ? "selected" : ""}>Select unit</option>${unitOptions}</select></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-notes" value="${escapeAttr(row.notes)}" placeholder="Notes" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>
+      </tr>`,
+      )
+      .join("");
+
+    body.innerHTML = `<datalist id="master-room-types">${roomOptions}</datalist><datalist id="master-trade-cats">${tradeOptions}</datalist>
+    <label ${labelStyle}>Line Items</label>
+    <div style="overflow-x:auto;">
+    <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px; min-width:600px;">
+      <thead>
+        <tr style="background:#000; color:#fff;">
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Room</th>
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Trade</th>
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase; width:90px;">U/M</th>
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Notes</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody id="to_line_items_body">${rowHtml}</tbody>
+    </table>
+    </div>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.addTakeOffLineItem()"><i class="fas fa-plus"></i> Add Line Item</button>
+    <div id="takeoffAttachmentsPreviews" class="modal-preview-grid" style="display:none; margin-top:12px;"></div>
+    <label class="icon-upload-label" style="margin-top:10px;"><i class="fas fa-paperclip"></i><input type="file" id="t_photo" accept="image/*" multiple style="display:none"></label>
+    ${isEdit ? `<button class="action-btn" id="t_delete_btn" style="background:var(--danger); margin-top:10px;">Delete Item</button>` : ""}`;
+
     if (currentModalFiles.length)
       populateModalInlineImageGalleryPreviews("takeoffAttachmentsPreviews");
     document.getElementById("t_photo").onchange = (e) =>
@@ -2469,7 +2533,9 @@ async function openModal(type, editData = null) {
     if (isEdit) {
       document.getElementById("t_delete_btn").onclick = () => {
         if (confirm("Delete this item?")) {
-          callApi("deleteTakeOffItem", { itemId: uniqueId })
+          const itemId = document.querySelector("#to_line_items_body tr")
+            .dataset.itemId;
+          callApi("deleteTakeOffItem", { itemId })
             .then(() => {
               closeModal();
               loadTakeOffListings(true);
@@ -2479,37 +2545,61 @@ async function openModal(type, editData = null) {
       };
     }
     submit.onclick = async () => {
-      if (!document.getElementById("t_unit").value) {
-        alert("Select a unit");
-        return;
-      }
       submit.disabled = true;
       submit.innerText = "GPS...";
       const gps = await getGPSLocation();
       submit.innerText = "Saving...";
-      const finalNotes =
-        document.getElementById("t_notes").value +
-        (gps !== "GPS Unavailable"
-          ? `
+      const photoUrl = normalizeAttachments(currentModalFiles);
+      const projectId = getCurrentProjectId();
+      const tableRows = document.querySelectorAll("#to_line_items_body tr");
+      let savedCount = 0;
+      let errorCount = 0;
+
+      for (const row of Array.from(tableRows)) {
+        const room = row.querySelector(".to-line-room").value.trim();
+        const desc = row.querySelector(".to-line-desc").value.trim();
+        if (!desc) continue;
+        const unit = row.querySelector(".to-line-unit").value;
+        if (!unit) {
+          alert("Select a unit for all line items");
+          submit.disabled = false;
+          submit.innerText = "Save";
+          return;
+        }
+        const itemId =
+          row.dataset.itemId ||
+          "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5);
+        const finalNotes =
+          row.querySelector(".to-line-notes").value +
+          (gps !== "GPS Unavailable"
+            ? `
 📍 ${gps}`
-          : "");
-      const payload = {
-        itemId: uniqueId,
-        projectId: getCurrentProjectId(),
-        roomArea: document.getElementById("t_room").value,
-        tradeCategory: document.getElementById("t_trade").value,
-        description: document.getElementById("t_desc").value,
-        quantity: document.getElementById("t_qty").value,
-        unit: document.getElementById("t_unit").value,
-        beforePhotoUrl: normalizeAttachments(currentModalFiles),
-        scopeNotes: finalNotes,
-      };
-      callApi(isEdit ? "updateTakeOffItem" : "saveTakeOffItem", payload)
-        .then(() => {
-          closeModal();
-          loadTakeOffListings(true);
-        })
-        .catch(resetSubmitOnError(submit));
+            : "");
+        const payload = {
+          itemId: itemId,
+          projectId: projectId,
+          roomArea: room,
+          tradeCategory: row.querySelector(".to-line-trade").value,
+          description: desc,
+          quantity: row.querySelector(".to-line-qty").value,
+          unit: unit,
+          beforePhotoUrl: photoUrl,
+          scopeNotes: finalNotes,
+        };
+        try {
+          await callApi(
+            row.dataset.itemId ? "updateTakeOffItem" : "saveTakeOffItem",
+            payload,
+          );
+          savedCount++;
+        } catch (e) {
+          errorCount++;
+          console.error("Failed to save take-off item:", e);
+        }
+      }
+      closeModal();
+      loadTakeOffListings(true);
+      if (errorCount > 0) alert(`${savedCount} saved, ${errorCount} failed.`);
     };
   } else if (type === "progress_entry") {
     const uniqueId = "LOG-" + Date.now();
@@ -2684,9 +2774,10 @@ async function openModal(type, editData = null) {
         (item) =>
           `<tr class="wo-line-row">
         <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="wo-line-desc" value="${escapeAttr(item.description || "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
-        <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="wo-line-qty" type="number" value="${escapeAttr(item.qty || 1)}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
-        <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-rate" type="number" value="${escapeAttr(item.rate || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
-        <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-amt" type="number" value="${escapeAttr(item.amount || 0)}" disabled style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right; background:#f5f5f5;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="wo-line-qty" type="number" value="${escapeAttr(item.qty || 1)}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="wo-line-um" value="${escapeAttr(item.um || "")}" placeholder="U/M" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:center;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><input class="wo-line-rate" type="number" value="${escapeAttr(item.rate || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><input class="wo-line-amt" type="number" value="${escapeAttr(item.amount || 0)}" disabled style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right; background:#f5f5f5;"></td>
         <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove(); window.recalcWorkOrderTotal();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>
       </tr>`,
       )
@@ -2698,9 +2789,10 @@ async function openModal(type, editData = null) {
       <thead>
         <tr style="background:#000; color:#fff;">
           <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
-          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:70px;">Qty</th>
-          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:100px;">Rate (₦)</th>
-          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:100px;">Amount (₦)</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
+          <th style="padding:6px; text-align:center; font-size:10px; text-transform:uppercase; width:70px;">U/M</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:90px;">Rate (₦)</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:90px;">Amount (₦)</th>
           <th style="width:30px;"></th>
         </tr>
       </thead>
@@ -2732,10 +2824,12 @@ async function openModal(type, editData = null) {
         const desc = row.querySelector(".wo-line-desc").value.trim();
         if (desc) {
           const qty = Number(row.querySelector(".wo-line-qty").value) || 0;
+          const um = row.querySelector(".wo-line-um").value.trim();
           const rate = Number(row.querySelector(".wo-line-rate").value) || 0;
           lineItems.push({
             description: desc,
             qty: qty,
+            um: um,
             rate: rate,
             amount: roundMoney(qty * rate),
           });
@@ -3187,15 +3281,37 @@ function openAddStageModal(groupId) {
 }
 
 // ===== workorder-helpers.js =====
-function addWorkOrderLineItem(desc, qty, rate) {
+function addTakeOffLineItem(rowData) {
+  const tbody = document.getElementById("to_line_items_body");
+  if (!tbody) return;
+  const unitOptions = MASTER_UNITS.map(
+    (u) =>
+      `<option value="${escapeAttr(u.value)}" ${rowData && rowData.unit === u.value ? "selected" : ""}>${escapeHtml(u.label)}</option>`,
+  ).join("");
+  const row = document.createElement("tr");
+  row.className = "to-line-row";
+  row.dataset.itemId =
+    rowData && rowData.itemId ? escapeAttr(rowData.itemId) : "";
+  row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-room-types" class="to-line-room" value="${escapeAttr(rowData && rowData.roomArea ? rowData.roomArea : "")}" placeholder="Room" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border);"><input list="master-trade-cats" class="to-line-trade" value="${escapeAttr(rowData && rowData.tradeCategory ? rowData.tradeCategory : "")}" placeholder="Trade" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(rowData && rowData.description ? rowData.description : "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="to-line-qty" type="number" value="${escapeAttr(rowData && rowData.quantity ? rowData.quantity : "")}" placeholder="Qty" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><select class="to-line-unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><option value="" disabled ${!(rowData && rowData.unit) ? "selected" : ""}>Select unit</option>${unitOptions}</select></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-notes" value="${escapeAttr(rowData && rowData.notes ? rowData.notes : "")}" placeholder="Notes" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>`;
+  tbody.appendChild(row);
+}
+
+function addWorkOrderLineItem(desc, qty, um, rate) {
   const tbody = document.getElementById("wo_line_items_body");
   if (!tbody) return;
   const row = document.createElement("tr");
   row.className = "wo-line-row";
   row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input class="wo-line-desc" value="${escapeAttr(desc || "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
-  <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="wo-line-qty" type="number" value="${escapeAttr(qty || 1)}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
-  <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-rate" type="number" value="${escapeAttr(rate || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
-  <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-amt" type="number" value="0" disabled style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right; background:#f5f5f5;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="wo-line-qty" type="number" value="${escapeAttr(qty || 1)}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="wo-line-um" value="${escapeAttr(um || "")}" placeholder="U/M" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:center;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><input class="wo-line-rate" type="number" value="${escapeAttr(rate || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><input class="wo-line-amt" type="number" value="0" disabled style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right; background:#f5f5f5;"></td>
   <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove(); window.recalcWorkOrderTotal();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>`;
   tbody.appendChild(row);
   recalcWorkOrderTotal();
@@ -3301,6 +3417,7 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
         `<tr>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(item.description)}</td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">${escapeHtml(String(item.qty))}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:center; vertical-align:top;">${escapeHtml(item.um || "—")}</td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(item.rate)}</td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">₦${moneyValue(item.amount)}</td>
     </tr>`,
@@ -3339,15 +3456,16 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
       <thead>
         <tr>
           <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">Qty</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:100px;">Rate (₦)</th>
-          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:100px;">Amount (₦)</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
+          <th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">U/M</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Rate (₦)</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Amount (₦)</th>
         </tr>
       </thead>
       <tbody>
         ${itemRows}
         <tr style="background:#e9ecef; font-weight:900;">
-          <td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
+          <td colspan="4" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
           <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
         </tr>
       </tbody>
@@ -4116,6 +4234,7 @@ window.openAddStageModal = openAddStageModal;
 window.addWorkOrderLineItem = addWorkOrderLineItem;
 window.recalcWorkOrderTotal = recalcWorkOrderTotal;
 window.populateWorkOrderDropdown = populateWorkOrderDropdown;
+window.addTakeOffLineItem = addTakeOffLineItem;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
