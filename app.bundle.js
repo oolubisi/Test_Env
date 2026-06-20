@@ -2045,7 +2045,15 @@ function renderFinancialAll(projects, payments, selectedFields) {
     .join("");
   const totalCells = totalMapFn();
   const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalCells[c.key]).join("")}</tr>`;
-  return `${generateReportHeader("Financial Summary — All Projects", null)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead>${thead}</thead><tbody>${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}${totalRow}</tbody></table>`;
+  const table = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead>${thead}</thead><tbody>${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}${totalRow}</tbody></table>`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Financial Summary — All Projects", null)}
+      ${table}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderFinancialProject(project, payments) {
