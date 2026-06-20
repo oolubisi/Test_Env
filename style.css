@@ -273,7 +273,6 @@ input[type="checkbox"] {
 .report-page-wrapper {
   position: relative;
   min-height: calc(297mm - 30mm);
-  padding-bottom: 50px; /* space for footer */
 }
 .report-page-wrapper > .report-content {
   /* content flows naturally */
@@ -360,7 +359,6 @@ input[type="checkbox"] {
   .report-page-wrapper {
     position: relative;
     min-height: calc(297mm - 30mm);
-    padding-bottom: 50px;
     page-break-inside: avoid;
   }
   .report-page-wrapper > .report-content {
