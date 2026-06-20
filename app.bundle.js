@@ -1570,7 +1570,7 @@ async function generateReportPDF() {
     let position = 0;
     pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
     heightLeft -= pdfHeight;
-    while (heightLeft > 0) {
+    while (heightLeft > 2) {
       position = heightLeft - scaledHeight;
       pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
