@@ -1806,13 +1806,19 @@ function getSelectedFinancialFields() {
   return fields;
 }
 
-function generateReportHeader(title, project) {
+function generateReportHeader(title, project, settings) {
   const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
-  let html = `<div class="report-header" style="border-bottom: 2.5px solid #000; padding-bottom: 14px; margin-bottom: 18px;"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><div style="font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -0.8px; line-height: 1.1;">FieldScan Pro</div><div style="font-size: 12px; color: #495057; margin-top: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(title)}</div></div><div style="text-align: right; font-size: 11px; color: #495057; font-weight: 600;"><div>${escapeHtml(dateStr)}</div></div></div>`;
+  const logoUrl =
+    settings && settings.Logo ? getDirectImageUrl(settings.Logo) : "";
+  let html = `<div class="report-header" style="border-bottom: 2.5px solid #000; padding-bottom: 14px; margin-bottom: 18px;"><div style="display: flex; justify-content: space-between; align-items: flex-start;">`;
+  if (logoUrl) {
+    html += `<div style="flex-shrink:0; margin-right:16px;"><img src="${escapeAttr(logoUrl)}" style="max-height:60px; max-width:140px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
+  }
+  html += `<div style="flex:1;"><div style="font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -0.8px; line-height: 1.1;">FieldScan Pro</div><div style="font-size: 12px; color: #495057; margin-top: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(title)}</div></div><div style="text-align: right; font-size: 11px; color: #495057; font-weight: 600;"><div>${escapeHtml(dateStr)}</div></div></div>`;
   if (project)
     html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px;"><div><strong style="color:#000;">Client:</strong> ${escapeHtml(project.clientName || "—")}</div><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div><strong style="color:#000;">Location:</strong> ${escapeHtml(project.siteLocation || "—")}</div><div><strong style="color:#000;">Phone:</strong> ${escapeHtml(project.clientPhone || "—")}</div></div></div>`;
   html += `</div>`;
@@ -2085,8 +2091,35 @@ function renderFinancialVendor(vendor, projects, workorders, payments) {
   return `${generateReportHeader(`Financial Report — Vendor: ${vendor.company}`, null)}<div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;"><div><strong>Trade:</strong> ${escapeHtml(vendor.trade || "—")}</div><div><strong>Contact:</strong> ${escapeHtml(vendor.contactName || "—")}</div><div><strong>Phone:</strong> ${escapeHtml(vendor.phone1 || "—")}</div><div><strong>Email:</strong> ${escapeHtml(vendor.email || "—")}</div></div><h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Work Orders</h3><table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">WO ID</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Project</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th><th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th></tr></thead><tbody>${woRows || '<tr><td colspan="5" style="padding:8px; text-align:center; color:#495057;">No work orders</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td><td style="border-bottom:2px solid #000; padding:8px;"></td></tr></tbody></table><h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Payments</h3><table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Project</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Category</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th><th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th></tr></thead><tbody>${payRows || '<tr><td colspan="5" style="padding:8px; text-align:center; color:#495057;">No payments</td></tr>'}<tr style="background:#e9ecef; font-weight:900;"><td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL CLEARED</strong></td><td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalPaid)}</td><td style="border-bottom:2px solid #000; padding:8px;"></td></tr></tbody></table><div style="max-width: 350px; margin: 20px 0 0 auto;">${financialRowHTML("Total Work Order Value", totalWO, true)}${financialRowHTML("Total Paid (Cleared)", totalPaid, false, "var(--danger)")}${financialRowHTML("Pending Payments", totalPending, false, "#fd7e14")}${financialRowHTML("Balance / Outstanding", balance, true, balance > 0 ? "var(--danger)" : "var(--success)")}</div>`;
 }
 
-function renderScopeReport(project) {
-  return `${generateReportHeader("Project Scope", project)}<div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>`;
+function renderScopeReport(project, settings) {
+  const signName =
+    settings && settings.Name_Signed ? escapeHtml(settings.Name_Signed) : "";
+  const signImg =
+    settings && settings.Sign_Signed
+      ? getDirectImageUrl(settings.Sign_Signed)
+      : "";
+  const hasSignature = signName || signImg;
+
+  let signatureBlock = "";
+  if (hasSignature) {
+    signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid;">
+      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
+      <div style="display: flex; align-items: flex-end; gap: 16px;">
+        ${signImg ? `<div style="flex-shrink:0;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
+        <div style="flex:1;">
+          <div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 4px;"></div>
+          <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  const footer = `<div style="margin-top: 40px; padding-top: 12px; border-top: 1px solid #adb5bd; font-size: 10px; color: #495057; line-height: 1.5; text-align: center;">
+    <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+    <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+  </div>`;
+
+  return `${generateReportHeader("Project Scope", project, settings)}<div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>${signatureBlock}${footer}`;
 }
 
 function renderSnagsReport(project, snags) {
@@ -2290,7 +2323,8 @@ async function compileFieldReport(btn) {
         alert("Project not found");
         return;
       }
-      html = renderScopeReport(project);
+      await ensure("settings", "getSettings");
+      html = renderScopeReport(project, cache.settings || {});
     } else if (type === "snags") {
       const project = (cache.projects || []).find(
         (p) => p.projectId === filter,
