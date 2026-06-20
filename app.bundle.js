@@ -2114,12 +2114,17 @@ function renderScopeReport(project, settings) {
     </div>`;
   }
 
-  const footer = `<div style="margin-top: 40px; padding-top: 12px; border-top: 1px solid #adb5bd; font-size: 10px; color: #495057; line-height: 1.5; text-align: center;">
-    <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
-    <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Project Scope", project, settings)}
+      <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>
+      ${signatureBlock}
+    </div>
+    <div class="report-footer">
+      <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+      <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+    </div>
   </div>`;
-
-  return `${generateReportHeader("Project Scope", project, settings)}<div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>${signatureBlock}${footer}`;
 }
 
 function renderSnagsReport(project, snags) {
