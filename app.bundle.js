@@ -1517,7 +1517,10 @@ function applyLocalMutation(action, data) {
 }
 
 // ===== reports.js =====
-async function generateReportPDF() {
+async function generateReportPDF(orientation) {
+  orientation = (orientation || "portrait").toLowerCase();
+  const isLandscape = orientation === "landscape" || orientation === "l";
+  const jsPdfOrientation = isLandscape ? "landscape" : "portrait";
   const container = document.getElementById("report-print-container");
   if (!container || !container.innerText.trim()) {
     alert("Generate a report first");
@@ -1530,35 +1533,51 @@ async function generateReportPDF() {
     return null;
   }
 
-  const originalDisplay = container.style.display;
-  const originalVisibility = container.style.visibility;
-  const originalPosition = container.style.position;
-  const originalLeft = container.style.left;
-  const originalTop = container.style.top;
-  const originalWidth = container.style.width;
-  const originalZIndex = container.style.zIndex;
-  const originalBackground = container.style.background;
-  const originalPadding = container.style.padding;
+  const originals = {
+    display: container.style.display,
+    visibility: container.style.visibility,
+    position: container.style.position,
+    left: container.style.left,
+    top: container.style.top,
+    width: container.style.width,
+    maxWidth: container.style.maxWidth,
+    minWidth: container.style.minWidth,
+    zIndex: container.style.zIndex,
+    background: container.style.background,
+    padding: container.style.padding,
+  };
+
+  const tables = container.querySelectorAll("table");
+  const tableOriginalWidths = [];
+  tables.forEach((t, i) => {
+    tableOriginalWidths[i] = t.style.width;
+    t.style.width = "100%";
+    t.style.maxWidth = "none";
+  });
 
   container.style.display = "block";
   container.style.visibility = "visible";
   container.style.position = "fixed";
   container.style.left = "0";
   container.style.top = "0";
-  container.style.width = "210mm";
+  container.style.width = isLandscape ? "297mm" : "210mm";
+  container.style.maxWidth = "none";
+  container.style.minWidth = isLandscape ? "297mm" : "210mm";
   container.style.zIndex = "-9999";
   container.style.background = "white";
   container.style.padding = "15mm";
+  container.getBoundingClientRect();
 
   try {
+    const windowWidthPx = isLandscape ? 1123 : 794;
     const canvas = await html2canvas(container, {
       scale: 2,
       useCORS: true,
       logging: false,
-      windowWidth: 794,
+      windowWidth: windowWidthPx,
     });
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
-    const pdf = new jspdf.jsPDF("p", "mm", "a4");
+    const pdf = new jspdf.jsPDF(jsPdfOrientation, "mm", "a4");
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
     const imgProps = pdf.getImageProperties(imgData);
@@ -1570,7 +1589,7 @@ async function generateReportPDF() {
     let position = 0;
     pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
     heightLeft -= pdfHeight;
-    while (heightLeft > 0) {
+    while (heightLeft > 2) {
       position = heightLeft - scaledHeight;
       pdf.addPage();
       pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
@@ -1582,21 +1601,28 @@ async function generateReportPDF() {
     alert("Failed to generate PDF.");
     return null;
   } finally {
-    container.style.display = originalDisplay;
-    container.style.visibility = originalVisibility;
-    container.style.position = originalPosition;
-    container.style.left = originalLeft;
-    container.style.top = originalTop;
-    container.style.width = originalWidth;
-    container.style.zIndex = originalZIndex;
-    container.style.background = originalBackground;
-    container.style.padding = originalPadding;
+    container.style.display = originals.display;
+    container.style.visibility = originals.visibility;
+    container.style.position = originals.position;
+    container.style.left = originals.left;
+    container.style.top = originals.top;
+    container.style.width = originals.width;
+    container.style.maxWidth = originals.maxWidth;
+    container.style.minWidth = originals.minWidth;
+    container.style.zIndex = originals.zIndex;
+    container.style.background = originals.background;
+    container.style.padding = originals.padding;
+    tables.forEach((t, i) => {
+      t.style.width = tableOriginalWidths[i];
+      t.style.maxWidth = "";
+    });
   }
 }
 
 async function saveReportPDF() {
   const orientSel = document.getElementById("rep-orientation-sel");
-  const orientation = orientSel ? orientSel.value : "p";
+  const orientation =
+    orientSel && orientSel.value ? orientSel.value : "portrait";
   const pdf = await generateReportPDF(orientation);
   if (pdf) pdf.save("FieldScan_Report.pdf");
 }
@@ -1625,7 +1651,8 @@ async function sharePDFNative(pdf, filename, fallbackFn) {
 
 async function shareReport() {
   const orientSel = document.getElementById("rep-orientation-sel");
-  const orientation = orientSel ? orientSel.value : "p";
+  const orientation =
+    orientSel && orientSel.value ? orientSel.value : "portrait";
   const pdf = await generateReportPDF(orientation);
   if (!pdf) return;
   const isMobile =
