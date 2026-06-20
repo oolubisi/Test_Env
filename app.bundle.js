@@ -2636,7 +2636,18 @@ async function openModal(type, editData = null) {
     title.innerText = isEdit ? "Edit Work Order" : "New Work Order";
     if (isEdit && editData.attachments)
       currentModalFiles = splitAttachments(editData.attachments);
-    const vendors = getCache().vendors || [];
+    let vendors = getCache().vendors || [];
+    if (!vendors.length) {
+      try {
+        const fetched = await callApi("getVendors", {});
+        const cache = getCache();
+        cache.vendors = fetched || [];
+        setCache(cache);
+        vendors = cache.vendors;
+      } catch (e) {
+        console.warn("Could not load vendors for work order modal:", e);
+      }
+    }
 
     let lineItems = [];
     let woNotes = "";
@@ -3685,11 +3696,15 @@ async function loadWorkOrdersListings(forceRefresh = false) {
     container.innerHTML = `<p style="text-align:center;padding:20px;">No work orders.</p>`;
     return;
   }
+  const cache = getCache();
   container.innerHTML = projectOrders
     .map((w) => {
       const key = `workorder:${w.workOrderId}`;
       window.modalRecordCache = window.modalRecordCache || {};
       window.modalRecordCache[key] = w;
+      const vendor = (cache.vendors || []).find(
+        (v) => v.vendorId === w.vendorId,
+      );
       return `<div class="card" data-modal-type="workorder" data-modal-key="${key}" onclick="window.openModalWithRecord('workorder', window.modalRecordCache['${key}'])" style="cursor:pointer;"><strong>${escapeHtml(vendor ? vendor.company : w.vendorId)}</strong><br>${escapeHtml(formatWorkOrderDescription(w.description))}<br>₦${moneyValue(w.amount)}<br>Status: ${escapeHtml(w.status)}</div>`;
     })
     .join("");
