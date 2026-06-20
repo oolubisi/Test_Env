@@ -933,6 +933,148 @@ function generateTemplateId() {
   return "TMPL-CUST-" + Date.now();
 }
 
+function exportAllTemplatesJSON() {
+  const templates = getCustomTemplates();
+  if (!templates.length) {
+    alert("No custom templates to export.");
+    return;
+  }
+  const data = {
+    exportedAt: new Date().toISOString(),
+    app: "FieldScan Pro",
+    version: "1.0",
+    templates: templates,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `FieldScan_Templates_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportSingleTemplateJSON(templateId) {
+  const t = findTemplateById(templateId);
+  if (!t) {
+    alert("Template not found.");
+    return;
+  }
+  const data = {
+    exportedAt: new Date().toISOString(),
+    app: "FieldScan Pro",
+    version: "1.0",
+    templates: [t],
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `FieldScan_Template_${t.name.replace(/[^a-z0-9]/gi, "_")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importTemplatesFromJSON(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data || !Array.isArray(data.templates)) {
+          reject(
+            new Error("Invalid template file. Missing 'templates' array."),
+          );
+          return;
+        }
+        const incoming = data.templates.filter(
+          (t) => t && t.id && t.name && Array.isArray(t.items),
+        );
+        if (!incoming.length) {
+          reject(new Error("No valid templates found in file."));
+          return;
+        }
+        const existing = getCustomTemplates();
+        const existingIds = new Set(existing.map((t) => t.id));
+        let added = 0,
+          skipped = 0;
+        incoming.forEach((t) => {
+          if (existingIds.has(t.id)) {
+            skipped++;
+          } else {
+            // Strip any non-template fields and ensure clean structure
+            const clean = {
+              id: t.id,
+              name: t.name,
+              description: t.description || "Imported template",
+              items: (t.items || []).map((i) => ({
+                roomArea: i.roomArea || "",
+                tradeCategory: i.tradeCategory || "",
+                description: i.description || "",
+                unit: i.unit || "pcs",
+                quantity: 0,
+              })),
+            };
+            existing.push(clean);
+            added++;
+          }
+        });
+        saveCustomTemplates(existing);
+        resolve({ added, skipped, total: incoming.length });
+      } catch (e) {
+        reject(
+          new Error("Failed to parse JSON: " + (e.message || "Unknown error")),
+        );
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsText(file);
+  });
+}
+
+function openImportTemplatesModal() {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Import Templates";
+  overlay.style.display = "flex";
+  body.innerHTML = `<p style="font-size:14px; color:var(--muted); margin-bottom:12px;">Select a JSON file exported from FieldScan Pro. Templates with duplicate IDs will be skipped.</p><input type="file" id="tmpl_import_file" accept="application/json" style="width:100%; padding:12px; font-size:16px;"><div id="tmpl_import_result" style="margin-top:12px; font-size:13px; font-weight:700; display:none;"></div>`;
+  submit.style.display = "block";
+  submit.innerText = "Import";
+  submit.onclick = async () => {
+    const fileInput = document.getElementById("tmpl_import_file");
+    if (!fileInput.files || !fileInput.files[0]) {
+      alert("Select a JSON file");
+      return;
+    }
+    submit.disabled = true;
+    submit.innerText = "Importing...";
+    try {
+      const result = await importTemplatesFromJSON(fileInput.files[0]);
+      const resultDiv = document.getElementById("tmpl_import_result");
+      resultDiv.style.display = "block";
+      resultDiv.innerHTML = `<span style="color:var(--success);">✓ ${result.added} imported</span>${result.skipped > 0 ? `, <span style="color:#fd7e14;">${result.skipped} skipped (duplicate)</span>` : ""}`;
+      loadTemplatesSegment();
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
+    } catch (e) {
+      alert("⚠️ " + e.message);
+      submit.disabled = false;
+      submit.innerText = "Import";
+    }
+  };
+}
+
 function loadTemplatesSegment() {
   const container = document.getElementById("console-templates-list");
   if (!container) return;
@@ -966,6 +1108,10 @@ function loadTemplatesSegment() {
   }
 
   html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>`;
+  html += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportAllTemplatesJSON()"><i class="fas fa-download"></i> Export All</button>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--primary);" onclick="window.openImportTemplatesModal()"><i class="fas fa-upload"></i> Import</button>
+  </div>`;
   if (customTemplates.length > 0 && selectedTemplateIds.size > 0) {
     html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;"><span style="font-size:13px; font-weight:700;">${selectedTemplateIds.size} selected</span><button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--danger);" onclick="window.deleteSelectedTemplates()"><i class="fas fa-trash"></i> Delete Selected</button></div>`;
   }
@@ -973,7 +1119,7 @@ function loadTemplatesSegment() {
     html += customTemplates
       .map((t) => {
         const isChecked = selectedTemplateIds.has(t.id);
-        return `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
+        return `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
       })
       .join("");
   } else {
@@ -4347,6 +4493,10 @@ window.recalcWorkOrderTotal = recalcWorkOrderTotal;
 window.populateWorkOrderDropdown = populateWorkOrderDropdown;
 window.addTakeOffLineItem = addTakeOffLineItem;
 window.addTakeOffHeader = addTakeOffHeader;
+window.exportAllTemplatesJSON = exportAllTemplatesJSON;
+window.exportSingleTemplateJSON = exportSingleTemplateJSON;
+window.importTemplatesFromJSON = importTemplatesFromJSON;
+window.openImportTemplatesModal = openImportTemplatesModal;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
