@@ -3359,6 +3359,14 @@ async function openModal(type, editData = null) {
         <option value="Pending" ${isEdit && editData.status === "Pending" ? "selected" : ""}>Pending</option>
         <option value="Cleared" ${isEdit && editData.status === "Cleared" ? "selected" : ""}>Cleared</option>
       </select>
+      <label ${labelStyle}>Stage</label>
+      <select id="pay_stage" ${largeInput}>
+        <option value="" ${!isEdit || !editData.stage ? "selected" : ""}>Full Payment</option>
+        <option value="1" ${isEdit && String(editData.stage) === "1" ? "selected" : ""}>Stage 1</option>
+        <option value="2" ${isEdit && String(editData.stage) === "2" ? "selected" : ""}>Stage 2</option>
+        <option value="3" ${isEdit && String(editData.stage) === "3" ? "selected" : ""}>Stage 3</option>
+        <option value="4" ${isEdit && String(editData.stage) === "4" ? "selected" : ""}>Stage 4</option>
+      </select>
       <label ${labelStyle}>Notes</label><textarea id="pay_notes" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.notes : "")}</textarea>
       <div id="paymentAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
       <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="pay_files" accept="image/*,application/pdf" multiple style="display:none"></label>
@@ -3399,6 +3407,7 @@ async function openModal(type, editData = null) {
         amount: roundMoney(amount),
         paymentMethod: document.getElementById("pay_method").value,
         status: document.getElementById("pay_status").value,
+        stage: document.getElementById("pay_stage").value,
         notes: document.getElementById("pay_notes").value,
         attachments: normalizeAttachments(currentModalFiles),
       };
