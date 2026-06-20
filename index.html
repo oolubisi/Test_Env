@@ -229,12 +229,8 @@
             <select id="rep-filter-sel"></select>
           </div>
 
-          <button
-            class="action-btn"
-            style="margin-top: 15px"
-            onclick="compileFieldReport()"
-          >
-            Generate Report
+          <button class="action-btn" onclick="compileFieldReport(this)">
+            <i class="fas fa-file-alt"></i> Generate Report
           </button>
         </div>
         <div
@@ -253,19 +249,8 @@
             >
               <i class="fas fa-file-pdf"></i> Save PDF
             </button>
-            <button
-              class="action-btn"
-              style="flex: 1; min-width: 120px; background: #25d366"
-              onclick="shareReportWhatsApp()"
-            >
-              <i class="fab fa-whatsapp"></i> WhatsApp
-            </button>
-            <button
-              class="action-btn"
-              style="flex: 1; min-width: 120px; background: #495057"
-              onclick="shareReportEmail()"
-            >
-              <i class="fas fa-envelope"></i> Email
+            <button class="action-btn" onclick="shareReport()">
+              <i class="fas fa-share-alt"></i> Share
             </button>
           </div>
         </div>
