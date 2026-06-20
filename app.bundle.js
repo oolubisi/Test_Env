@@ -1452,8 +1452,28 @@ async function initReportsConsoleEngine() {
       console.warn("Could not preload projects for reports:", e);
     }
   }
+  // Ensure sub-type selector exists in the DOM
+  let subTypeWrap = document.getElementById("rep-subtype-wrap");
+  if (!subTypeWrap) {
+    const filterWrap = document.getElementById("rep-filter-wrap");
+    if (filterWrap) {
+      subTypeWrap = document.createElement("div");
+      subTypeWrap.id = "rep-subtype-wrap";
+      subTypeWrap.style.display = "none";
+      subTypeWrap.innerHTML = `<label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Report Category</label><select id="rep-subtype-sel" style="width:100%; padding:12px; font-size:16px; border-radius:12px; border:1.5px solid var(--border);"><option value="">-- Select Category --</option><option value="financial">Financial</option><option value="scope">Scope</option><option value="workorder">Work Order</option><option value="snags">Snags</option><option value="progress">Progress</option><option value="takeoff">Take-Off</option></select>`;
+      filterWrap.parentNode.insertBefore(subTypeWrap, filterWrap);
+    }
+  }
   const typeSel = document.getElementById("rep-type-sel");
   if (typeSel) {
+    // Ensure "Projects Report" option exists
+    if (!typeSel.querySelector('option[value="project"]')) {
+      const opt = document.createElement("option");
+      opt.value = "project";
+      opt.textContent = "Projects Report";
+      // Insert before the first option or append
+      typeSel.insertBefore(opt, typeSel.options[1] || null);
+    }
     typeSel.value = "";
     handleReportScopePopulation();
   }
@@ -1463,6 +1483,7 @@ function handleReportScopePopulation() {
   const typeSel = document.getElementById("rep-type-sel");
   const scopeSel = document.getElementById("rep-scope-sel");
   const filterWrap = document.getElementById("rep-filter-wrap");
+  const subTypeWrap = document.getElementById("rep-subtype-wrap");
   if (!typeSel || !scopeSel) return;
   scopeSel.style.display = "none";
   const scopeLabel = scopeSel.previousElementSibling;
@@ -1479,6 +1500,10 @@ function handleReportScopePopulation() {
     type === "takeoff"
   )
     validScopes = ["project"];
+<<<<<<< HEAD
+  else if (type === "project") validScopes = ["project"];
+=======
+>>>>>>> 72b65bdf574bc885b631f13fadd3c697cc0c1791
   else if (type === "financial_client") validScopes = ["client"];
   else if (type === "financial_vendor") validScopes = ["vendor"];
   else validScopes = ["all", "project", "client", "vendor"];
@@ -1502,6 +1527,12 @@ function handleReportScopePopulation() {
   if (filterWrap)
     filterWrap.style.display =
       type === "financial_all" || !type ? "none" : "block";
+<<<<<<< HEAD
+  // Show/hide sub-type selector for Project Reports
+  if (subTypeWrap)
+    subTypeWrap.style.display = type === "project" ? "block" : "none";
+=======
+>>>>>>> 72b65bdf574bc885b631f13fadd3c697cc0c1791
   handleReportFilterPopulation();
   updateFieldSelectorVisibility();
 }
@@ -1918,6 +1949,66 @@ function renderTakeoffReport(project, items) {
     )
     .join("");
   return `${generateReportHeader("Take-Off Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Room/Area</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Qty</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Unit</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Remarks</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:#495057;">No take-off items recorded.</td></tr>'}</tbody></table>`;
+<<<<<<< HEAD
+}
+
+function renderWorkOrderReport(project, workorders, vendors, settings) {
+  // Build terms & conditions from settings WO1-W10
+  const terms = [];
+  for (let i = 1; i <= 10; i++) {
+    const key = `WO${i}`;
+    if (settings && settings[key]) terms.push({ num: i, text: settings[key] });
+  }
+  const woRows = workorders
+    .map((w) => {
+      const vendor = vendors.find((v) => v.vendorId === w.vendorId);
+      return `<tr>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(w.workOrderId)}</strong></td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(vendor ? vendor.company : w.vendorId)}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(vendor ? vendor.trade : "—")}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(w.description)}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">₦${moneyValue(w.amount)}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:center; vertical-align:top;">${escapeHtml(w.status)}</td>
+    </tr>`;
+    })
+    .join("");
+  const totalWO = workorders.reduce(
+    (s, w) => roundMoney(s + Number(w.amount || 0)),
+    0,
+  );
+  let termsHtml = "";
+  if (terms.length) {
+    termsHtml = `<div style="margin-top: 24px; page-break-inside: avoid;">
+      <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Terms & Conditions</h3>
+      <ol style="font-size: 12px; line-height: 1.6; padding-left: 20px;">
+        ${terms.map((t) => `<li style="margin-bottom: 6px;">${escapeHtml(t.text)}</li>`).join("")}
+      </ol>
+    </div>`;
+  }
+  return `${generateReportHeader("Work Orders Report", project)}
+    <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
+      <thead>
+        <tr>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">WO ID</th>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Vendor</th>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th>
+          <th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${woRows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:#495057;">No work orders recorded.</td></tr>'}
+        <tr style="background:#e9ecef; font-weight:900;">
+          <td colspan="4" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL</strong></td>
+          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
+          <td style="border-bottom:2px solid #000; padding:8px;"></td>
+        </tr>
+      </tbody>
+    </table>
+    ${termsHtml}`;
+=======
+>>>>>>> 72b65bdf574bc885b631f13fadd3c697cc0c1791
 }
 
 async function compileFieldReport(btn) {
@@ -2044,6 +2135,49 @@ async function compileFieldReport(btn) {
         (i) => i.projectId === filter,
       );
       html = renderTakeoffReport(project, projectItems);
+    } else if (type === "project") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      const subType = document.getElementById("rep-subtype-sel")?.value;
+      if (!subType) {
+        alert("Select a report category");
+        return;
+      }
+      await ensure("vendors", "getVendors");
+      if (subType === "financial")
+        html = renderFinancialProject(project, cache.payments || []);
+      else if (subType === "scope") html = renderScopeReport(project);
+      else if (subType === "workorder") {
+        const projectWOs = (cache.workorders || []).filter(
+          (w) => w.projectId === filter,
+        );
+        html = renderWorkOrderReport(
+          project,
+          projectWOs,
+          cache.vendors || [],
+          cache.settings || {},
+        );
+      } else if (subType === "snags") {
+        const projectSnags = (cache.snags || []).filter(
+          (s) => s.projectId === filter,
+        );
+        html = renderSnagsReport(project, projectSnags);
+      } else if (subType === "progress") {
+        const projectLogs = (cache.progressLogs || []).filter(
+          (l) => l.projectId === filter,
+        );
+        html = renderProgressReport(project, projectLogs);
+      } else if (subType === "takeoff") {
+        const projectItems = (cache.takeoffs || []).filter(
+          (i) => i.projectId === filter,
+        );
+        html = renderTakeoffReport(project, projectItems);
+      }
     }
     const preview = document.getElementById("report-preview-viewport");
     const printContainer = document.getElementById("report-print-container");
