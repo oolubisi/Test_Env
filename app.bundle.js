@@ -1500,10 +1500,7 @@ function handleReportScopePopulation() {
     type === "takeoff"
   )
     validScopes = ["project"];
-<<<<<<< HEAD
   else if (type === "project") validScopes = ["project"];
-=======
->>>>>>> 72b65bdf574bc885b631f13fadd3c697cc0c1791
   else if (type === "financial_client") validScopes = ["client"];
   else if (type === "financial_vendor") validScopes = ["vendor"];
   else validScopes = ["all", "project", "client", "vendor"];
@@ -1527,12 +1524,9 @@ function handleReportScopePopulation() {
   if (filterWrap)
     filterWrap.style.display =
       type === "financial_all" || !type ? "none" : "block";
-<<<<<<< HEAD
   // Show/hide sub-type selector for Project Reports
   if (subTypeWrap)
     subTypeWrap.style.display = type === "project" ? "block" : "none";
-=======
->>>>>>> 72b65bdf574bc885b631f13fadd3c697cc0c1791
   handleReportFilterPopulation();
   updateFieldSelectorVisibility();
 }
@@ -1949,7 +1943,6 @@ function renderTakeoffReport(project, items) {
     )
     .join("");
   return `${generateReportHeader("Take-Off Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Room/Area</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th><th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Qty</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Unit</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Remarks</th></tr></thead><tbody>${rows || '<tr><td colspan="6" style="padding:20px; text-align:center; color:#495057;">No take-off items recorded.</td></tr>'}</tbody></table>`;
-<<<<<<< HEAD
 }
 
 function renderWorkOrderReport(project, workorders, vendors, settings) {
@@ -2007,8 +2000,6 @@ function renderWorkOrderReport(project, workorders, vendors, settings) {
       </tbody>
     </table>
     ${termsHtml}`;
-=======
->>>>>>> 72b65bdf574bc885b631f13fadd3c697cc0c1791
 }
 
 async function compileFieldReport(btn) {
