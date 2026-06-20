@@ -1816,10 +1816,11 @@ function generateReportHeader(title, project, settings) {
   const logoUrl =
     settings && settings.Logo ? getDirectImageUrl(settings.Logo) : "";
   let html = `<div class="report-header" style="border-bottom: 2.5px solid #000; padding-bottom: 14px; margin-bottom: 18px;"><div style="display: flex; justify-content: space-between; align-items: flex-start;">`;
+  html += `<div style="flex:1;"><div style="font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -0.8px; line-height: 1.1;">FieldScan Pro</div><div style="font-size: 12px; color: #495057; margin-top: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(title)}</div></div>`;
   if (logoUrl) {
-    html += `<div style="flex-shrink:0; margin-right:16px;"><img src="${escapeAttr(logoUrl)}" style="max-height:60px; max-width:140px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
+    html += `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${escapeAttr(logoUrl)}" style="max-height:120px; max-width:280px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
   }
-  html += `<div style="flex:1;"><div style="font-size: 26px; font-weight: 900; margin: 0; letter-spacing: -0.8px; line-height: 1.1;">FieldScan Pro</div><div style="font-size: 12px; color: #495057; margin-top: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(title)}</div></div><div style="text-align: right; font-size: 11px; color: #495057; font-weight: 600;"><div>${escapeHtml(dateStr)}</div></div></div>`;
+  html += `<div style="text-align: right; font-size: 11px; color: #495057; font-weight: 600;"><div>${escapeHtml(dateStr)}</div></div></div>`;
   if (project)
     html += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px;"><div><strong style="color:#000;">Client:</strong> ${escapeHtml(project.clientName || "—")}</div><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div><strong style="color:#000;">Location:</strong> ${escapeHtml(project.siteLocation || "—")}</div><div><strong style="color:#000;">Phone:</strong> ${escapeHtml(project.clientPhone || "—")}</div></div></div>`;
   html += `</div>`;
@@ -2105,14 +2106,12 @@ function renderScopeReport(project, settings) {
 
   let signatureBlock = "";
   if (hasSignature) {
-    signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid;">
+    signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid; text-align: center;">
       <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
-      <div style="display: flex; align-items: flex-end; gap: 16px;">
-        ${signImg ? `<div style="flex-shrink:0;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
-        <div style="flex:1;">
-          <div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 4px;"></div>
-          <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
-        </div>
+      <div style="display: inline-block; text-align: center;">
+        ${signImg ? `<div style="margin-bottom: 4px;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
+        <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
+        <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
       </div>
     </div>`;
   }
