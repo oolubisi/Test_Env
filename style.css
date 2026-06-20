@@ -271,15 +271,18 @@ input[type="checkbox"] {
   background: #f8f9fa;
 }
 .report-page-wrapper {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
+  position: relative;
+  min-height: calc(297mm - 30mm);
+  padding-bottom: 50px; /* space for footer */
 }
 .report-page-wrapper > .report-content {
-  flex: 1;
+  /* content flows naturally */
 }
 .report-footer {
-  margin-top: auto;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding-top: 12px;
   border-top: 1px solid #adb5bd;
   font-size: 10px;
@@ -355,16 +358,19 @@ input[type="checkbox"] {
     page-break-inside: avoid;
   }
   .report-page-wrapper {
-    display: flex;
-    flex-direction: column;
-    min-height: calc(297mm - 30mm);
     position: relative;
+    min-height: calc(297mm - 30mm);
+    padding-bottom: 50px;
+    page-break-inside: avoid;
   }
   .report-page-wrapper > .report-content {
-    flex: 1;
+    /* content flows naturally */
   }
   .report-footer {
-    margin-top: auto;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     padding-top: 12px;
     border-top: 1px solid #adb5bd;
     font-size: 10px;

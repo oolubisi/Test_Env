@@ -1807,6 +1807,7 @@ function getSelectedFinancialFields() {
 }
 
 function generateReportHeader(title, project, settings) {
+  if (settings && settings.data) settings = settings.data;
   const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -2092,6 +2093,8 @@ function renderFinancialVendor(vendor, projects, workorders, payments) {
 }
 
 function renderScopeReport(project, settings) {
+  // Normalize: getSettings returns {data: {...}} or the cache may hold the raw response
+  if (settings && settings.data) settings = settings.data;
   const signName =
     settings && settings.Name_Signed ? escapeHtml(settings.Name_Signed) : "";
   const signImg =
@@ -2328,7 +2331,15 @@ async function compileFieldReport(btn) {
         alert("Project not found");
         return;
       }
-      await ensure("settings", "getSettings");
+      if (!cache.settings || !cache.settings.VAT) {
+        try {
+          const res = await callApi("getSettings", {});
+          cache.settings = res && res.data ? res.data : cache.settings || {};
+          setCache(cache);
+        } catch (e) {
+          console.warn("Could not load settings for report:", e);
+        }
+      }
       html = renderScopeReport(project, cache.settings || {});
     } else if (type === "snags") {
       const project = (cache.projects || []).find(
