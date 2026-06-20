@@ -3799,8 +3799,16 @@ async function refreshMasterDashboard() {
       '<p style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</p>';
   try {
     const projects = await callApi("getProjects", {});
+    console.log("getProjects response:", projects);
+    if (!Array.isArray(projects)) {
+      console.error("getProjects returned non-array:", projects);
+      if (container)
+        container.innerHTML =
+          '<p style="text-align:center;padding:20px;color:red;">Server returned invalid data. Check console.</p>';
+      return;
+    }
     const cache = getCache();
-    cache.projects = projects || [];
+    cache.projects = projects;
     setCache(cache);
     renderProjects();
   } catch (e) {
@@ -3817,10 +3825,20 @@ function renderProjects() {
   if (!container || !searchEl) return;
   const term = searchEl.value.toLowerCase();
   const cache = getCache();
+  if (!Array.isArray(cache.projects)) {
+    console.error(
+      "renderProjects: cache.projects is not an array",
+      cache.projects,
+    );
+    container.innerHTML =
+      '<p style="text-align:center;padding:20px;color:red;">Data error: projects corrupted. Try Refresh.</p>';
+    return;
+  }
   const filtered = cache.projects.filter(
     (p) =>
-      p.clientName?.toLowerCase().includes(term) ||
-      p.projectId?.toLowerCase().includes(term),
+      p &&
+      (p.clientName?.toLowerCase().includes(term) ||
+        p.projectId?.toLowerCase().includes(term)),
   );
   if (!filtered.length) {
     container.innerHTML =
