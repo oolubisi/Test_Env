@@ -1452,28 +1452,8 @@ async function initReportsConsoleEngine() {
       console.warn("Could not preload projects for reports:", e);
     }
   }
-  // Ensure sub-type selector exists in the DOM
-  let subTypeWrap = document.getElementById("rep-subtype-wrap");
-  if (!subTypeWrap) {
-    const filterWrap = document.getElementById("rep-filter-wrap");
-    if (filterWrap) {
-      subTypeWrap = document.createElement("div");
-      subTypeWrap.id = "rep-subtype-wrap";
-      subTypeWrap.style.display = "none";
-      subTypeWrap.innerHTML = `<label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Report Category</label><select id="rep-subtype-sel" style="width:100%; padding:12px; font-size:16px; border-radius:12px; border:1.5px solid var(--border);"><option value="">-- Select Category --</option><option value="financial">Financial</option><option value="scope">Scope</option><option value="workorder">Work Order</option><option value="snags">Snags</option><option value="progress">Progress</option><option value="takeoff">Take-Off</option></select>`;
-      filterWrap.parentNode.insertBefore(subTypeWrap, filterWrap);
-    }
-  }
   const typeSel = document.getElementById("rep-type-sel");
   if (typeSel) {
-    // Ensure "Projects Report" option exists
-    if (!typeSel.querySelector('option[value="project"]')) {
-      const opt = document.createElement("option");
-      opt.value = "project";
-      opt.textContent = "Projects Report";
-      // Insert before the first option or append
-      typeSel.insertBefore(opt, typeSel.options[1] || null);
-    }
     typeSel.value = "";
     handleReportScopePopulation();
   }
@@ -1500,7 +1480,7 @@ function handleReportScopePopulation() {
     type === "takeoff"
   )
     validScopes = ["project"];
-  else if (type === "project") validScopes = ["project"];
+  else if (type === "workorder_report") validScopes = ["project"];
   else if (type === "financial_client") validScopes = ["client"];
   else if (type === "financial_vendor") validScopes = ["vendor"];
   else validScopes = ["all", "project", "client", "vendor"];
@@ -1524,9 +1504,10 @@ function handleReportScopePopulation() {
   if (filterWrap)
     filterWrap.style.display =
       type === "financial_all" || !type ? "none" : "block";
-  // Show/hide sub-type selector for Project Reports
-  if (subTypeWrap)
-    subTypeWrap.style.display = type === "project" ? "block" : "none";
+  // Hide sub-type selector (removed) and workorder wrap
+  if (subTypeWrap) subTypeWrap.style.display = "none";
+  const woWrap = document.getElementById("rep-workorder-wrap");
+  if (woWrap) woWrap.style.display = "none";
   handleReportFilterPopulation();
   updateFieldSelectorVisibility();
 }
@@ -1545,6 +1526,15 @@ async function handleReportFilterPopulation() {
     return;
   }
   filterWrap.style.display = "block";
+  const typeSel = document.getElementById("rep-type-sel");
+  if (typeSel && typeSel.value === "workorder_report") {
+    filterSel.onchange = () => populateWorkOrderDropdown();
+    populateWorkOrderDropdown();
+  } else {
+    filterSel.onchange = null;
+    const woWrap = document.getElementById("rep-workorder-wrap");
+    if (woWrap) woWrap.style.display = "none";
+  }
   if (scope === "project") {
     filterLabel.innerText = "Select Project";
     const projects = cache.projects || [];
@@ -1959,7 +1949,7 @@ function renderWorkOrderReport(project, workorders, vendors, settings) {
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(w.workOrderId)}</strong></td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(vendor ? vendor.company : w.vendorId)}</td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(vendor ? vendor.trade : "—")}</td>
-      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(w.description)}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(formatWorkOrderDescription(w.description))}</td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">₦${moneyValue(w.amount)}</td>
       <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:center; vertical-align:top;">${escapeHtml(w.status)}</td>
     </tr>`;
@@ -2126,49 +2116,29 @@ async function compileFieldReport(btn) {
         (i) => i.projectId === filter,
       );
       html = renderTakeoffReport(project, projectItems);
-    } else if (type === "project") {
-      const project = (cache.projects || []).find(
-        (p) => p.projectId === filter,
+    } else if (type === "workorder_report") {
+      const woId = document.getElementById("rep-workorder-sel").value;
+      if (!woId) {
+        alert("Select a work order");
+        return;
+      }
+      const workorder = (cache.workorders || []).find(
+        (w) => w.workOrderId === woId,
       );
-      if (!project) {
-        alert("Project not found");
+      if (!workorder) {
+        alert("Work order not found");
         return;
       }
-      const subType = document.getElementById("rep-subtype-sel")?.value;
-      if (!subType) {
-        alert("Select a report category");
-        return;
-      }
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === workorder.projectId,
+      );
       await ensure("vendors", "getVendors");
-      if (subType === "financial")
-        html = renderFinancialProject(project, cache.payments || []);
-      else if (subType === "scope") html = renderScopeReport(project);
-      else if (subType === "workorder") {
-        const projectWOs = (cache.workorders || []).filter(
-          (w) => w.projectId === filter,
-        );
-        html = renderWorkOrderReport(
-          project,
-          projectWOs,
-          cache.vendors || [],
-          cache.settings || {},
-        );
-      } else if (subType === "snags") {
-        const projectSnags = (cache.snags || []).filter(
-          (s) => s.projectId === filter,
-        );
-        html = renderSnagsReport(project, projectSnags);
-      } else if (subType === "progress") {
-        const projectLogs = (cache.progressLogs || []).filter(
-          (l) => l.projectId === filter,
-        );
-        html = renderProgressReport(project, projectLogs);
-      } else if (subType === "takeoff") {
-        const projectItems = (cache.takeoffs || []).filter(
-          (i) => i.projectId === filter,
-        );
-        html = renderTakeoffReport(project, projectItems);
-      }
+      html = renderWorkOrderDetailReport(
+        workorder,
+        project,
+        cache.vendors || [],
+        cache.settings || {},
+      );
     }
     const preview = document.getElementById("report-preview-viewport");
     const printContainer = document.getElementById("report-print-container");
@@ -2667,7 +2637,74 @@ async function openModal(type, editData = null) {
     if (isEdit && editData.attachments)
       currentModalFiles = splitAttachments(editData.attachments);
     const vendors = getCache().vendors || [];
-    body.innerHTML = `<label ${labelStyle}>ID</label><input value="${uniqueId}" disabled style="${largeInput} background:#f0f0f0;"><label ${labelStyle}>Vendor</label><select id="wo_vendor" ${largeInput}>${vendors.map((v) => `<option value="${v.vendorId}" ${isEdit && v.vendorId === editData.vendorId ? "selected" : ""}>${escapeHtml(v.company)}</option>`).join("")}</select><label ${labelStyle}>Description</label><textarea id="wo_desc" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.description : "")}</textarea><label ${labelStyle}>Amount (₦)</label><input id="wo_amount" type="number" value="${escapeAttr(isEdit ? editData.amount : "")}" ${largeInput}><label ${labelStyle}>Status</label><select id="wo_status" ${largeInput}><option value="Pending" ${isEdit && editData.status === "Pending" ? "selected" : ""}>Pending</option><option value="Active" ${isEdit && editData.status === "Active" ? "selected" : ""}>Active</option><option value="Completed" ${isEdit && editData.status === "Completed" ? "selected" : ""}>Completed</option></select><div id="woAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div><label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="wo_files" accept="image/*,application/pdf" multiple style="display:none"></label>`;
+
+    let lineItems = [];
+    let woNotes = "";
+    if (isEdit && editData.description) {
+      try {
+        const parsed = JSON.parse(editData.description);
+        if (parsed && Array.isArray(parsed.lineItems)) {
+          lineItems = parsed.lineItems;
+          woNotes = parsed.notes || "";
+        } else {
+          lineItems = [
+            {
+              description: editData.description,
+              qty: 1,
+              rate: Number(editData.amount) || 0,
+              amount: Number(editData.amount) || 0,
+            },
+          ];
+        }
+      } catch (e) {
+        lineItems = [
+          {
+            description: editData.description,
+            qty: 1,
+            rate: Number(editData.amount) || 0,
+            amount: Number(editData.amount) || 0,
+          },
+        ];
+      }
+    }
+
+    const lineItemsHtml = lineItems
+      .map(
+        (item) =>
+          `<tr class="wo-line-row">
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="wo-line-desc" value="${escapeAttr(item.description || "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="wo-line-qty" type="number" value="${escapeAttr(item.qty || 1)}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-rate" type="number" value="${escapeAttr(item.rate || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-amt" type="number" value="${escapeAttr(item.amount || 0)}" disabled style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right; background:#f5f5f5;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove(); window.recalcWorkOrderTotal();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>
+      </tr>`,
+      )
+      .join("");
+
+    body.innerHTML = `<label ${labelStyle}>ID</label><input value="${uniqueId}" disabled style="${largeInput} background:#f0f0f0;"><label ${labelStyle}>Vendor</label><select id="wo_vendor" ${largeInput}>${vendors.map((v) => `<option value="${v.vendorId}" ${isEdit && v.vendorId === editData.vendorId ? "selected" : ""}>${escapeHtml(v.company)}</option>`).join("")}</select>
+    <label ${labelStyle}>Line Items</label>
+    <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px;">
+      <thead>
+        <tr style="background:#000; color:#fff;">
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:70px;">Qty</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:100px;">Rate (₦)</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:100px;">Amount (₦)</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody id="wo_line_items_body">${lineItemsHtml}</tbody>
+    </table>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.addWorkOrderLineItem()"><i class="fas fa-plus"></i> Add Line Item</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; margin-bottom:12px; padding:12px; background:var(--card-light); border-radius:12px; border:1.5px solid var(--border);">
+      <span style="font-weight:800; font-size:14px;">Total Work Order Value</span>
+      <span id="wo_total_display" style="font-weight:900; font-size:18px;">₦${moneyValue(isEdit ? Number(editData.amount) || 0 : 0)}</span>
+    </div>
+    <input type="hidden" id="wo_amount_hidden" value="${escapeAttr(isEdit ? editData.amount : 0)}">
+    <label ${labelStyle}>Notes</label><textarea id="wo_notes" rows="2" ${largeInput}>${escapeHtml(woNotes)}</textarea>
+    <label ${labelStyle}>Status</label><select id="wo_status" ${largeInput}><option value="Pending" ${isEdit && editData.status === "Pending" ? "selected" : ""}>Pending</option><option value="Active" ${isEdit && editData.status === "Active" ? "selected" : ""}>Active</option><option value="Completed" ${isEdit && editData.status === "Completed" ? "selected" : ""}>Completed</option></select>
+    <div id="woAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
+    <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="wo_files" accept="image/*,application/pdf" multiple style="display:none"></label>`;
     if (currentModalFiles.length)
       populateModalInlineImageGalleryPreviews("woAttachmentsPreviews");
     document.getElementById("wo_files").onchange = (e) =>
@@ -2678,16 +2715,40 @@ async function openModal(type, editData = null) {
         alert("Select a vendor");
         return;
       }
+      const rows = document.querySelectorAll("#wo_line_items_body tr");
+      const lineItems = [];
+      rows.forEach((row) => {
+        const desc = row.querySelector(".wo-line-desc").value.trim();
+        if (desc) {
+          const qty = Number(row.querySelector(".wo-line-qty").value) || 0;
+          const rate = Number(row.querySelector(".wo-line-rate").value) || 0;
+          lineItems.push({
+            description: desc,
+            qty: qty,
+            rate: rate,
+            amount: roundMoney(qty * rate),
+          });
+        }
+      });
+      if (!lineItems.length) {
+        alert("Add at least one line item");
+        return;
+      }
+      const totalAmount = roundMoney(
+        lineItems.reduce((s, i) => s + i.amount, 0),
+      );
+      const description = JSON.stringify({
+        lineItems,
+        notes: document.getElementById("wo_notes").value,
+      });
       submit.disabled = true;
       submit.innerText = "Saving...";
       const payload = {
         workOrderId: uniqueId,
         projectId: getCurrentProjectId(),
         vendorId: vendorId,
-        description: document.getElementById("wo_desc").value,
-        amount: roundMoney(
-          Number(document.getElementById("wo_amount").value) || 0,
-        ),
+        description: description,
+        amount: totalAmount,
         status: document.getElementById("wo_status").value,
         attachments: normalizeAttachments(currentModalFiles),
       };
@@ -3114,6 +3175,176 @@ function openAddStageModal(groupId) {
   });
 }
 
+// ===== workorder-helpers.js =====
+function addWorkOrderLineItem(desc, qty, rate) {
+  const tbody = document.getElementById("wo_line_items_body");
+  if (!tbody) return;
+  const row = document.createElement("tr");
+  row.className = "wo-line-row";
+  row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input class="wo-line-desc" value="${escapeAttr(desc || "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="wo-line-qty" type="number" value="${escapeAttr(qty || 1)}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-rate" type="number" value="${escapeAttr(rate || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;" oninput="window.recalcWorkOrderTotal()"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:100px;"><input class="wo-line-amt" type="number" value="0" disabled style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right; background:#f5f5f5;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove(); window.recalcWorkOrderTotal();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>`;
+  tbody.appendChild(row);
+  recalcWorkOrderTotal();
+}
+
+function recalcWorkOrderTotal() {
+  const rows = document.querySelectorAll("#wo_line_items_body tr");
+  let total = 0;
+  rows.forEach((row) => {
+    const qty = Number(row.querySelector(".wo-line-qty").value) || 0;
+    const rate = Number(row.querySelector(".wo-line-rate").value) || 0;
+    const amt = roundMoney(qty * rate);
+    row.querySelector(".wo-line-amt").value = amt;
+    total += amt;
+  });
+  total = roundMoney(total);
+  const totalDisplay = document.getElementById("wo_total_display");
+  if (totalDisplay) totalDisplay.innerText = "₦" + moneyValue(total);
+  const hiddenAmount = document.getElementById("wo_amount_hidden");
+  if (hiddenAmount) hiddenAmount.value = total;
+}
+
+function formatWorkOrderDescription(description) {
+  if (!description) return "—";
+  try {
+    const parsed = JSON.parse(description);
+    if (parsed.lineItems && Array.isArray(parsed.lineItems)) {
+      const count = parsed.lineItems.length;
+      const firstItem = parsed.lineItems[0]?.description || "";
+      return `${count} item${count !== 1 ? "s" : ""}${firstItem ? ": " + firstItem : ""}`;
+    }
+  } catch (e) {}
+  return description.length > 60
+    ? description.substring(0, 60) + "..."
+    : description;
+}
+
+function populateWorkOrderDropdown() {
+  const filterSel = document.getElementById("rep-filter-sel");
+  const woWrap = document.getElementById("rep-workorder-wrap");
+  const woSel = document.getElementById("rep-workorder-sel");
+  if (!filterSel || !woWrap || !woSel) return;
+  const projectId = filterSel.value;
+  if (!projectId) {
+    woWrap.style.display = "none";
+    return;
+  }
+  const cache = getCache();
+  const projectWOs = (cache.workorders || []).filter(
+    (w) => w.projectId === projectId,
+  );
+  if (!projectWOs.length) {
+    woSel.innerHTML = '<option value="">No work orders</option>';
+    woWrap.style.display = "block";
+    return;
+  }
+  woSel.innerHTML =
+    '<option value="">-- Select Work Order --</option>' +
+    projectWOs
+      .map((w) => {
+        const vendor = (cache.vendors || []).find(
+          (v) => v.vendorId === w.vendorId,
+        );
+        const vendorName = vendor ? vendor.company : w.vendorId;
+        return `<option value="${escapeAttr(w.workOrderId)}">${escapeHtml(vendorName)} — ${escapeHtml(w.workOrderId)} (₦${moneyValue(w.amount)})</option>`;
+      })
+      .join("");
+  woWrap.style.display = "block";
+}
+
+function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
+  const vendor = vendors.find((v) => v.vendorId === workorder.vendorId);
+  const terms = [];
+  for (let i = 1; i <= 10; i++) {
+    const key = `WO${i}`;
+    if (settings && settings[key]) terms.push({ num: i, text: settings[key] });
+  }
+
+  let lineItems = [];
+  let notes = workorder.description || "";
+  try {
+    const parsed = JSON.parse(workorder.description);
+    if (parsed.lineItems && Array.isArray(parsed.lineItems)) {
+      lineItems = parsed.lineItems;
+      notes = parsed.notes || "";
+    }
+  } catch (e) {}
+
+  if (!lineItems.length) {
+    lineItems = [
+      {
+        description: workorder.description || "—",
+        qty: 1,
+        rate: Number(workorder.amount) || 0,
+        amount: Number(workorder.amount) || 0,
+      },
+    ];
+  }
+
+  const itemRows = lineItems
+    .map(
+      (item) =>
+        `<tr>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(item.description)}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">${escapeHtml(String(item.qty))}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top;">₦${moneyValue(item.rate)}</td>
+      <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; vertical-align:top; font-weight:700;">₦${moneyValue(item.amount)}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const totalWO = Number(workorder.amount) || 0;
+
+  let termsHtml = "";
+  if (terms.length) {
+    termsHtml = `<div style="margin-top: 24px; page-break-inside: avoid;">
+      <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 16px 0 8px; border-bottom: 1px solid #000; padding-bottom: 4px;">Terms & Conditions</h3>
+      <ol style="font-size: 12px; line-height: 1.6; padding-left: 20px;">
+        ${terms.map((t) => `<li style="margin-bottom: 6px;">${escapeHtml(t.text)}</li>`).join("")}
+      </ol>
+    </div>`;
+  }
+
+  let notesHtml = "";
+  if (notes) {
+    notesHtml = `<div style="margin-top: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #adb5bd;">
+      <strong style="font-size: 12px; text-transform: uppercase;">Notes</strong>
+      <p style="font-size: 12px; margin-top: 4px; line-height: 1.5;">${escapeHtml(notes)}</p>
+    </div>`;
+  }
+
+  return `${generateReportHeader("Work Order", project)}
+    <div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+      <div><strong>Work Order ID:</strong> ${escapeHtml(workorder.workOrderId)}</div>
+      <div><strong>Vendor:</strong> ${escapeHtml(vendor ? vendor.company : workorder.vendorId)}${vendor && vendor.trade ? ` (${escapeHtml(vendor.trade)})` : ""}</div>
+      <div><strong>Contact:</strong> ${escapeHtml(vendor ? vendor.contactName : "—")}</div>
+      <div><strong>Phone:</strong> ${escapeHtml(vendor ? vendor.phone1 : "—")}</div>
+      <div><strong>Status:</strong> ${escapeHtml(workorder.status)}</div>
+    </div>
+    <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
+      <thead>
+        <tr>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">Qty</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:100px;">Rate (₦)</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:100px;">Amount (₦)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+        <tr style="background:#e9ecef; font-weight:900;">
+          <td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
+          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
+        </tr>
+      </tbody>
+    </table>
+    ${notesHtml}
+    ${termsHtml}`;
+}
+
 // ===== dashboard.js =====
 async function refreshMasterDashboard() {
   const container = document.getElementById("project-master-list");
@@ -3459,7 +3690,7 @@ async function loadWorkOrdersListings(forceRefresh = false) {
       const key = `workorder:${w.workOrderId}`;
       window.modalRecordCache = window.modalRecordCache || {};
       window.modalRecordCache[key] = w;
-      return `<div class="card" data-modal-type="workorder" data-modal-key="${key}" onclick="window.openModalWithRecord('workorder', window.modalRecordCache['${key}'])" style="cursor:pointer;"><strong>${escapeHtml(w.vendorId)}</strong><br>${escapeHtml(w.description)}<br>₦${moneyValue(w.amount)}<br>Status: ${escapeHtml(w.status)}</div>`;
+      return `<div class="card" data-modal-type="workorder" data-modal-key="${key}" onclick="window.openModalWithRecord('workorder', window.modalRecordCache['${key}'])" style="cursor:pointer;"><strong>${escapeHtml(vendor ? vendor.company : w.vendorId)}</strong><br>${escapeHtml(formatWorkOrderDescription(w.description))}<br>₦${moneyValue(w.amount)}<br>Status: ${escapeHtml(w.status)}</div>`;
     })
     .join("");
 }
@@ -3868,6 +4099,9 @@ window.validateStageAmount = validateStageAmount;
 window.getPaymentGroupData = getPaymentGroupData;
 window.getAllPaymentGroups = getAllPaymentGroups;
 window.openAddStageModal = openAddStageModal;
+window.addWorkOrderLineItem = addWorkOrderLineItem;
+window.recalcWorkOrderTotal = recalcWorkOrderTotal;
+window.populateWorkOrderDropdown = populateWorkOrderDropdown;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>

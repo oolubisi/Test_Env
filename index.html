@@ -19,6 +19,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="style.css" />
+    <base target="_blank" />
   </head>
   <body>
     <div class="main">
@@ -214,6 +215,7 @@
             <option value="snags">Snags Report</option>
             <option value="progress">Progress Report</option>
             <option value="takeoff">Take-Off Report</option>
+            <option value="workorder_report">Work Orders</option>
           </select>
 
           <label>Scope</label>
@@ -227,6 +229,10 @@
           <div id="rep-filter-wrap" style="margin-top: 10px; display: none">
             <label id="rep-filter-label">Select</label>
             <select id="rep-filter-sel"></select>
+          </div>
+          <div id="rep-workorder-wrap" style="margin-top: 10px; display: none">
+            <label>Select Work Order</label>
+            <select id="rep-workorder-sel"></select>
           </div>
 
           <button class="action-btn" onclick="compileFieldReport(this)">
