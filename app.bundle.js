@@ -59,6 +59,7 @@ async function compressImageToTargetLimit(base64, maxBytes = 190000) {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = base64;
+    img.onerror = () => resolve(base64);
     img.onload = () => {
       const canvas = document.createElement("canvas");
       let w = img.width,
@@ -162,7 +163,8 @@ function toggleTemplateSelection(tmplId, checked) {
 
 async function deleteSelectedTakeOffs() {
   if (!selectedTakeOffIds.size) return;
-  if (!confirm(`Delete ${selectedTakeOffIds.size} selected take-off items?`)) return;
+  if (!confirm(`Delete ${selectedTakeOffIds.size} selected take-off items?`))
+    return;
   const projectId = getCurrentProjectId();
   const cache = getCache();
   for (const itemId of Array.from(selectedTakeOffIds)) {
@@ -180,7 +182,8 @@ async function deleteSelectedTakeOffs() {
 
 function deleteSelectedTemplates() {
   if (!selectedTemplateIds.size) return;
-  if (!confirm(`Delete ${selectedTemplateIds.size} selected custom templates?`)) return;
+  if (!confirm(`Delete ${selectedTemplateIds.size} selected custom templates?`))
+    return;
   const custom = getCustomTemplates();
   const remaining = custom.filter((t) => !selectedTemplateIds.has(t.id));
   saveCustomTemplates(remaining);
@@ -827,7 +830,6 @@ function getHiddenBuiltInIds() {
     if (hasVisited && raw !== null) {
       return new Set(JSON.parse(raw));
     }
-    // First visit ever: hide all built-in templates by default
     localStorage.setItem("fb_templatesVisited", "true");
     const allBuiltInIds = new Set(getBuiltInTemplates().map((t) => t.id));
     saveHiddenBuiltInIds(allBuiltInIds);
@@ -838,7 +840,10 @@ function getHiddenBuiltInIds() {
 }
 
 function saveHiddenBuiltInIds(ids) {
-  localStorage.setItem("fb_hiddenBuiltInTemplates", JSON.stringify(Array.from(ids)));
+  localStorage.setItem(
+    "fb_hiddenBuiltInTemplates",
+    JSON.stringify(Array.from(ids)),
+  );
 }
 
 function hideBuiltInTemplate(id) {
@@ -890,7 +895,6 @@ function loadTemplatesSegment() {
 
   let html = "";
 
-  // Save current as custom template
   if (projectItems.length > 0) {
     html += `
       <div class="card" style="background: var(--card-light); border-style: dashed;">
@@ -913,7 +917,6 @@ function loadTemplatesSegment() {
   const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
   const allBuiltInsHidden = visibleBuiltIns.length === 0;
 
-  // Clean up stale template selections
   const allIds = new Set(all.map((t) => t.id));
   for (const id of selectedTemplateIds) {
     if (!allIds.has(id)) selectedTemplateIds.delete(id);
@@ -926,7 +929,6 @@ function loadTemplatesSegment() {
     return;
   }
 
-  // Custom Templates section
   html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>`;
 
   if (customTemplates.length > 0 && selectedTemplateIds.size > 0) {
@@ -972,7 +974,6 @@ function loadTemplatesSegment() {
     html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>`;
   }
 
-  // Built-in Templates section
   html += `<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>`;
 
   if (allBuiltInsHidden) {
@@ -1645,7 +1646,6 @@ function handleReportScopePopulation() {
   const filterWrap = document.getElementById("rep-filter-wrap");
   if (!typeSel || !scopeSel) return;
 
-  // Hide Scope label & field from UI (still driven by JS)
   scopeSel.style.display = "none";
   const scopeLabel = scopeSel.previousElementSibling;
   if (scopeLabel && scopeLabel.tagName === "LABEL")
@@ -2707,7 +2707,7 @@ function clearVendorAvatarPhoto() {
   if (img)
     img.src =
       "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E";
-  const btn = document.getElementById("v_pass_remove_btn");
+  const btn = document.getElementById("v_pass_remove");
   if (btn) btn.style.display = "none";
 }
 
@@ -2834,7 +2834,11 @@ async function openModal(type, editData = null) {
       submit.innerText = "Saving...";
       const condition =
         document.getElementById("i_condition").value +
-        (gps !== "GPS Unavailable" ? `\n\n📍 ${gps}` : "");
+        (gps !== "GPS Unavailable"
+          ? `
+
+📍 ${gps}`
+          : "");
       const payload = {
         inspectionId: uniqueId,
         projectId: getCurrentProjectId(),
@@ -2919,7 +2923,10 @@ async function openModal(type, editData = null) {
       submit.innerText = "Saving...";
       const finalNotes =
         document.getElementById("t_notes").value +
-        (gps !== "GPS Unavailable" ? `\n📍 ${gps}` : "");
+        (gps !== "GPS Unavailable"
+          ? `
+📍 ${gps}`
+          : "");
       const payload = {
         itemId: uniqueId,
         projectId: getCurrentProjectId(),
@@ -2979,7 +2986,10 @@ async function openModal(type, editData = null) {
         completionPercentage: document.getElementById("l_pct").value,
         commentNarrative:
           document.getElementById("l_comm").value +
-          (gps !== "GPS Unavailable" ? `\n📍 ${gps}` : ""),
+          (gps !== "GPS Unavailable"
+            ? `
+📍 ${gps}`
+            : ""),
         progressPhotoUrl: normalizeAttachments(currentModalFiles),
       };
       callApi("saveProgressLog", payload)
@@ -3328,7 +3338,7 @@ async function openModal(type, editData = null) {
       );
     };
     submit.onclick = () => {
-      const amount = document.getElementById("pay_amount").value;
+      const amount = Number(document.getElementById("pay_amount").value);
       if (!amount || amount <= 0) {
         alert("Enter a valid amount");
         return;
@@ -3348,9 +3358,7 @@ async function openModal(type, editData = null) {
         payee: payee,
         expenseCategory: document.getElementById("pay_cat").value,
         referenceId: "",
-        amount: roundMoney(
-          Number(document.getElementById("pay_amount").value) || 0,
-        ),
+        amount: roundMoney(amount),
         paymentMethod: document.getElementById("pay_method").value,
         status: document.getElementById("pay_status").value,
         notes: document.getElementById("pay_notes").value,
@@ -3459,7 +3467,7 @@ function renderVendors() {
       const key = `vendor:${v.vendorId}`;
       window.modalRecordCache = window.modalRecordCache || {};
       window.modalRecordCache[key] = v;
-      return `<div class="card" data-modal-type="vendor" data-modal-key="${key}" onclick="window.openModalWithRecord('vendor', window.modalRecordCache['${key}'])" style="display:flex; gap:12px; align-items:center;"><img src="${getDirectImageUrl(v.passport) || "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E"}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div><strong>${escapeHtml(v.company)}</strong><br>${escapeHtml(v.trade)}<<br>${escapeHtml(v.phone1)}</div></div>`;
+      return `<div class="card" data-modal-type="vendor" data-modal-key="${key}" onclick="window.openModalWithRecord('vendor', window.modalRecordCache['${key}'])" style="display:flex; gap:12px; align-items:center;"><img src="${getDirectImageUrl(v.passport) || "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M12%2012c2.21%200%204-1.79%204-4s-1.79-4-4-4-4%201.79-4%204%201.79%204%204%204zm0%202c-2.67%200-8%201.34-8%204v2h16v-2c0-2.66-5.33-4-8-4z%22%2F%3E%3C%2Fsvg%3E"}" style="width:50px; height:50px; border-radius:50%; object-fit:cover;"><div><strong>${escapeHtml(v.company)}</strong><br>${escapeHtml(v.trade)}<br>${escapeHtml(v.phone1)}</div></div>`;
     })
     .join("");
 }
@@ -3607,7 +3615,7 @@ async function loadInspectionListings(forceRefresh = false) {
       window.modalRecordCache[key] = i;
       return `
     <div class="card" data-modal-type="inspection" data-modal-key="${key}" onclick="window.openModalWithRecord('inspection', window.modalRecordCache['${key}'])" style="cursor:pointer;">
-      <strong>${escapeHtml(i.inspectionType)}</strong> - ${escapeHtml(i.areaInspected)}<<br>
+      <strong>${escapeHtml(i.inspectionType)}</strong> - ${escapeHtml(i.areaInspected)}<br>
       <small>${escapeHtml(i.inspectionDate)}</small>
       <p>${escapeHtml(i.siteCondition)}</p>
     </div>
@@ -3700,8 +3708,8 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
     .map(
       (l) => `
     <div class="card">
-      <strong>${escapeHtml(l.tradeCategory)}</strong> - ${escapeHtml(l.completionPercentage)}%<<br>
-      ${escapeHtml(l.commentNarrative)}<<br>
+      <strong>${escapeHtml(l.tradeCategory)}</strong> - ${escapeHtml(l.completionPercentage)}%<br>
+      ${escapeHtml(l.commentNarrative)}<br>
       <small>${escapeHtml(l.dateRecorded)}</small>
     </div>
   `,
@@ -3772,8 +3780,8 @@ async function loadWorkOrdersListings(forceRefresh = false) {
       return `
     <div class="card" data-modal-type="workorder" data-modal-key="${key}" onclick="window.openModalWithRecord('workorder', window.modalRecordCache['${key}'])" style="cursor:pointer;">
       <strong>${escapeHtml(w.vendorId)}</strong><br>
-      ${escapeHtml(w.description)}<<br>
-      ₦${moneyValue(w.amount)}<<br>
+      ${escapeHtml(w.description)}<br>
+      ₦${moneyValue(w.amount)}<br>
       Status: ${escapeHtml(w.status)}
     </div>
   `;
@@ -3912,6 +3920,7 @@ async function callApi(action, data = {}) {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
     response = await fetch(GAS_URL, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
   } catch (err) {
@@ -4009,6 +4018,7 @@ async function syncQueuedRequests() {
         };
         const response = await fetch(GAS_URL, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         if (response.ok) {
@@ -4272,7 +4282,10 @@ function initPwaInstall() {
   });
 
   // If already installed, hide button
-  if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true) {
+  if (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    navigator.standalone === true
+  ) {
     btn.style.display = "none";
     return;
   }
