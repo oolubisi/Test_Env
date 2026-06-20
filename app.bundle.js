@@ -1443,7 +1443,6 @@ async function deleteSnagPhotosLocally(snagId) {
 // ===== backup.js =====
 const GET_ACTION_BY_STORE = {
   projects: "getProjects",
-  inspections: "getInspections",
   takeoffs: "getTakeOffItems",
   progressLogs: "getProgressLogs",
   snags: "getSnags",
@@ -1455,16 +1454,6 @@ const GET_ACTION_BY_STORE = {
 const MUTATION_MAP = {
   saveProject: { store: "projects", idKey: "projectId", mode: "upsert" },
   updateProject: { store: "projects", idKey: "projectId", mode: "upsert" },
-  saveInspection: {
-    store: "inspections",
-    idKey: "inspectionId",
-    mode: "upsert",
-  },
-  updateInspection: {
-    store: "inspections",
-    idKey: "inspectionId",
-    mode: "upsert",
-  },
   saveTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
@@ -2491,7 +2480,6 @@ function openModalWithRecord(type, record) {
   if (record) {
     const idField = {
       project: "projectId",
-      inspection: "inspectionId",
       takeoff_item: "itemId",
       workorder: "workOrderId",
       payment: "paymentId",
@@ -2627,48 +2615,6 @@ async function openModal(type, editData = null) {
           closeModal();
           refreshMasterDashboard();
           if (isEdit) loadProjectConsoleHub(payload.projectId);
-        })
-        .catch(resetSubmitOnError(submit));
-    };
-  } else if (type === "inspection") {
-    const uniqueId = isEdit ? editData.inspectionId : "INS-" + Date.now();
-    title.innerText = isEdit ? "Edit Inspection" : "New Inspection";
-    if (isEdit && editData.attachments)
-      currentModalFiles = splitAttachments(editData.attachments);
-    body.innerHTML = `<label ${labelStyle}>Type</label><select id="i_type" ${largeInput}><option value="Initial Visit" ${isEdit && editData.inspectionType === "Initial Visit" ? "selected" : ""}>Initial Visit</option><option value="Site Condition" ${isEdit && editData.inspectionType === "Site Condition" ? "selected" : ""}>Site Condition</option><option value="Defect Check" ${isEdit && editData.inspectionType === "Defect Check" ? "selected" : ""}>Defect Check</option></select><label ${labelStyle}>Area Inspected</label><input id="i_area" value="${escapeAttr(isEdit ? editData.areaInspected : "")}" ${largeInput}><label ${labelStyle}>Site Condition</label><textarea id="i_condition" rows="3" ${largeInput}>${escapeHtml(isEdit ? editData.siteCondition : "")}</textarea><label ${labelStyle}>Recommendations</label><textarea id="i_rec" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.recommendations : "")}</textarea><div id="inspectionAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div><label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="i_photo" accept="image/*,application/pdf" multiple style="display:none"></label>`;
-    if (currentModalFiles.length)
-      populateModalInlineImageGalleryPreviews("inspectionAttachmentsPreviews");
-    document.getElementById("i_photo").onchange = (e) =>
-      processIncomingMultiAttachments(
-        e.target.files,
-        "inspectionAttachmentsPreviews",
-      );
-    submit.onclick = async () => {
-      submit.disabled = true;
-      submit.innerText = "GPS...";
-      const gps = await getGPSLocation();
-      submit.innerText = "Saving...";
-      const condition =
-        document.getElementById("i_condition").value +
-        (gps !== "GPS Unavailable"
-          ? `
-
-📍 ${gps}`
-          : "");
-      const payload = {
-        inspectionId: uniqueId,
-        projectId: getCurrentProjectId(),
-        inspectionDate: todayFormatted(),
-        inspectionType: document.getElementById("i_type").value,
-        areaInspected: document.getElementById("i_area").value,
-        siteCondition: condition,
-        recommendations: document.getElementById("i_rec").value,
-        attachments: normalizeAttachments(currentModalFiles),
-      };
-      callApi(isEdit ? "updateInspection" : "saveInspection", payload)
-        .then(() => {
-          closeModal();
-          loadInspectionListings(true);
         })
         .catch(resetSubmitOnError(submit));
     };
@@ -3923,41 +3869,12 @@ function switchConsoleSegment(seg) {
     .forEach((b) => b.classList.remove("active"));
   document.getElementById(`console-seg-${seg}`).classList.add("active-view");
   document.getElementById(`seg-btn-${seg}`).classList.add("active");
-  if (seg === "inspections") loadInspectionListings();
   if (seg === "takeoff") loadTakeOffListings();
   if (seg === "templates") loadTemplatesSegment();
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
   if (seg === "workorders") loadWorkOrdersListings();
   if (seg === "payments") loadPaymentsListings();
-}
-
-async function loadInspectionListings(forceRefresh = false) {
-  const container = document.getElementById("console-inspections-list");
-  let cache = getCache();
-  if (forceRefresh || !cache.inspections.length) {
-    container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading inspections...</p>`;
-    const items = await callApi("getInspections", {});
-    cache = getCache();
-    cache.inspections = items || [];
-    setCache(cache);
-  }
-  const projectId = getCurrentProjectId();
-  const projectItems = cache.inspections.filter(
-    (i) => i.projectId === projectId,
-  );
-  if (!projectItems.length) {
-    container.innerHTML = `<p style="color:var(--muted); text-align:center; padding:20px;">No inspections recorded.</p>`;
-    return;
-  }
-  container.innerHTML = projectItems
-    .map((i) => {
-      const key = `inspection:${i.inspectionId}`;
-      window.modalRecordCache = window.modalRecordCache || {};
-      window.modalRecordCache[key] = i;
-      return `<div class="card" data-modal-type="inspection" data-modal-key="${key}" onclick="window.openModalWithRecord('inspection', window.modalRecordCache['${key}'])" style="cursor:pointer;"><strong>${escapeHtml(i.inspectionType)}</strong> - ${escapeHtml(i.areaInspected)}<br><small>${escapeHtml(i.inspectionDate)}</small><p>${escapeHtml(i.siteCondition)}</p></div>`;
-    })
-    .join("");
 }
 
 async function loadTakeOffListings(forceRefresh = false) {
@@ -4151,7 +4068,6 @@ async function loadPaymentsListings(forceRefresh = false) {
 // ===== api.js =====
 let cache = {
   projects: [],
-  inspections: [],
   takeoffs: [],
   progressLogs: [],
   snags: [],
@@ -4241,8 +4157,6 @@ const DEPENDENCY_ORDER = {
   updateVendor: 2,
   saveWorkOrder: 3,
   updateWorkOrder: 3,
-  saveInspection: 4,
-  updateInspection: 4,
   saveTakeOffItem: 5,
   updateTakeOffItem: 5,
   deleteTakeOffItem: 5,
@@ -4303,7 +4217,6 @@ async function syncQueuedRequests() {
   if (vendorsView && vendorsView.classList.contains("active-view"))
     refreshVendorsListView();
   if (currentSelectedProjectId) {
-    loadInspectionListings(true);
     loadTakeOffListings(true);
     loadProgressTimelineFeed(true);
     loadSnagsListings(true);
@@ -4391,7 +4304,6 @@ async function refreshAllData() {
       true,
     );
     await callApi("getProjects", {});
-    await callApi("getInspections", {});
     await callApi("getTakeOffItems", {});
     await callApi("getProgressLogs", {});
     await callApi("getSnags", {});
@@ -4406,7 +4318,6 @@ async function refreshAllData() {
     }
     await refreshMasterDashboard();
     if (currentSelectedProjectId) {
-      loadInspectionListings(true);
       loadTakeOffListings(true);
       loadProgressTimelineFeed(true);
       loadSnagsListings(true);
