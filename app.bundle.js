@@ -3696,7 +3696,6 @@ async function loadWorkOrdersListings(forceRefresh = false) {
     container.innerHTML = `<p style="text-align:center;padding:20px;">No work orders.</p>`;
     return;
   }
-  const cache = getCache();
   container.innerHTML = projectOrders
     .map((w) => {
       const key = `workorder:${w.workOrderId}`;
