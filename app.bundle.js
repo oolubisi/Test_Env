@@ -3314,24 +3314,25 @@ async function openModal(type, editData = null) {
     function payeeFieldHtml(direction) {
       const currentPayee = isEdit ? editData.payee : "";
       if (direction === "Outgoing Payment") {
-        return `<select id="pay_payee" ${largeInput}>
+        return `<select id="pay_payee" ${largeInput} onchange="window.recalcOutstandingBalance()">
           <option value="">-- Select Vendor --</option>
           ${vendors.map((v) => `<option value="${escapeAttr(v.company)}" ${currentPayee === v.company ? "selected" : ""}>${escapeHtml(v.company)}</option>`).join("")}
         </select>`;
       } else if (direction === "Client Receipt") {
-        return `<select id="pay_payee" ${largeInput}>
+        return `<select id="pay_payee" ${largeInput} onchange="window.recalcOutstandingBalance()">
           <option value="">-- Select Project --</option>
           ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-id="${escapeAttr(p.projectId)}" ${currentPayee === p.clientName ? "selected" : ""}>${escapeHtml(p.clientName)} (${escapeHtml(p.projectId)})</option>`).join("")}
         </select>`;
       } else {
-        return `<input id="pay_payee" value="${escapeAttr(currentPayee)}" placeholder="Describe the expense" ${largeInput}>`;
+        return `<input id="pay_payee" value="${escapeAttr(currentPayee)}" placeholder="Describe the expense" ${largeInput} onchange="window.recalcOutstandingBalance()">`;
       }
     }
 
     body.innerHTML = `
       <label ${labelStyle}>ID</label><input value="${isEdit ? editData.paymentId : "Auto-generated"}" disabled style="${largeInput} background:#f0f0f0;">
+      <input type="hidden" id="pay_id_hidden" value="${escapeAttr(isEdit ? editData.paymentId : "")}">
       <label ${labelStyle}>Direction</label>
-      <select id="pay_dir" ${largeInput}>
+      <select id="pay_dir" ${largeInput} onchange="window.updatePaymentStageUI()">
         <option value="Client Receipt" ${currentDir === "Client Receipt" ? "selected" : ""}>Client Receipt</option>
         <option value="Outgoing Payment" ${currentDir === "Outgoing Payment" ? "selected" : ""}>Outgoing Payment</option>
         <option value="Small Expense" ${currentDir === "Small Expense" ? "selected" : ""}>Small Expense</option>
@@ -3347,7 +3348,7 @@ async function openModal(type, editData = null) {
         <option value="Transport" ${isEdit && editData.expenseCategory === "Transport" ? "selected" : ""}>Transport</option>
         <option value="Misc" ${isEdit && editData.expenseCategory === "Misc" ? "selected" : ""}>Misc</option>
       </select>
-      <label ${labelStyle}>Amount (₦)</label><input id="pay_amount" type="number" step="0.01" value="${escapeAttr(isEdit ? editData.amount : "")}" ${largeInput}>
+      <label ${labelStyle}>Amount (₦)</label><input id="pay_amount" type="number" step="0.01" value="${escapeAttr(isEdit ? editData.amount : "")}" ${largeInput} oninput="window.recalcOutstandingBalance()">
       <label ${labelStyle}>Method</label>
       <select id="pay_method" ${largeInput}>
         <option value="Cash" ${isEdit && editData.paymentMethod === "Cash" ? "selected" : ""}>Cash</option>
@@ -3360,13 +3361,22 @@ async function openModal(type, editData = null) {
         <option value="Cleared" ${isEdit && editData.status === "Cleared" ? "selected" : ""}>Cleared</option>
       </select>
       <label ${labelStyle}>Stage</label>
-      <select id="pay_stage" ${largeInput}>
+      <select id="pay_stage" ${largeInput} onchange="window.updatePaymentStageUI()">
         <option value="" ${!isEdit || !editData.stage ? "selected" : ""}>Full Payment</option>
         <option value="1" ${isEdit && String(editData.stage) === "1" ? "selected" : ""}>Stage 1</option>
         <option value="2" ${isEdit && String(editData.stage) === "2" ? "selected" : ""}>Stage 2</option>
         <option value="3" ${isEdit && String(editData.stage) === "3" ? "selected" : ""}>Stage 3</option>
         <option value="4" ${isEdit && String(editData.stage) === "4" ? "selected" : ""}>Stage 4</option>
       </select>
+      <div id="pay_stage_details" style="display:${isEdit && editData.stage ? "block" : "none"};">
+        <label ${labelStyle}>Total Payment (₦)</label>
+        <input id="pay_stage_total" type="number" step="0.01" value="${escapeAttr(isEdit && editData.stageTotal != null ? editData.stageTotal : "")}" placeholder="Full amount for all stages" ${largeInput}>
+        <div id="pay_outstanding_wrap" style="display:flex; justify-content:space-between; align-items:center; background:var(--card-light); padding:12px; border-radius:12px; margin-top:8px; border:1.5px solid var(--border);">
+          <span style="font-weight:700; font-size:13px;">Outstanding Balance</span>
+          <span id="pay_outstanding" style="font-weight:900; font-size:18px; color:var(--primary);">₦0.00</span>
+        </div>
+        <p id="pay_stage_hint" style="font-size:12px; color:var(--muted); margin-top:4px;"></p>
+      </div>
       <label ${labelStyle}>Notes</label><textarea id="pay_notes" rows="2" ${largeInput}>${escapeHtml(isEdit ? editData.notes : "")}</textarea>
       <div id="paymentAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div>
       <label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="pay_files" accept="image/*,application/pdf" multiple style="display:none"></label>
@@ -3394,6 +3404,35 @@ async function openModal(type, editData = null) {
         alert("Select or enter a payee");
         return;
       }
+      const stage = document.getElementById("pay_stage").value;
+      if (stage) {
+        const total = roundMoney(
+          Number(document.getElementById("pay_stage_total").value) || 0,
+        );
+        if (!total || total <= 0) {
+          alert("Enter a valid Total Payment amount for staged payments");
+          return;
+        }
+        const cache = getCache();
+        const projectId = getCurrentProjectId();
+        const direction = document.getElementById("pay_dir").value;
+        const currentId = document.getElementById("pay_id_hidden").value;
+        const previousTotal = (cache.payments || []).reduce((sum, p) => {
+          if (p.projectId !== projectId) return sum;
+          if (paymentDirectionOf(p) !== direction) return sum;
+          if (p.payee !== payee) return sum;
+          if (!p.stage) return sum;
+          if (p.paymentId === currentId) return sum;
+          return roundMoney(sum + Number(p.amount || 0));
+        }, 0);
+        const outstanding = roundMoney(total - previousTotal);
+        if (amount > outstanding) {
+          alert(
+            `Amount exceeds outstanding balance (₦${moneyValue(outstanding)}). Please adjust the amount or total.`,
+          );
+          return;
+        }
+      }
       submit.disabled = true;
       submit.innerText = "Saving...";
       const payload = {
@@ -3407,7 +3446,12 @@ async function openModal(type, editData = null) {
         amount: roundMoney(amount),
         paymentMethod: document.getElementById("pay_method").value,
         status: document.getElementById("pay_status").value,
-        stage: document.getElementById("pay_stage").value,
+        stage: stage,
+        stageTotal: stage
+          ? roundMoney(
+              Number(document.getElementById("pay_stage_total").value) || 0,
+            )
+          : "",
         notes: document.getElementById("pay_notes").value,
         attachments: normalizeAttachments(currentModalFiles),
       };
@@ -3423,7 +3467,104 @@ async function openModal(type, editData = null) {
 
 // ======================== EXPORTS ========================
 
+// ===== payment-stage-helpers.js =====
+function updatePaymentStageUI() {
+  const stage = document.getElementById("pay_stage").value;
+  const details = document.getElementById("pay_stage_details");
+  const totalInput = document.getElementById("pay_stage_total");
+  const outstandingEl = document.getElementById("pay_outstanding");
+  const hintEl = document.getElementById("pay_stage_hint");
+
+  if (!stage) {
+    if (details) details.style.display = "none";
+    return;
+  }
+  if (details) details.style.display = "block";
+
+  // Auto-fill total for client receipts from project contract
+  const direction = document.getElementById("pay_dir").value;
+  if (direction === "Client Receipt" && !totalInput.value) {
+    const cache = getCache();
+    const projectId = getCurrentProjectId();
+    const proj = cache.projects.find((p) => p.projectId === projectId);
+    if (proj) {
+      const subtotal = roundMoney(Number(proj.contractSubtotal) || 0);
+      const vat = calculateTax(subtotal, "VAT");
+      totalInput.value = roundMoney(subtotal + vat);
+    }
+  }
+
+  recalcOutstandingBalance();
+}
+
+function recalcOutstandingBalance() {
+  const stage = document.getElementById("pay_stage").value;
+  const totalInput = document.getElementById("pay_stage_total");
+  const outstandingEl = document.getElementById("pay_outstanding");
+  const hintEl = document.getElementById("pay_stage_hint");
+  const amountInput = document.getElementById("pay_amount");
+
+  if (!stage || !totalInput || !outstandingEl) return;
+
+  const total = roundMoney(Number(totalInput.value) || 0);
+  if (!total) {
+    outstandingEl.innerText = "₦0.00";
+    if (hintEl)
+      hintEl.innerText = "Enter Total Payment to see outstanding balance.";
+    return;
+  }
+
+  const cache = getCache();
+  const projectId = getCurrentProjectId();
+  const direction = document.getElementById("pay_dir").value;
+  const payee = document.getElementById("pay_payee").value;
+  const currentPaymentId =
+    document.getElementById("pay_id_hidden")?.value || "";
+
+  // Sum all staged payments for same project + direction + payee
+  const previousTotal = (cache.payments || []).reduce((sum, p) => {
+    if (p.projectId !== projectId) return sum;
+    if (paymentDirectionOf(p) !== direction) return sum;
+    if (p.payee !== payee) return sum;
+    if (!p.stage) return sum; // full payment, not staged
+    if (p.paymentId === currentPaymentId) return sum; // exclude current if editing
+    return roundMoney(sum + Number(p.amount || 0));
+  }, 0);
+
+  const outstanding = roundMoney(total - previousTotal);
+  outstandingEl.innerText = "₦" + moneyValue(outstanding);
+  outstandingEl.style.color =
+    outstanding > 0
+      ? "var(--primary)"
+      : outstanding < 0
+        ? "var(--danger)"
+        : "var(--success)";
+
+  if (hintEl) {
+    if (outstanding < 0) {
+      hintEl.innerText =
+        "⚠️ Previous stages exceed total. Adjust total or check records.";
+      hintEl.style.color = "var(--danger)";
+    } else if (outstanding === 0) {
+      hintEl.innerText = "✓ All stages paid.";
+      hintEl.style.color = "var(--success)";
+    } else {
+      hintEl.innerText = `Previous stages: ₦${moneyValue(previousTotal)}`;
+      hintEl.style.color = "var(--muted)";
+    }
+  }
+
+  // Auto-cap amount if it exceeds outstanding
+  if (amountInput && outstanding >= 0) {
+    const currentAmount = roundMoney(Number(amountInput.value) || 0);
+    if (currentAmount > outstanding) {
+      amountInput.value = outstanding;
+    }
+  }
+}
+
 // ===== dashboard.js =====
+
 // dashboard.js
 
 async function refreshMasterDashboard() {
@@ -4270,6 +4411,8 @@ window.deleteSelectedTemplates = deleteSelectedTemplates;
 window.hideAllBuiltInTemplates = hideAllBuiltInTemplates;
 window.showAllBuiltInTemplates = showAllBuiltInTemplates;
 window.shareReport = shareReport;
+window.updatePaymentStageUI = updatePaymentStageUI;
+window.recalcOutstandingBalance = recalcOutstandingBalance;
 window.previewTemplate = previewTemplate;
 window.applyTemplateToProject = applyTemplateToProject;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
