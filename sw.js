@@ -1,4 +1,4 @@
-const CACHE_NAME = "fieldscan-pro-v5";
+const CACHE_NAME = "fieldscan-pro-v6";
 const urlsToCache = [
   "./",
   "./index.html",

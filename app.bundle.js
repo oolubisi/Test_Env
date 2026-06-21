@@ -1371,6 +1371,232 @@ Quantities will be set to 0 for field measurement.`)
   }
 }
 
+function groupSyncedTemplateRows(rows) {
+  const map = new Map();
+  (rows || [])
+    .filter((row) => row.isActive !== "No")
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+    .forEach((row) => {
+      const id = row.templateId || "tmpl-standard-construction";
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          name: row.templateName || "Take-Off Template",
+          description: row.templateDescription || "",
+          synced: true,
+          items: [],
+        });
+      }
+      map.get(id).items.push({
+        templateItemId: row.templateItemId,
+        roomArea: row.roomArea || "",
+        tradeCategory: row.tradeCategory || "",
+        description: row.description || "",
+        quantity: 0,
+        unit: row.unit || "pcs",
+        scopeNotes: row.scopeNotes || "",
+        sortOrder: Number(row.sortOrder) || 0,
+      });
+    });
+  return Array.from(map.values());
+}
+
+async function ensureSyncedTemplates(forceRefresh) {
+  const cache = getCache();
+  if (forceRefresh || !cache.takeoffTemplatesLoaded) {
+    try {
+      cache.takeoffTemplates = (await callApi("getTakeOffTemplates", {})) || [];
+      cache.takeoffTemplatesLoaded = true;
+      setCache(cache);
+    } catch (e) {
+      cache.takeoffTemplates = readBackup("getTakeOffTemplates", []);
+      setCache(cache);
+    }
+  }
+  return groupSyncedTemplateRows(getCache().takeoffTemplates || []);
+}
+
+function getAllTemplates() {
+  return groupSyncedTemplateRows((getCache().takeoffTemplates || []).filter((r) => r.isActive !== "No"));
+}
+
+function findTemplateById(id) {
+  return getAllTemplates().find((t) => t.id === id);
+}
+
+async function loadTemplatesSegment(forceRefresh = false) {
+  const container = document.getElementById("console-templates-list");
+  if (!container) return;
+  container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading templates...</p>`;
+  const templates = await ensureSyncedTemplates(forceRefresh);
+  const projectId = getCurrentProjectId();
+  const cache = getCache();
+  const projectItems = (cache.takeoffs || []).filter((i) => i.projectId === projectId);
+
+  let html = "";
+  if (projectItems.length > 0) {
+    html += `<div class="card" style="background: var(--card-light); border-style: dashed;"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong style="font-size:15px;">Save Current Take-Offs as Template</strong><div style="font-size:12px;color:var(--muted);margin-top:2px;">${projectItems.length} items in this project</div></div><button class="action-btn" style="width:auto;padding:8px 16px;font-size:13px;" onclick="openSaveAsTemplateModal()"><i class="fas fa-save"></i> Save</button></div></div>`;
+  }
+  html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="loadTemplatesSegment(true)"><i class="fas fa-sync-alt"></i> Refresh Templates</button></div>`;
+  if (!templates.length) {
+    container.innerHTML = html + `<p style="text-align:center;padding:20px;color:var(--muted);">No templates available.</p>`;
+    return;
+  }
+  html += templates
+    .map((t) => `<div class="card" style="cursor:default;"><div style="display:flex;justify-content:space-between;align-items:start;gap:12px;"><div style="flex:1;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px;background:var(--primary);color:#fff;padding:2px 6px;border-radius:4px;text-transform:uppercase;margin-left:8px;">Synced</span><div style="font-size:12px;color:var(--muted);margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">${t.items.length} items</div></div><div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`)
+    .join("");
+  container.innerHTML = html;
+}
+
+function openSaveAsTemplateModal() {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Save as Synced Template";
+  overlay.style.display = "flex";
+  body.innerHTML = `<label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Template Name</label><input id="tmpl_name" style="width:100%;padding:12px;font-size:16px;" placeholder="e.g. My Standard Template"><label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Description</label><textarea id="tmpl_desc" rows="2" style="width:100%;padding:12px;font-size:16px;" placeholder="Brief description..."></textarea>`;
+  submit.style.display = "block";
+  submit.innerText = "Save Template";
+  submit.onclick = async () => {
+    const name = document.getElementById("tmpl_name").value.trim();
+    const desc = document.getElementById("tmpl_desc").value.trim();
+    if (!name) return alert("Enter a template name");
+    const cache = getCache();
+    const projectId = getCurrentProjectId();
+    const items = (cache.takeoffs || []).filter((i) => i.projectId === projectId);
+    if (!items.length) return alert("No items to save");
+    submit.disabled = true;
+    submit.innerText = "Saving...";
+    const templateId = "tmpl-" + Date.now();
+    try {
+      for (let idx = 0; idx < items.length; idx++) {
+        const i = items[idx];
+        await callApi("saveTakeOffTemplate", {
+          templateItemId: templateId + "-" + String(idx + 1).padStart(3, "0"),
+          templateId,
+          templateName: name,
+          templateDescription: desc || "Synced template",
+          roomArea: i.roomArea || "",
+          tradeCategory: i.tradeCategory || "",
+          description: i.description || "",
+          quantity: 0,
+          unit: i.unit || "pcs",
+          scopeNotes: i.scopeNotes || "",
+          sortOrder: idx + 1,
+          isActive: "Yes",
+        });
+      }
+      closeModal();
+      await loadTemplatesSegment(true);
+      alert("Template saved across devices");
+    } catch (e) {
+      alert("Failed to save template: " + (e.message || "Unknown error"));
+      submit.disabled = false;
+      submit.innerText = "Save Template";
+    }
+  };
+}
+
+function openEditTemplateModal(id) {
+  const t = findTemplateById(id);
+  if (!t) return;
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Edit Synced Template";
+  overlay.style.display = "flex";
+  const rows = t.items.map((item) => `<div class="tmpl-edit-row" data-template-item-id="${escapeAttr(item.templateItemId || "")}" style="display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;"><input value="${escapeAttr(item.roomArea)}" placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.tradeCategory)}" placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.description)}" placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.unit)}" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.dataset.deleted='true';this.parentElement.style.display='none';" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button></div>`).join("");
+  body.innerHTML = `<label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Template Name</label><input id="edit_tmpl_name" value="${escapeAttr(t.name)}" style="width:100%;padding:12px;font-size:16px;border:1.5px solid var(--border);border-radius:12px;"><label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Description</label><textarea id="edit_tmpl_desc" rows="2" style="width:100%;padding:12px;font-size:16px;border:1.5px solid var(--border);border-radius:12px;">${escapeHtml(t.description)}</textarea><div style="margin-top:16px;margin-bottom:8px;font-weight:800;font-size:13px;text-transform:uppercase;">Items</div><div id="edit_tmpl_items">${rows}</div><button class="action-btn" style="margin-top:10px;background:var(--card-light);color:var(--text);" onclick="addEditTemplateItemRow()"><i class="fas fa-plus"></i> Add Item</button>`;
+  submit.style.display = "block";
+  submit.innerText = "Save Changes";
+  submit.onclick = async () => {
+    const name = document.getElementById("edit_tmpl_name").value.trim();
+    const desc = document.getElementById("edit_tmpl_desc").value.trim();
+    if (!name) return alert("Enter a template name");
+    submit.disabled = true;
+    submit.innerText = "Saving...";
+    try {
+      const rows = Array.from(document.querySelectorAll("#edit_tmpl_items > .tmpl-edit-row"));
+      for (let idx = 0; idx < rows.length; idx++) {
+        const row = rows[idx];
+        const itemId = row.dataset.templateItemId;
+        if (row.dataset.deleted === "true") {
+          if (itemId) await callApi("deleteTakeOffTemplate", { templateItemId: itemId });
+          continue;
+        }
+        const inputs = row.querySelectorAll("input");
+        const payload = {
+          templateItemId: itemId || id + "-" + Date.now() + "-" + idx,
+          templateId: id,
+          templateName: name,
+          templateDescription: desc || "Synced template",
+          roomArea: inputs[0].value.trim(),
+          tradeCategory: inputs[1].value.trim(),
+          description: inputs[2].value.trim(),
+          quantity: 0,
+          unit: inputs[3].value.trim() || "pcs",
+          scopeNotes: "",
+          sortOrder: idx + 1,
+          isActive: "Yes",
+        };
+        if (!payload.description) continue;
+        await callApi(itemId ? "updateTakeOffTemplate" : "saveTakeOffTemplate", payload);
+      }
+      closeModal();
+      await loadTemplatesSegment(true);
+      alert("Template updated across devices");
+    } catch (e) {
+      alert("Failed to update template: " + (e.message || "Unknown error"));
+      submit.disabled = false;
+      submit.innerText = "Save Changes";
+    }
+  };
+}
+
+function addEditTemplateItemRow() {
+  const container = document.getElementById("edit_tmpl_items");
+  if (!container) return;
+  const div = document.createElement("div");
+  div.className = "tmpl-edit-row";
+  div.style.cssText = "display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;";
+  div.innerHTML = `<input placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="pcs" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.remove()" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button>`;
+  container.appendChild(div);
+}
+
+async function deleteSelectedTemplates() {
+  alert("Open a synced template and remove items there.");
+}
+
+function hideAllBuiltInTemplates() {
+  loadTemplatesSegment(true);
+}
+
+function showAllBuiltInTemplates() {
+  loadTemplatesSegment(true);
+}
+
+function deleteCustomTemplate(id) {
+  openEditTemplateModal(id);
+}
+
+function exportAllTemplatesJSON() {
+  alert("Templates are now synced through the backend.");
+}
+
+function exportSingleTemplateJSON() {
+  alert("Templates are now synced through the backend.");
+}
+
+function importTemplatesFromJSON() {
+  alert("Use Save Current Take-Offs as Template or edit synced templates directly.");
+}
+
+function openImportTemplatesModal() {
+  alert("Use Save Current Take-Offs as Template or edit synced templates directly.");
+}
+
 // ===== db.js =====
 // Seed in-memory cache from localStorage backups so the app has data
 // immediately on page load without waiting for the network.
@@ -1378,6 +1604,7 @@ Quantities will be set to 0 for field measurement.`)
   const seeds = [
     { key: "projects", action: "getProjects", isArray: true },
     { key: "takeoffs", action: "getTakeOffItems", isArray: true },
+    { key: "takeoffTemplates", action: "getTakeOffTemplates", isArray: true },
     { key: "progressLogs", action: "getProgressLogs", isArray: true },
     { key: "snags", action: "getSnags", isArray: true },
     { key: "vendors", action: "getVendors", isArray: true },
@@ -1508,6 +1735,7 @@ async function deleteSnagPhotosLocally(snagId) {
 const GET_ACTION_BY_STORE = {
   projects: "getProjects",
   takeoffs: "getTakeOffItems",
+  takeoffTemplates: "getTakeOffTemplates",
   progressLogs: "getProgressLogs",
   snags: "getSnags",
   vendors: "getVendors",
@@ -1522,6 +1750,21 @@ const MUTATION_MAP = {
   saveTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
+  saveTakeOffTemplate: {
+    store: "takeoffTemplates",
+    idKey: "templateItemId",
+    mode: "upsert",
+  },
+  updateTakeOffTemplate: {
+    store: "takeoffTemplates",
+    idKey: "templateItemId",
+    mode: "upsert",
+  },
+  deleteTakeOffTemplate: {
+    store: "takeoffTemplates",
+    idKey: "templateItemId",
+    mode: "delete",
+  },
   saveProgressLog: { store: "progressLogs", idKey: "logId", mode: "upsert" },
   saveSnag: { store: "snags", idKey: "snagId", mode: "upsert" },
   updateSnag: { store: "snags", idKey: "snagId", mode: "upsert" },
@@ -4518,6 +4761,7 @@ let cache = {
   vendors: [],
   workorders: [],
   payments: [],
+  takeoffTemplates: [],
   settings: {},
 };
 let currentSelectedProjectId = null;
@@ -4617,6 +4861,9 @@ const DEPENDENCY_ORDER = {
   saveTakeOffItem: 5,
   updateTakeOffItem: 5,
   deleteTakeOffItem: 5,
+  saveTakeOffTemplate: 5,
+  updateTakeOffTemplate: 5,
+  deleteTakeOffTemplate: 5,
   saveProgressLog: 6,
   saveSnag: 7,
   updateSnag: 7,
@@ -4768,6 +5015,7 @@ async function refreshAllData() {
     const endpoints = [
       { action: "getProjects", key: "projects", isArray: true },
       { action: "getTakeOffItems", key: "takeoffs", isArray: true },
+      { action: "getTakeOffTemplates", key: "takeoffTemplates", isArray: true },
       { action: "getProgressLogs", key: "progressLogs", isArray: true },
       { action: "getSnags", key: "snags", isArray: true },
       { action: "getVendors", key: "vendors", isArray: true },
@@ -5239,6 +5487,7 @@ window.addEventListener("load", () => {
       { action: "getSnags", key: "snags", isArray: true },
       { action: "getProgressLogs", key: "progressLogs", isArray: true },
       { action: "getTakeOffItems", key: "takeoffs", isArray: true },
+      { action: "getTakeOffTemplates", key: "takeoffTemplates", isArray: true },
       { action: "getSettings", key: "settings", isArray: false },
     ];
     for (const ep of endpoints) {
