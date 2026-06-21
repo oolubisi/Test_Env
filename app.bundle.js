@@ -12,10 +12,12 @@ let selectedTemplateIds = new Set();
 
 // ===== utils.js =====
 function escapeHtml(str) {
-  return String(str ?? "").replace(/[&<>]/g, function (m) {
+  return String(str ?? "").replace(/[&<>"']/g, function (m) {
     if (m === "&") return "&amp;";
     if (m === "<") return "&lt;";
     if (m === ">") return "&gt;";
+    if (m === '"') return "&quot;";
+    if (m === "'") return "&#39;";
     return m;
   });
 }
@@ -101,6 +103,31 @@ function hidePdfCompressing() {
   if (overlay) overlay.style.display = "none";
 }
 
+// Non-blocking toast notification — replaces alert() for sync messages
+function showSyncToast(message, durationMs = 3000) {
+  let toast = document.getElementById("fieldscan-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "fieldscan-toast";
+    toast.style.cssText =
+      "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);" +
+      "background:#000;color:#fff;padding:12px 20px;border-radius:14px;" +
+      "font-size:14px;font-weight:700;z-index:7000;max-width:90%;text-align:center;" +
+      "box-shadow:0 4px 16px rgba(0,0,0,0.3);transition:opacity 0.3s;";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.style.opacity = "1";
+  toast.style.display = "block";
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => {
+    toast.style.opacity = "0";
+    setTimeout(() => {
+      toast.style.display = "none";
+    }, 300);
+  }, durationMs);
+}
+
 async function compressPdfToTargetLimit(base64, maxBytes = 300000) {
   if (typeof PDFLib === "undefined") {
     throw new Error(
@@ -157,10 +184,18 @@ Continue?`)
 
 function getDirectImageUrl(url) {
   if (!url || url.startsWith("data:")) return url;
-  const match = url.match(/\/d\/(.+?)\//) || url.match(/id=([^&]+)/);
-  if (match && match[1]) {
-    return `${GAS_URL}?id=${match[1]}&token=${AUTH_TOKEN}`;
+  // Extract Drive file ID from various URL formats:
+  // /file/d/{ID}/, ?id={ID}, /open?id={ID}, /uc?export=view&id={ID}, /d/{ID}
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /[?&]id=([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+  ];
+  for (const re of patterns) {
+    const m = url.match(re);
+    if (m && m[1]) return `${GAS_URL}?id=${m[1]}&token=${AUTH_TOKEN}`;
   }
+  // Bare Drive file ID (no slashes or protocol)
   if (!/[\/\s]/.test(url) && !url.includes("://")) {
     return `${GAS_URL}?id=${url}&token=${AUTH_TOKEN}`;
   }
@@ -186,7 +221,7 @@ function todayFormatted() {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}/${mm}/${dd}`;
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 function paymentDirectionOf(p) {
@@ -1337,6 +1372,35 @@ Quantities will be set to 0 for field measurement.`)
 }
 
 // ===== db.js =====
+// Seed in-memory cache from localStorage backups so the app has data
+// immediately on page load without waiting for the network.
+(function seedCacheFromBackup() {
+  const seeds = [
+    { key: "projects", action: "getProjects", isArray: true },
+    { key: "takeoffs", action: "getTakeOffItems", isArray: true },
+    { key: "progressLogs", action: "getProgressLogs", isArray: true },
+    { key: "snags", action: "getSnags", isArray: true },
+    { key: "vendors", action: "getVendors", isArray: true },
+    { key: "workorders", action: "getWorkOrders", isArray: true },
+    { key: "payments", action: "getPayments", isArray: true },
+    { key: "settings", action: "getSettings", isArray: false },
+  ];
+  seeds.forEach(({ key, action, isArray }) => {
+    try {
+      const raw = localStorage.getItem(`fb_${action}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          isArray ? Array.isArray(parsed) : parsed && typeof parsed === "object"
+        ) {
+          cache[key] = parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("seedCacheFromBackup failed for", key, e);
+    }
+  });
+})();
 const DB_NAME = "FieldScanOfflineDB";
 const STORE_NAME = "syncQueue";
 const SNAG_PHOTO_STORE = "snagPhotos";
@@ -4022,6 +4086,22 @@ async function saveProjectScope() {
   }
 }
 
+// Dedicated subtotal-only update — calls the backend's updateProjectContractSubtotal action
+async function updateProjectContractSubtotal(projectId, contractSubtotal) {
+  const payload = {
+    projectId,
+    contractSubtotal: roundMoney(Number(contractSubtotal) || 0),
+  };
+  const result = await callApi("updateProjectContractSubtotal", payload);
+  if (result && result.success !== false) {
+    const cache = getCache();
+    const proj = cache.projects.find((p) => p.projectId === projectId);
+    if (proj) proj.contractSubtotal = payload.contractSubtotal;
+    setCache(cache);
+  }
+  return result;
+}
+
 function triggerEditProjectProfile() {
   const cache = getCache();
   const id = getCurrentProjectId();
@@ -4051,11 +4131,12 @@ function switchConsoleSegment(seg) {
 async function loadTakeOffListings(forceRefresh = false) {
   const container = document.getElementById("console-takeoff-list");
   let cache = getCache();
-  if (forceRefresh || !cache.takeoffs.length) {
+  if (forceRefresh || !cache.takeoffsLoaded) {
     container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading take‑off items...</p>`;
     const items = await callApi("getTakeOffItems", {});
     cache = getCache();
     cache.takeoffs = items || [];
+    cache.takeoffsLoaded = true;
     setCache(cache);
   }
   const projectId = getCurrentProjectId();
@@ -4091,11 +4172,12 @@ async function loadTakeOffListings(forceRefresh = false) {
 async function loadProgressTimelineFeed(forceRefresh = false) {
   const container = document.getElementById("console-progress-feed");
   let cache = getCache();
-  if (forceRefresh || !cache.progressLogs.length) {
+  if (forceRefresh || !cache.progressLogsLoaded) {
     container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading progress logs...</p>`;
     const logs = await callApi("getProgressLogs", {});
     cache = getCache();
     cache.progressLogs = logs || [];
+    cache.progressLogsLoaded = true;
     setCache(cache);
   }
   const projectId = getCurrentProjectId();
@@ -4117,11 +4199,12 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
 async function loadSnagsListings(forceRefresh = false) {
   const container = document.getElementById("console-snags-list");
   let cache = getCache();
-  if (forceRefresh || !cache.snags.length) {
+  if (forceRefresh || !cache.snagsLoaded) {
     container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading snags...</p>`;
     const items = await callApi("getSnags", {});
     cache = getCache();
     cache.snags = items || [];
+    cache.snagsLoaded = true;
     setCache(cache);
   }
   const projectId = getCurrentProjectId();
@@ -4144,11 +4227,12 @@ async function loadSnagsListings(forceRefresh = false) {
 async function loadWorkOrdersListings(forceRefresh = false) {
   const container = document.getElementById("console-workorders-list");
   let cache = getCache();
-  if (forceRefresh || !cache.workorders.length) {
+  if (forceRefresh || !cache.workordersLoaded) {
     container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading work orders...</p>`;
     const orders = await callApi("getWorkOrders", {});
     cache = getCache();
     cache.workorders = orders || [];
+    cache.workordersLoaded = true;
     setCache(cache);
   }
   const projectId = getCurrentProjectId();
@@ -4175,11 +4259,12 @@ async function loadWorkOrdersListings(forceRefresh = false) {
 async function loadPaymentsListings(forceRefresh = false) {
   const container = document.getElementById("console-payments-list");
   let cache = getCache();
-  if (forceRefresh || !cache.payments.length) {
+  if (forceRefresh || !cache.paymentsLoaded) {
     container.innerHTML = `<p style="text-align:center; font-size:14px; font-weight:700;"><i class="fas fa-spinner fa-spin"></i> Loading payment records...</p>`;
     const payments = await callApi("getPayments", {});
     cache = getCache();
     cache.payments = payments || [];
+    cache.paymentsLoaded = true;
     setCache(cache);
   }
   const projectId = getCurrentProjectId();
@@ -4250,6 +4335,14 @@ let cache = {
 let currentSelectedProjectId = null;
 
 function setCache(newCache) {
+  // Deep-merge settings so individual keys (VAT, WHT, Logo…) are never lost
+  // by a partial update. All other top-level keys are replaced as before.
+  if (newCache.settings && cache.settings) {
+    newCache = {
+      ...newCache,
+      settings: Object.assign({}, cache.settings, newCache.settings),
+    };
+  }
   cache = { ...cache, ...newCache };
 }
 function getCache() {
@@ -4264,9 +4357,12 @@ function getCurrentProjectId() {
 
 async function callApi(action, data = {}) {
   const isGet = action.startsWith("get");
+  // Strip the auth token from the data payload so it never reaches sheet rows.
+  // The token is sent at the top-level of the request envelope instead.
+  const { token: _stripped, ...cleanData } = data;
   let response;
   try {
-    const payload = { action, data: { ...data, token: AUTH_TOKEN } };
+    const payload = { action, token: AUTH_TOKEN, data: cleanData };
     response = await fetch(GAS_URL, {
       method: "POST",
       body: JSON.stringify(payload),
@@ -4278,10 +4374,10 @@ async function callApi(action, data = {}) {
         action,
         action === "getStats" ? { activeVendors: "--" } : [],
       );
-    await queueOfflineRequest(action, data);
-    applyLocalMutation(action, data);
+    await queueOfflineRequest(action, cleanData);
+    applyLocalMutation(action, cleanData);
     updateSyncStatus();
-    alert("📴 Offline: saved locally. Will sync automatically when online.");
+    showSyncToast("📴 Offline: saved locally. Will sync when back online.");
     return { status: "queued" };
   }
   if (!response.ok) {
@@ -4345,7 +4441,7 @@ async function syncQueuedRequests() {
   await updateSyncStatus();
   let queue = await getQueuedRequests();
   if (!queue.length) return;
-  alert("🔄 Syncing offline data...");
+  showSyncToast("🔄 Syncing offline data...", 10000);
   queue.sort(
     (a, b) =>
       (DEPENDENCY_ORDER[a.action] || 99) - (DEPENDENCY_ORDER[b.action] || 99),
@@ -4358,7 +4454,8 @@ async function syncQueuedRequests() {
       try {
         const payload = {
           action: item.action,
-          data: { ...item.data, token: AUTH_TOKEN },
+          token: AUTH_TOKEN,
+          data: item.data,
         };
         const response = await fetch(GAS_URL, {
           method: "POST",
@@ -4377,7 +4474,10 @@ async function syncQueuedRequests() {
         retries--;
         if (retries === 0) {
           console.error("Failed to sync", item.action, item.data);
-          alert(`Failed to sync ${item.action}. Will retry later.`);
+          showSyncToast(
+            `⚠️ Failed to sync ${item.action}. Will retry later.`,
+            4000,
+          );
         } else {
           await new Promise((r) => setTimeout(r, delay));
           delay *= 2;
@@ -4476,18 +4576,35 @@ async function refreshAllData() {
       `<i class="fas fa-spinner fa-spin"></i> Refreshing...`,
       true,
     );
-    await callApi("getProjects", {});
-    await callApi("getTakeOffItems", {});
-    await callApi("getProgressLogs", {});
-    await callApi("getSnags", {});
-    await callApi("getVendors", {});
-    await callApi("getWorkOrders", {});
-    await callApi("getPayments", {});
+    // Fetch all endpoints and update both localStorage backup AND in-memory cache
+    const endpoints = [
+      { action: "getProjects", key: "projects", isArray: true },
+      { action: "getTakeOffItems", key: "takeoffs", isArray: true },
+      { action: "getProgressLogs", key: "progressLogs", isArray: true },
+      { action: "getSnags", key: "snags", isArray: true },
+      { action: "getVendors", key: "vendors", isArray: true },
+      { action: "getWorkOrders", key: "workorders", isArray: true },
+      { action: "getPayments", key: "payments", isArray: true },
+    ];
+    for (const ep of endpoints) {
+      const res = await callApi(ep.action, {});
+      const c = getCache();
+      c[ep.key] = ep.isArray ? res || [] : res || {};
+      // Reset loaded flags so console segments re-render with fresh data
+      const loadedFlag = ep.key + "Loaded";
+      c[loadedFlag] = true;
+      setCache(c);
+    }
     const settingsRes = await callApi("getSettings", {});
     if (settingsRes && typeof settingsRes === "object") {
-      const cache = getCache();
-      cache.settings = settingsRes;
-      setCache(cache);
+      const c = getCache();
+      // Deep-merge settings so individual keys are preserved
+      c.settings = Object.assign(
+        {},
+        c.settings,
+        settingsRes.data || settingsRes,
+      );
+      setCache(c);
     }
     await refreshMasterDashboard();
     if (currentSelectedProjectId) {
@@ -4754,6 +4871,7 @@ window.triggerEditProjectProfile = triggerEditProjectProfile;
 window.switchConsoleSegment = switchConsoleSegment;
 window.toggleScopeEdit = toggleScopeEdit;
 window.saveProjectScope = saveProjectScope;
+window.updateProjectContractSubtotal = updateProjectContractSubtotal;
 window.openModal = openModal;
 window.openModalWithRecord = openModalWithRecord;
 window.closeModal = closeModal;

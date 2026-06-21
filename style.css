@@ -44,6 +44,11 @@ body {
   flex-wrap: wrap;
   gap: 8px;
 }
+.header-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 #pwa-install-btn {
   animation: fadeIn 0.3s ease;
