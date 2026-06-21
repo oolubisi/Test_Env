@@ -4711,7 +4711,7 @@ function generateLetterheadHTML() {
       font-family: 'Calibri', 'Georgia', serif;
       font-size: 12pt;
       color: #000;
-      padding: 10mm 10mm 10mm 10mm;
+      padding: 10mm 10mm 10mm 15mm;
       box-sizing: border-box;
     ">
 
@@ -4737,7 +4737,7 @@ function generateLetterheadHTML() {
     <div style="margin-bottom: 16px; font-size: 11pt;">${escapeHtml(salutation)}</div>
 
     <!-- ── TITLE (bold, left-aligned) ── -->
-    ${title ? `<div style="font-weight: 700; font-size: 11pt; margin-bottom: 14px; text-decoration: underline;">${escapeHtml(title)}</div>` : ""}
+    ${title ? `<div style="font-weight: 700; font-size: 11pt; margin-bottom: 14px; text-decoration: ">${escapeHtml(title)}</div>` : ""}
 
     <!-- ── BODY ── -->
     <div style="font-size: 11pt; line-height: 1.6; margin-bottom: 32px;">
