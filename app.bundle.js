@@ -4234,6 +4234,7 @@ async function callApi(action, data = {}) {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
     response = await fetch(GAS_URL, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
   } catch (err) {
@@ -4282,8 +4283,10 @@ async function callApi(action, data = {}) {
     alert(`⚠️ Save failed: ${message}`);
     throw new Error(message);
   }
-  if (isGet) writeBackup(action, result);
-  return result;
+  const returnValue =
+    isGet && result && result.data !== undefined ? result.data : result;
+  if (isGet) writeBackup(action, returnValue);
+  return returnValue;
 }
 
 const DEPENDENCY_ORDER = {
@@ -4629,7 +4632,7 @@ window.addEventListener("load", () => {
   callApi("getSettings", {})
     .then((res) => {
       const cache = getCache();
-      cache.settings = res && res.data ? res.data : {};
+      cache.settings = res || {};
       setCache(cache);
     })
     .catch(() => {});
