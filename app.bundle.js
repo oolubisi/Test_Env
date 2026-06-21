@@ -3354,6 +3354,8 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
         alert("Enter a valid payment amount");
         return;
       }
+      const direction = document.getElementById("pay_dir").value;
+      const isSmall = direction === "Small Expense";
       const stage = isSmall ? "" : document.getElementById("pay_stage").value;
       if (!isSmall && stage) {
         const balanceText = document
@@ -3759,71 +3761,34 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
     </div>`;
   }
 
-  const dateStr = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  const logoUrl =
-    settings && settings.Logo ? getDirectImageUrl(settings.Logo) : "";
-  const signName =
-    settings && settings.Name_Signed ? escapeHtml(settings.Name_Signed) : "";
-  const signImg =
-    settings && settings.Sign_Signed
-      ? getDirectImageUrl(settings.Sign_Signed)
-      : "";
-
-  let headerHtml = `<div class="report-header" style="border-bottom: 2.5px solid #000; padding-bottom: 2px; margin-bottom: 18px;"><div style="display: flex; justify-content: space-between; align-items: flex-end;">`;
-  headerHtml += `<div style="flex:1;"><div style="font-size: 11px; color: #495057; font-weight: 600; margin-bottom: 2px;">${escapeHtml(dateStr)}</div><div style="font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #495057; line-height: 1.1;">Work Order</div></div>`;
-  if (logoUrl) {
-    headerHtml += `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${escapeAttr(logoUrl)}" style="max-height:120px; max-width:280px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
-  }
-  headerHtml += `</div>`;
-  headerHtml += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: flex; justify-content: space-between; align-items: baseline;"><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div style="font-size:16px;"><strong style="color:#000;">Work Order ID:</strong> ${escapeHtml(workorder.workOrderId || "—")}</div></div></div>`;
-  headerHtml += `</div>`;
-
-  let signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid; text-align: left;">
-    <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
-    <div style="display: inline-block; text-align: center;">
-      ${signImg ? `<div style="margin-bottom: 4px;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
-      <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
-      <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
+  return `${generateReportHeader("Work Order", project)}
+    <div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+      <div><strong>Work Order ID:</strong> ${escapeHtml(workorder.workOrderId)}</div>
+      <div><strong>Vendor:</strong> ${escapeHtml(vendor ? vendor.company : workorder.vendorId)}${vendor && vendor.trade ? ` (${escapeHtml(vendor.trade)})` : ""}</div>
+      <div><strong>Contact:</strong> ${escapeHtml(vendor ? vendor.contactName : "—")}</div>
+      <div><strong>Phone:</strong> ${escapeHtml(vendor ? vendor.phone1 : "—")}</div>
+      <div><strong>Status:</strong> ${escapeHtml(workorder.status)}</div>
     </div>
-  </div>`;
-
-  return `<div class="report-page-wrapper">
-    <div class="report-content">
-      ${headerHtml}
-      <div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
-        <div><strong>Vendor:</strong> ${escapeHtml(vendor ? vendor.company : workorder.vendorId)}${vendor && vendor.trade ? ` (${escapeHtml(vendor.trade)})` : ""}</div>
-        <div><strong>Contact:</strong> ${escapeHtml(vendor ? vendor.contactName : "—")}</div>
-        <div><strong>Phone:</strong> ${escapeHtml(vendor ? vendor.phone1 : "—")}</div>
-        <div><strong>Status:</strong> ${escapeHtml(workorder.status)}</div>
-      </div>
-      <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
-        <thead>
-          <tr>
-            <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
-            <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
-            <th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">U/M</th>
-            <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Rate (₦)</th>
-            <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Amount (₦)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemRows}
-          <tr style="background:#e9ecef; font-weight:900;">
-            <td colspan="4" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
-            <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
-          </tr>
-        </tbody>
-      </table>
-      ${notesHtml}
-      ${termsHtml}
-      ${signatureBlock}
-    </div>
-    ${generateReportFooter()}
-  </div>`;
+    <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
+      <thead>
+        <tr>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
+          <th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">U/M</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Rate (₦)</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Amount (₦)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+        <tr style="background:#e9ecef; font-weight:900;">
+          <td colspan="4" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
+          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
+        </tr>
+      </tbody>
+    </table>
+    ${notesHtml}
+    ${termsHtml}`;
 }
 
 // ===== dashboard.js =====
@@ -4521,6 +4486,7 @@ function showPage(pageId) {
     if (pageId === "vendors") refreshVendorsListView();
     if (pageId === "accounts") loadAccountsView();
     if (pageId === "reports") initReportsConsoleEngine();
+    if (pageId === "letterhead") loadLetterheadView();
   }
   window.scrollTo(0, 0);
 }
@@ -4531,7 +4497,222 @@ function showPageWithoutRefresh(pageId) {
   suppressPageRefresh = false;
 }
 
+// ===== letterhead.js =====
+function loadLetterheadView() {
+  const dateInput = document.getElementById("letter-date");
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
+}
+
+function generateLetterheadHTML() {
+  const date = document.getElementById("letter-date").value || "";
+  const clientName = document.getElementById("letter-client-name").value || "";
+  const clientAddress =
+    document.getElementById("letter-client-address").value || "";
+  const salutation = document.getElementById("letter-salutation").value || "";
+  const title = document.getElementById("letter-title").value || "";
+  const body = document.getElementById("letter-body").value || "";
+  const signatory = document.getElementById("letter-signatory").value || "";
+  const signatoryTitle =
+    document.getElementById("letter-signatory-title").value || "";
+
+  const cache = getCache();
+  const settings = cache.settings || {};
+  const logoUrl = settings.Logo ? getDirectImageUrl(settings.Logo) : "";
+
+  // Convert body newlines to paragraphs
+  const bodyParagraphs = body
+    .split("\n")
+    .filter((p) => p.trim())
+    .map(
+      (p) =>
+        `<p style="margin-bottom: 14px; text-align: justify;">${escapeHtml(p)}</p>`,
+    )
+    .join("");
+
+  const clientAddressLines = clientAddress
+    .split("\n")
+    .map((line) => `<div>${escapeHtml(line)}</div>`)
+    .join("");
+
+  return `<div class="letterhead-page">
+    <div class="letterhead-content">
+      <div class="letterhead-top">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
+          <div style="flex: 1;">
+            <div style="font-size: 28px; font-weight: 900; letter-spacing: 2px; color: #000; text-transform: uppercase; line-height: 1;">PROJECTS</div>
+            <div style="font-size: 10px; font-weight: 700; color: #495057; letter-spacing: 1px; margin-top: 4px; text-transform: uppercase;">Innovation &bull; Excellence &bull; Delivery</div>
+          </div>
+          <div style="text-align: right; font-size: 12px; color: #495057;">
+            ${logoUrl ? `<img src="${escapeAttr(logoUrl)}" style="max-height: 60px; max-width: 120px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">` : ""}
+            <div>${escapeHtml(date)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="letterhead-client" style="margin-bottom: 30px; font-size: 13px; line-height: 1.6;">
+        <div style="font-weight: 700; font-size: 14px;">${escapeHtml(clientName)}</div>
+        ${clientAddressLines}
+      </div>
+
+      <div class="letterhead-salutation" style="margin-bottom: 20px; font-size: 13px;">
+        ${escapeHtml(salutation)}
+      </div>
+
+      ${title ? `<div class="letterhead-title" style="font-size: 22px; font-weight: 900; text-align: center; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px;">${escapeHtml(title)}</div>` : ""}
+
+      <div class="letterhead-body" style="font-size: 13px; line-height: 1.7; margin-bottom: 40px;">
+        ${bodyParagraphs || `<p style="color: #adb5bd; font-style: italic;">No body text entered.</p>`}
+      </div>
+
+      <div class="letterhead-signature" style="margin-bottom: 40px; font-size: 13px;">
+        <div style="margin-bottom: 8px;">Yours faithfully,</div>
+        <div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 6px;"></div>
+        <div style="font-weight: 700;">${escapeHtml(signatory) || "_________________________"}</div>
+        <div style="color: #495057;">${escapeHtml(signatoryTitle)}</div>
+      </div>
+    </div>
+
+    <div class="letterhead-footer">
+      <div style="font-weight: 700; margin-bottom: 4px; font-size: 11px;">📍 Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+      <div style="font-size: 11px;">📞 +234 809 260 8103 &nbsp;&nbsp; 📞 +234 708 260 8103 &nbsp;&nbsp; ✉️ pi.projects20@gmail.com</div>
+    </div>
+  </div>`;
+}
+
+function printLetterhead() {
+  const html = generateLetterheadHTML();
+  const preview = document.getElementById("letterhead-preview");
+  const printContainer = document.getElementById("letterhead-print-container");
+  const card = document.getElementById("letterhead-preview-card");
+  if (preview) preview.innerHTML = html;
+  if (printContainer) printContainer.innerHTML = html;
+  if (card) card.style.display = "block";
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+async function generateLetterheadPDF(orientation) {
+  orientation = (orientation || "portrait").toLowerCase();
+  const isLandscape = orientation === "landscape" || orientation === "l";
+  const jsPdfOrientation = isLandscape ? "landscape" : "portrait";
+  const container = document.getElementById("letterhead-print-container");
+  if (!container || !container.innerText.trim()) {
+    alert("Generate a letter first");
+    return null;
+  }
+  if (typeof html2canvas === "undefined" || typeof jspdf === "undefined") {
+    alert("PDF libraries not loaded.");
+    return null;
+  }
+
+  const originals = {
+    display: container.style.display,
+    position: container.style.position,
+    left: container.style.left,
+    top: container.style.top,
+    width: container.style.width,
+    zIndex: container.style.zIndex,
+    background: container.style.background,
+    padding: container.style.padding,
+  };
+
+  container.style.display = "block";
+  container.style.position = "fixed";
+  container.style.left = "0";
+  container.style.top = "0";
+  container.style.width = isLandscape ? "297mm" : "210mm";
+  container.style.zIndex = "-9999";
+  container.style.background = "white";
+  container.style.padding = "20mm";
+  container.getBoundingClientRect();
+
+  try {
+    const windowWidthPx = isLandscape ? 1123 : 794;
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: windowWidthPx,
+    });
+    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+    const pdf = new jspdf.jsPDF(jsPdfOrientation, "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgProps = pdf.getImageProperties(imgData);
+    const imgWidth = imgProps.width;
+    const imgHeight = imgProps.height;
+    const ratio = pdfWidth / imgWidth;
+    const scaledHeight = imgHeight * ratio;
+    let heightLeft = scaledHeight;
+    let position = 0;
+    pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
+    heightLeft -= pdfHeight;
+    while (heightLeft > 2) {
+      position = heightLeft - scaledHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, scaledHeight);
+      heightLeft -= pdfHeight;
+    }
+    return pdf;
+  } catch (err) {
+    console.error("PDF generation failed:", err);
+    alert("Failed to generate PDF.");
+    return null;
+  } finally {
+    container.style.display = originals.display;
+    container.style.position = originals.position;
+    container.style.left = originals.left;
+    container.style.top = originals.top;
+    container.style.width = originals.width;
+    container.style.zIndex = originals.zIndex;
+    container.style.background = originals.background;
+    container.style.padding = originals.padding;
+  }
+}
+
+async function saveLetterheadPDF() {
+  const pdf = await generateLetterheadPDF("portrait");
+  if (pdf) pdf.save("Letterhead.pdf");
+}
+
+async function shareLetterheadPDF() {
+  const pdf = await generateLetterheadPDF("portrait");
+  if (!pdf) return;
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent,
+    );
+  if (isMobile && navigator.canShare && navigator.share) {
+    try {
+      const blob = pdf.output("blob");
+      const file = new File([blob], "Letterhead.pdf", {
+        type: "application/pdf",
+      });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "Letterhead",
+          text: "Letterhead",
+        });
+        return;
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") console.error("Native share failed:", err);
+    }
+  }
+  pdf.save("Letterhead.pdf");
+}
+
 window.showPage = showPage;
+window.loadLetterheadView = loadLetterheadView;
+window.printLetterhead = printLetterhead;
+window.saveLetterheadPDF = saveLetterheadPDF;
+window.shareLetterheadPDF = shareLetterheadPDF;
 window.loadProjectConsoleHub = loadProjectConsoleHub;
 window.triggerEditProjectProfile = triggerEditProjectProfile;
 window.switchConsoleSegment = switchConsoleSegment;
