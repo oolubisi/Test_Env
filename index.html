@@ -21,7 +21,6 @@
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <link rel="stylesheet" href="style.css" />
     <base target="_blank" />
-    <base target="_blank" />
   </head>
   <body>
     <div class="main">
@@ -259,7 +258,33 @@
               <option value="landscape">Landscape (A4)</option>
             </select>
           </div>
-          <button class="action-btn" onclick="compileFieldReport(this)">
+
+          <div
+            style="
+              margin-top: 12px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            "
+          >
+            <input
+              type="checkbox"
+              id="rep-include-signature"
+              checked
+              style="width: auto; accent-color: var(--primary)"
+            />
+            <label
+              for="rep-include-signature"
+              style="font-weight: 700; font-size: 14px; margin: 0"
+              >Include Signature Block</label
+            >
+          </div>
+
+          <button
+            class="action-btn"
+            onclick="compileFieldReport(this)"
+            style="margin-top: 15px"
+          >
             <i class="fas fa-file-alt"></i> Generate Report
           </button>
         </div>
