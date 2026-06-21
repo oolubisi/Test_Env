@@ -2393,7 +2393,7 @@ async function compileFieldReport(btn) {
       if (!cache.settings || !cache.settings.VAT) {
         try {
           const res = await callApi("getSettings", {});
-          cache.settings = res && res.data ? res.data : cache.settings || {};
+          cache.settings = res || cache.settings || {};
           setCache(cache);
         } catch (e) {
           console.warn("Could not load settings for report:", e);
@@ -3354,8 +3354,6 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
         alert("Enter a valid payment amount");
         return;
       }
-      const direction = document.getElementById("pay_dir").value;
-      const isSmall = direction === "Small Expense";
       const stage = isSmall ? "" : document.getElementById("pay_stage").value;
       if (!isSmall && stage) {
         const balanceText = document
@@ -4450,9 +4448,9 @@ async function refreshAllData() {
     await callApi("getWorkOrders", {});
     await callApi("getPayments", {});
     const settingsRes = await callApi("getSettings", {});
-    if (settingsRes && settingsRes.data) {
+    if (settingsRes && typeof settingsRes === "object") {
       const cache = getCache();
-      cache.settings = settingsRes.data;
+      cache.settings = settingsRes;
       setCache(cache);
     }
     await refreshMasterDashboard();
