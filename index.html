@@ -693,6 +693,41 @@
               style="width: 100%; padding: 12px; font-size: 16px"
             />
             <label style="display: block; font-weight: 800; margin-top: 10px"
+              >Project Status</label
+            >
+            <select
+              id="pcr-status"
+              style="width: 100%; padding: 12px; font-size: 16px"
+            >
+              <option value="Complete">Complete</option>
+              <option value="Substantially Complete">
+                Substantially Complete
+              </option>
+              <option value="Practical Completion">
+                Practical Completion
+              </option>
+              <option value="Pending Snag Resolution">
+                Pending Snag Resolution
+              </option>
+              <option value="Handed Over">Handed Over</option>
+            </select>
+            <label
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 12px;
+                font-weight: 800;
+              "
+            >
+              <input
+                type="checkbox"
+                id="pcr-show-wht"
+                style="width: auto"
+              />
+              Show WHT in financial snapshot
+            </label>
+            <label style="display: block; font-weight: 800; margin-top: 10px"
               >Completion Summary</label
             >
             <textarea

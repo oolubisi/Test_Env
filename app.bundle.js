@@ -2028,6 +2028,8 @@ function saveProjectPcrFields() {
   if (!projectId) return;
   const payload = {
     completion: document.getElementById("pcr-completion")?.value || "",
+    status: document.getElementById("pcr-status")?.value || "",
+    showWht: !!document.getElementById("pcr-show-wht")?.checked,
     summary: document.getElementById("pcr-summary")?.value || "",
     declaration: document.getElementById("pcr-declaration")?.value || "",
   };
@@ -2354,9 +2356,14 @@ function renderProjectCompletionReport(project, progressLogs, snags, payments, o
     project.notes ||
     "Works completed in line with recorded project scope and site updates.";
   const statusText =
-    project.projectStatus === "Handed Over" || completionValue >= 100
+    pcrFields.status ||
+    (project.projectStatus === "Handed Over" || completionValue >= 100
       ? "Complete"
-      : "Substantially Complete";
+      : "Substantially Complete");
+  const showWht = !!pcrFields.showWht;
+  const balanceValue = showWht
+    ? financials.netReceivable - financials.totalReceived
+    : financials.balanceExpected;
   const field = (label, value) => `<div style="border-bottom:1px solid #d0d4d9; padding:5px 0;"><span style="display:inline-block; width:34%; font-weight:700; color:#343a40;">${escapeHtml(label)}</span><span>${escapeHtml(value || "-")}</span></div>`;
   const metric = (label, value) => `<div style="border:1px solid #adb5bd; padding:8px; min-height:48px;"><div style="font-size:9pt; font-weight:700; text-transform:uppercase; color:#495057;">${escapeHtml(label)}</div><div style="font-size:14pt; font-weight:800; margin-top:3px;">${escapeHtml(value)}</div></div>`;
   const body = `
@@ -2370,7 +2377,6 @@ function renderProjectCompletionReport(project, progressLogs, snags, payments, o
       ${field("Project ID", project.projectId)}
       ${field("Site Location", project.siteLocation)}
       ${field("Client Phone", project.clientPhone)}
-      ${field("Project Status", statusText)}
     </div>
     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:7px; margin-bottom:14px;">
       ${metric("Completion", `${Math.min(100, Math.max(0, completionValue))}%`)}
@@ -2386,8 +2392,9 @@ function renderProjectCompletionReport(project, progressLogs, snags, payments, o
       <div>
         <div style="font-size:11pt; font-weight:800; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:6px;">Financial Snapshot</div>
         ${financialRowHTML("Contract Value", financials.totalContract, false)}
-        ${financialRowHTML("Client Receipts", financials.totalReceived, false)}
-        ${financialRowHTML("Balance Expected", financials.balanceExpected, true)}
+        ${showWht ? financialRowHTML("WHT", financials.wht, false) : ""}
+        ${financialRowHTML("Payments Received", financials.totalReceived, false)}
+        ${financialRowHTML("Balance Expected", balanceValue, true)}
       </div>
     </div>
     <div style="font-size:10.5pt; line-height:1.45; border:1px solid #adb5bd; padding:10px; margin-bottom:12px;">
@@ -4241,7 +4248,17 @@ async function loadProjectPcrFields() {
   const summaryEl = document.getElementById("pcr-summary");
   const declarationEl = document.getElementById("pcr-declaration");
   const completionEl = document.getElementById("pcr-completion");
+  const statusEl = document.getElementById("pcr-status");
+  const showWhtEl = document.getElementById("pcr-show-wht");
   if (completionEl) completionEl.value = fields.completion || fallbackCompletion;
+  if (statusEl) {
+    const fallbackStatus =
+      project && project.projectStatus === "Handed Over"
+        ? "Complete"
+        : "Substantially Complete";
+    statusEl.value = fields.status || fallbackStatus;
+  }
+  if (showWhtEl) showWhtEl.checked = !!fields.showWht;
   if (summaryEl) {
     summaryEl.value =
       fields.summary ||
