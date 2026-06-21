@@ -1630,7 +1630,9 @@ async function generateReportPDF(orientation) {
   container.style.minWidth = isLandscape ? "297mm" : "210mm";
   container.style.zIndex = "-9999";
   container.style.background = "white";
-  container.style.padding = "15mm";
+  container.style.padding = container.querySelector(".unified-page")
+    ? "0"
+    : "15mm";
   container.getBoundingClientRect();
 
   try {
@@ -1781,6 +1783,7 @@ function handleReportScopePopulation() {
     type === "scope" ||
     type === "snags" ||
     type === "progress" ||
+    type === "pcr" ||
     type === "takeoff"
   )
     validScopes = ["project"];
@@ -2297,6 +2300,78 @@ function renderProgressReport(project, logs) {
   return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
 }
 
+function renderProjectCompletionReport(project, progressLogs, snags, workorders, payments) {
+  const reportDate = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const latestProgress = [...progressLogs].sort(
+    (a, b) => new Date(b.dateRecorded) - new Date(a.dateRecorded),
+  )[0];
+  const completionValue =
+    latestProgress && latestProgress.completionPercentage !== undefined
+      ? Number(latestProgress.completionPercentage) || 0
+      : project.projectStatus === "Handed Over"
+        ? 100
+        : 0;
+  const openSnags = snags.filter((s) => s.status !== "Completed").length;
+  const completedSnags = snags.length - openSnags;
+  const closedWorkorders = workorders.filter(
+    (w) => w.status === "Completed" || w.status === "Closed",
+  ).length;
+  const financials = computeProjectFinancials(project, payments);
+  const latestNote =
+    (latestProgress && latestProgress.commentNarrative) ||
+    project.notes ||
+    "Works completed in line with recorded project scope and site updates.";
+  const statusText =
+    project.projectStatus === "Handed Over" || completionValue >= 100
+      ? "Complete"
+      : "Substantially Complete";
+  const field = (label, value) => `<div style="border-bottom:1px solid #d0d4d9; padding:5px 0;"><span style="display:inline-block; width:34%; font-weight:700; color:#343a40;">${escapeHtml(label)}</span><span>${escapeHtml(value || "-")}</span></div>`;
+  const metric = (label, value) => `<div style="border:1px solid #adb5bd; padding:8px; min-height:48px;"><div style="font-size:9pt; font-weight:700; text-transform:uppercase; color:#495057;">${escapeHtml(label)}</div><div style="font-size:14pt; font-weight:800; margin-top:3px;">${escapeHtml(value)}</div></div>`;
+  const body = `
+    <div style="text-align:right; font-size:10.5pt; margin-top:-18px; margin-bottom:16px;">${escapeHtml(reportDate)}</div>
+    <div style="border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px;">
+      <div style="font-size:18pt; font-weight:800; text-transform:uppercase; letter-spacing:0;">Project Completion Report</div>
+      <div style="font-size:10pt; font-weight:700; color:#495057; margin-top:3px;">PCR / ${escapeHtml(project.projectId || "-")}</div>
+    </div>
+    <div style="font-size:10.5pt; line-height:1.35; margin-bottom:14px;">
+      ${field("Client", project.clientName)}
+      ${field("Project ID", project.projectId)}
+      ${field("Site Location", project.siteLocation)}
+      ${field("Client Phone", project.clientPhone)}
+      ${field("Project Status", statusText)}
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:7px; margin-bottom:14px;">
+      ${metric("Completion", `${Math.min(100, Math.max(0, completionValue))}%`)}
+      ${metric("Open Snags", String(openSnags))}
+      ${metric("Closed Snags", String(completedSnags))}
+      ${metric("Work Orders", `${closedWorkorders}/${workorders.length}`)}
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
+      <div>
+        <div style="font-size:11pt; font-weight:800; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:6px;">Completion Summary</div>
+        <div style="font-size:10.5pt; line-height:1.45; text-align:justify;">${escapeHtml(latestNote)}</div>
+      </div>
+      <div>
+        <div style="font-size:11pt; font-weight:800; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:6px;">Financial Snapshot</div>
+        ${financialRowHTML("Contract Value", financials.totalContract, false)}
+        ${financialRowHTML("Client Receipts", financials.totalReceived, false)}
+        ${financialRowHTML("Balance Expected", financials.balanceExpected, true)}
+      </div>
+    </div>
+    <div style="font-size:10.5pt; line-height:1.45; border:1px solid #adb5bd; padding:10px; margin-bottom:12px;">
+      <div style="font-weight:800; margin-bottom:5px;">Completion Declaration</div>
+      <div>This report confirms that the project works recorded for the above project have reached ${escapeHtml(statusText.toLowerCase())} status, subject to any open snags noted in FieldScan Pro.</div>
+    </div>`;
+  return wrapUnifiedPage(body, {
+    showSignature: true,
+    signatureLabel: "Project Sign-Off",
+  });
+}
+
 function renderTakeoffReport(project, items) {
   const rows = items
     .map((i) => {
@@ -2488,6 +2563,33 @@ async function compileFieldReport(btn) {
         (l) => l.projectId === filter,
       );
       html = renderProgressReport(project, projectLogs);
+    } else if (type === "pcr") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      const projectLogs = (cache.progressLogs || []).filter(
+        (l) => l.projectId === filter,
+      );
+      const projectSnags = (cache.snags || []).filter(
+        (s) => s.projectId === filter,
+      );
+      const projectWorkorders = (cache.workorders || []).filter(
+        (w) => w.projectId === filter,
+      );
+      const projectPayments = (cache.payments || []).filter(
+        (p) => p.projectId === filter,
+      );
+      html = renderProjectCompletionReport(
+        project,
+        projectLogs,
+        projectSnags,
+        projectWorkorders,
+        projectPayments,
+      );
     } else if (type === "takeoff") {
       const project = (cache.projects || []).find(
         (p) => p.projectId === filter,
