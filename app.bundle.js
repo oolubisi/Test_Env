@@ -3,7 +3,7 @@
 
 // ===== config.js =====
 const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec";
+  "https://script.google.com/macros/s/AKfycbwR807UD_syLAYGZLsDsowJNP71WLFWxNDkYuX-tu2jwemQE0INPt7TEFjrL07VhjRL/exec";
 const AUTH_TOKEN = "FieldScan2025!SecureToken";
 const ATTACHMENT_DELIMITER = "|||";
 
