@@ -3,7 +3,7 @@
 
 // ===== config.js =====
 const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec";
+  "https://script.google.com/macros/s/AKfycbwipyM8n8F2K997gy_mqyEneKGt_d2RzyvB4DjYSdf66V9qpql2h7PHjm_5NmSKZwPj/exec";
 const AUTH_TOKEN = "FieldScan2025!SecureToken";
 const ATTACHMENT_DELIMITER = "|||";
 
@@ -387,7 +387,9 @@ async function ensureSyncedTemplates(forceRefresh) {
 }
 
 function getAllTemplates() {
-  return groupSyncedTemplateRows((getCache().takeoffTemplates || []).filter((r) => r.isActive !== "No"));
+  return groupSyncedTemplateRows(
+    (getCache().takeoffTemplates || []).filter((r) => r.isActive !== "No"),
+  );
 }
 
 function findTemplateById(id) {
@@ -419,7 +421,9 @@ async function applyTemplateToProject(templateId) {
   const t = findTemplateById(templateId);
   if (!t) return;
   if (
-    !confirm(`Apply "${t.name}" (${t.items.length} items) to this project?\n\nQuantities will be set to 0 for field measurement.`)
+    !confirm(
+      `Apply "${t.name}" (${t.items.length} items) to this project?\n\nQuantities will be set to 0 for field measurement.`,
+    )
   )
     return;
   const projectId = getCurrentProjectId();
@@ -471,7 +475,9 @@ async function loadTemplatesSegment(forceRefresh = false) {
   }
   const projectId = getCurrentProjectId();
   const cache = getCache();
-  const projectItems = (cache.takeoffs || []).filter((i) => i.projectId === projectId);
+  const projectItems = (cache.takeoffs || []).filter(
+    (i) => i.projectId === projectId,
+  );
 
   let html = "";
   if (projectItems.length > 0) {
@@ -479,15 +485,22 @@ async function loadTemplatesSegment(forceRefresh = false) {
   }
   html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="loadTemplatesSegment(true)"><i class="fas fa-sync-alt"></i> Refresh Templates</button></div>`;
   if (loadError) {
-    container.innerHTML = html + `<div class="card" style="border-color:var(--danger);"><strong>Templates could not load</strong><div style="font-size:13px;color:var(--muted);margin-top:6px;">${escapeHtml(loadError)}</div><div style="font-size:13px;color:var(--muted);margin-top:6px;">Update/deploy code.gs, then refresh templates.</div></div>`;
+    container.innerHTML =
+      html +
+      `<div class="card" style="border-color:var(--danger);"><strong>Templates could not load</strong><div style="font-size:13px;color:var(--muted);margin-top:6px;">${escapeHtml(loadError)}</div><div style="font-size:13px;color:var(--muted);margin-top:6px;">Update/deploy code.gs, then refresh templates.</div></div>`;
     return;
   }
   if (!templates.length) {
-    container.innerHTML = html + `<div class="card"><strong>No templates found</strong><div style="font-size:13px;color:var(--muted);margin-top:6px;">The backend returned zero template rows. Calling getTakeOffTemplates should create and populate the TakeOffTemplates sheet if the latest code.gs is deployed.</div></div>`;
+    container.innerHTML =
+      html +
+      `<div class="card"><strong>No templates found</strong><div style="font-size:13px;color:var(--muted);margin-top:6px;">The backend returned zero template rows. Calling getTakeOffTemplates should create and populate the TakeOffTemplates sheet if the latest code.gs is deployed.</div></div>`;
     return;
   }
   html += templates
-    .map((t) => `<div class="card" style="cursor:default;"><div style="display:flex;justify-content:space-between;align-items:start;gap:12px;"><div style="flex:1;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px;background:var(--primary);color:#fff;padding:2px 6px;border-radius:4px;text-transform:uppercase;margin-left:8px;">Synced</span><div style="font-size:12px;color:var(--muted);margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">${t.items.length} items</div></div><div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`)
+    .map(
+      (t) =>
+        `<div class="card" style="cursor:default;"><div style="display:flex;justify-content:space-between;align-items:start;gap:12px;"><div style="flex:1;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px;background:var(--primary);color:#fff;padding:2px 6px;border-radius:4px;text-transform:uppercase;margin-left:8px;">Synced</span><div style="font-size:12px;color:var(--muted);margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">${t.items.length} items</div></div><div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`,
+    )
     .join("");
   container.innerHTML = html;
 }
@@ -508,7 +521,9 @@ function openSaveAsTemplateModal() {
     if (!name) return alert("Enter a template name");
     const cache = getCache();
     const projectId = getCurrentProjectId();
-    const items = (cache.takeoffs || []).filter((i) => i.projectId === projectId);
+    const items = (cache.takeoffs || []).filter(
+      (i) => i.projectId === projectId,
+    );
     if (!items.length) return alert("No items to save");
     submit.disabled = true;
     submit.innerText = "Saving...";
@@ -551,7 +566,12 @@ function openEditTemplateModal(id) {
   const overlay = document.getElementById("modalOverlay");
   title.innerText = "Edit Synced Template";
   overlay.style.display = "flex";
-  const rows = t.items.map((item) => `<div class="tmpl-edit-row" data-template-item-id="${escapeAttr(item.templateItemId || "")}" style="display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;"><input value="${escapeAttr(item.roomArea)}" placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.tradeCategory)}" placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.description)}" placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.unit)}" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.dataset.deleted='true';this.parentElement.style.display='none';" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button></div>`).join("");
+  const rows = t.items
+    .map(
+      (item) =>
+        `<div class="tmpl-edit-row" data-template-item-id="${escapeAttr(item.templateItemId || "")}" style="display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;"><input value="${escapeAttr(item.roomArea)}" placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.tradeCategory)}" placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.description)}" placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.unit)}" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.dataset.deleted='true';this.parentElement.style.display='none';" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button></div>`,
+    )
+    .join("");
   body.innerHTML = `<label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Template Name</label><input id="edit_tmpl_name" value="${escapeAttr(t.name)}" style="width:100%;padding:12px;font-size:16px;border:1.5px solid var(--border);border-radius:12px;"><label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Description</label><textarea id="edit_tmpl_desc" rows="2" style="width:100%;padding:12px;font-size:16px;border:1.5px solid var(--border);border-radius:12px;">${escapeHtml(t.description)}</textarea><div style="margin-top:16px;margin-bottom:8px;font-weight:800;font-size:13px;text-transform:uppercase;">Items</div><div id="edit_tmpl_items">${rows}</div><button class="action-btn" style="margin-top:10px;background:var(--card-light);color:var(--text);" onclick="addEditTemplateItemRow()"><i class="fas fa-plus"></i> Add Item</button>`;
   submit.style.display = "block";
   submit.innerText = "Save Changes";
@@ -562,12 +582,15 @@ function openEditTemplateModal(id) {
     submit.disabled = true;
     submit.innerText = "Saving...";
     try {
-      const rows = Array.from(document.querySelectorAll("#edit_tmpl_items > .tmpl-edit-row"));
+      const rows = Array.from(
+        document.querySelectorAll("#edit_tmpl_items > .tmpl-edit-row"),
+      );
       for (let idx = 0; idx < rows.length; idx++) {
         const row = rows[idx];
         const itemId = row.dataset.templateItemId;
         if (row.dataset.deleted === "true") {
-          if (itemId) await callApi("deleteTakeOffTemplate", { templateItemId: itemId });
+          if (itemId)
+            await callApi("deleteTakeOffTemplate", { templateItemId: itemId });
           continue;
         }
         const inputs = row.querySelectorAll("input");
@@ -586,7 +609,10 @@ function openEditTemplateModal(id) {
           isActive: "Yes",
         };
         if (!payload.description) continue;
-        await callApi(itemId ? "updateTakeOffTemplate" : "saveTakeOffTemplate", payload);
+        await callApi(
+          itemId ? "updateTakeOffTemplate" : "saveTakeOffTemplate",
+          payload,
+        );
       }
       closeModal();
       await loadTemplatesSegment(true);
@@ -604,7 +630,8 @@ function addEditTemplateItemRow() {
   if (!container) return;
   const div = document.createElement("div");
   div.className = "tmpl-edit-row";
-  div.style.cssText = "display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;";
+  div.style.cssText =
+    "display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;";
   div.innerHTML = `<input placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="pcs" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.remove()" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button>`;
   container.appendChild(div);
 }
@@ -634,11 +661,15 @@ function exportSingleTemplateJSON() {
 }
 
 function importTemplatesFromJSON() {
-  alert("Use Save Current Take-Offs as Template or edit synced templates directly.");
+  alert(
+    "Use Save Current Take-Offs as Template or edit synced templates directly.",
+  );
 }
 
 function openImportTemplatesModal() {
-  alert("Use Save Current Take-Offs as Template or edit synced templates directly.");
+  alert(
+    "Use Save Current Take-Offs as Template or edit synced templates directly.",
+  );
 }
 
 // ===== db.js =====
@@ -1304,7 +1335,9 @@ function getPcrStorageKey(projectId) {
 
 function getProjectPcrFields(projectId) {
   try {
-    return JSON.parse(localStorage.getItem(getPcrStorageKey(projectId)) || "{}");
+    return JSON.parse(
+      localStorage.getItem(getPcrStorageKey(projectId)) || "{}",
+    );
   } catch (e) {
     return {};
   }
@@ -1615,7 +1648,13 @@ function renderProgressReport(project, logs) {
   return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
 }
 
-function renderProjectCompletionReport(project, progressLogs, snags, payments, options) {
+function renderProjectCompletionReport(
+  project,
+  progressLogs,
+  snags,
+  payments,
+  options,
+) {
   const opts = options || {};
   const pcrFields = getProjectPcrFields(project.projectId);
   const reportDate = new Date().toLocaleDateString("en-GB", {
@@ -1630,10 +1669,10 @@ function renderProjectCompletionReport(project, progressLogs, snags, payments, o
     pcrFields.completion !== undefined && pcrFields.completion !== ""
       ? Number(pcrFields.completion) || 0
       : latestProgress && latestProgress.completionPercentage !== undefined
-      ? Number(latestProgress.completionPercentage) || 0
-      : project.projectStatus === "Handed Over"
-        ? 100
-        : 0;
+        ? Number(latestProgress.completionPercentage) || 0
+        : project.projectStatus === "Handed Over"
+          ? 100
+          : 0;
   const openSnags = snags.filter((s) => s.status !== "Completed").length;
   const completedSnags = snags.length - openSnags;
   const financials = computeProjectFinancials(project, payments);
@@ -1651,8 +1690,10 @@ function renderProjectCompletionReport(project, progressLogs, snags, payments, o
   const balanceValue = showWht
     ? financials.netReceivable - financials.totalReceived
     : financials.balanceExpected;
-  const field = (label, value) => `<div style="border-bottom:1px solid #d0d4d9; padding:5px 0;"><span style="display:inline-block; width:34%; font-weight:700; color:#343a40;">${escapeHtml(label)}</span><span>${escapeHtml(value || "-")}</span></div>`;
-  const metric = (label, value) => `<div style="border:1px solid #adb5bd; padding:8px; min-height:48px;"><div style="font-size:9pt; font-weight:700; text-transform:uppercase; color:#495057;">${escapeHtml(label)}</div><div style="font-size:14pt; font-weight:800; margin-top:3px;">${escapeHtml(value)}</div></div>`;
+  const field = (label, value) =>
+    `<div style="border-bottom:1px solid #d0d4d9; padding:5px 0;"><span style="display:inline-block; width:34%; font-weight:700; color:#343a40;">${escapeHtml(label)}</span><span>${escapeHtml(value || "-")}</span></div>`;
+  const metric = (label, value) =>
+    `<div style="border:1px solid #adb5bd; padding:8px; min-height:48px;"><div style="font-size:9pt; font-weight:700; text-transform:uppercase; color:#495057;">${escapeHtml(label)}</div><div style="font-size:14pt; font-weight:800; margin-top:3px;">${escapeHtml(value)}</div></div>`;
   const body = `
     <div style="text-align:right; font-size:10.5pt; margin-top:-18px; margin-bottom:16px;">${escapeHtml(reportDate)}</div>
     <div style="border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px;">
@@ -3537,7 +3578,8 @@ async function loadProjectPcrFields() {
   const completionEl = document.getElementById("pcr-completion");
   const statusEl = document.getElementById("pcr-status");
   const showWhtEl = document.getElementById("pcr-show-wht");
-  if (completionEl) completionEl.value = fields.completion || fallbackCompletion;
+  if (completionEl)
+    completionEl.value = fields.completion || fallbackCompletion;
   if (statusEl) {
     const fallbackStatus =
       project && project.projectStatus === "Handed Over"
