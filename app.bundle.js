@@ -4711,7 +4711,7 @@ function generateLetterheadHTML() {
       font-family: 'Calibri', 'Georgia', serif;
       font-size: 12pt;
       color: #000;
-      padding: 20mm 20mm 40mm 20mm;
+      padding: 10mm 10mm 10mm 10mm;
       box-sizing: border-box;
     ">
 
