@@ -2393,7 +2393,7 @@ async function compileFieldReport(btn) {
       if (!cache.settings || !cache.settings.VAT) {
         try {
           const res = await callApi("getSettings", {});
-          cache.settings = res && res.data ? res.data : cache.settings || {};
+          cache.settings = res || cache.settings || {};
           setCache(cache);
         } catch (e) {
           console.warn("Could not load settings for report:", e);
@@ -4280,8 +4280,10 @@ async function callApi(action, data = {}) {
     alert(`⚠️ Save failed: ${message}`);
     throw new Error(message);
   }
-  if (isGet) writeBackup(action, result);
-  return result;
+  const returnValue =
+    isGet && result && result.data !== undefined ? result.data : result;
+  if (isGet) writeBackup(action, returnValue);
+  return returnValue;
 }
 
 const DEPENDENCY_ORDER = {
@@ -4445,9 +4447,9 @@ async function refreshAllData() {
     await callApi("getWorkOrders", {});
     await callApi("getPayments", {});
     const settingsRes = await callApi("getSettings", {});
-    if (settingsRes && settingsRes.data) {
+    if (settingsRes && typeof settingsRes === "object") {
       const cache = getCache();
-      cache.settings = settingsRes.data;
+      cache.settings = settingsRes;
       setCache(cache);
     }
     await refreshMasterDashboard();
@@ -4624,12 +4626,29 @@ window.addEventListener("load", () => {
   showPageWithoutRefresh("dashboard");
   refreshMasterDashboard();
   initPwaInstall();
-  callApi("getSettings", {})
-    .then((res) => {
-      const cache = getCache();
-      cache.settings = res && res.data ? res.data : {};
-      setCache(cache);
-    })
-    .catch(() => {});
+
+  // Pre-load all data lists in the background so reports and dropdowns work immediately
+  (async function preloadAllData() {
+    const endpoints = [
+      { action: "getVendors", key: "vendors", isArray: true },
+      { action: "getPayments", key: "payments", isArray: true },
+      { action: "getWorkOrders", key: "workorders", isArray: true },
+      { action: "getSnags", key: "snags", isArray: true },
+      { action: "getProgressLogs", key: "progressLogs", isArray: true },
+      { action: "getTakeOffItems", key: "takeoffs", isArray: true },
+      { action: "getSettings", key: "settings", isArray: false },
+    ];
+    for (const ep of endpoints) {
+      try {
+        const res = await callApi(ep.action, {});
+        const cache = getCache();
+        cache[ep.key] = ep.isArray ? res || [] : res || {};
+        setCache(cache);
+      } catch (e) {
+        console.warn("Preload failed for " + ep.action + ":", e);
+      }
+    }
+  })();
+
   if (navigator.onLine) syncQueuedRequests();
 });

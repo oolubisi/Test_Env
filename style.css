@@ -276,6 +276,7 @@ input[type="checkbox"] {
 }
 .report-page-wrapper > .report-content {
   /* content flows naturally */
+  display: block;
 }
 .report-footer {
   position: absolute;
@@ -363,6 +364,7 @@ input[type="checkbox"] {
   }
   .report-page-wrapper > .report-content {
     /* content flows naturally */
+    display: block;
   }
   .report-footer {
     position: absolute;
