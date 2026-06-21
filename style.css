@@ -400,29 +400,13 @@ input[type="checkbox"] {
   margin-bottom: 4px;
 }
 
+/* The generated letterhead page — self-contained, all layout is inline */
 .letterhead-page {
   position: relative;
-  min-height: calc(297mm - 40mm);
-  padding: 0;
   background: white;
   color: #000;
-  font-family: "Inter", sans-serif;
-}
-
-.letterhead-content {
-  padding: 20mm 20mm 30mm 20mm;
-}
-
-.letterhead-footer {
-  position: absolute;
-  bottom: 10mm;
-  left: 20mm;
-  right: 20mm;
-  padding-top: 10px;
-  border-top: 1.5px solid #000;
-  text-align: center;
-  color: #495057;
-  line-height: 1.5;
+  font-family: "Calibri", "Georgia", serif;
+  box-sizing: border-box;
 }
 
 /* Print styles for letterhead */
@@ -446,13 +430,6 @@ input[type="checkbox"] {
   }
   .letterhead-page {
     min-height: 100vh;
-    page-break-inside: avoid;
-  }
-  .letterhead-footer {
-    position: fixed;
-    bottom: 10mm;
-    left: 20mm;
-    right: 20mm;
     page-break-inside: avoid;
   }
 }

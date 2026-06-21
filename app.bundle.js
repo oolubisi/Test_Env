@@ -4677,14 +4677,20 @@ function generateLetterheadHTML() {
 
   const cache = getCache();
   const settings = cache.settings || {};
+  // Logo comes from Settings sheet key "Logo"; signature image from "Sign_Signed"; signatory name from "Name_Signed"
   const logoUrl = settings.Logo ? getDirectImageUrl(settings.Logo) : "";
+  const signImageUrl = settings.Sign_Signed
+    ? getDirectImageUrl(settings.Sign_Signed)
+    : "";
+  // Use settings signatory name as fallback if form field is empty
+  const signatoryName = signatory || settings.Name_Signed || "";
 
   const bodyParagraphs = body
     .split("\n")
     .filter((p) => p.trim())
     .map(
       (p) =>
-        `<p style="margin-bottom: 14px; text-align: justify;">${escapeHtml(p)}</p>`,
+        `<p style="margin: 0 0 12px 0; text-align: justify;">${escapeHtml(p)}</p>`,
     )
     .join("");
 
@@ -4693,48 +4699,80 @@ function generateLetterheadHTML() {
     .map((line) => `<div>${escapeHtml(line)}</div>`)
     .join("");
 
-  return `<div class="letterhead-page">
-    <div class="letterhead-content">
-      <div class="letterhead-top">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
-          <div style="flex: 1;">
-            <div style="font-size: 28px; font-weight: 900; letter-spacing: 2px; color: #000; text-transform: uppercase; line-height: 1;">PROJECTS</div>
-            <div style="font-size: 10px; font-weight: 700; color: #495057; letter-spacing: 1px; margin-top: 4px; text-transform: uppercase;">Innovation &bull; Excellence &bull; Delivery</div>
-          </div>
-          <div style="text-align: right; font-size: 12px; color: #495057;">
-            ${logoUrl ? `<img src="${escapeAttr(logoUrl)}" style="max-height: 60px; max-width: 120px; object-fit: contain; margin-bottom: 6px;" onerror="this.style.display='none'">` : ""}
-            <div>${escapeHtml(date)}</div>
-          </div>
-        </div>
-      </div>
+  // Signature block: show signature image from settings if available, else a line
+  const signatureLineOrImg = signImageUrl
+    ? `<img src="${escapeAttr(signImageUrl)}" style="height:48px; max-width:180px; object-fit:contain; display:block; margin-bottom:2px;" onerror="this.style.display='none'">`
+    : `<div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 4px;"></div>`;
 
-      <div class="letterhead-client" style="margin-bottom: 30px; font-size: 13px; line-height: 1.6;">
-        <div style="font-weight: 700; font-size: 14px;">${escapeHtml(clientName)}</div>
-        ${clientAddressLines}
-      </div>
+  return `<div class="letterhead-page" style="
+      position: relative;
+      min-height: calc(297mm - 40mm);
+      background: white;
+      font-family: 'Calibri', 'Georgia', serif;
+      font-size: 12pt;
+      color: #000;
+      padding: 20mm 20mm 40mm 20mm;
+      box-sizing: border-box;
+    ">
 
-      <div class="letterhead-salutation" style="margin-bottom: 20px; font-size: 13px;">
-        ${escapeHtml(salutation)}
-      </div>
-
-      ${title ? `<div class="letterhead-title" style="font-size: 22px; font-weight: 900; text-align: center; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px;">${escapeHtml(title)}</div>` : ""}
-
-      <div class="letterhead-body" style="font-size: 13px; line-height: 1.7; margin-bottom: 40px;">
-        ${bodyParagraphs || `<p style="color: #adb5bd; font-style: italic;">No body text entered.</p>`}
-      </div>
-
-      <div class="letterhead-signature" style="margin-bottom: 40px; font-size: 13px;">
-        <div style="margin-bottom: 8px;">Yours faithfully,</div>
-        <div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 6px;"></div>
-        <div style="font-weight: 700;">${escapeHtml(signatory) || "_________________________"}</div>
-        <div style="color: #495057;">${escapeHtml(signatoryTitle)}</div>
+    <!-- ── HEADER: Logo top-right, date below logo ── -->
+    <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin-bottom: 28px;">
+      <div style="text-align: right;">
+        ${
+          logoUrl
+            ? `<img src="${escapeAttr(logoUrl)}" style="height: 90px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
+            : `<div style="height:90px;"></div>`
+        }
+        <div style="font-size: 11pt; margin-top: 10px; color: #000;">${escapeHtml(date)}</div>
       </div>
     </div>
 
-    <div class="letterhead-footer">
-      <div style="font-weight: 700; margin-bottom: 4px; font-size: 11px;">📍 Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
-      <div style="font-size: 11px;">📞 +234 809 260 8103 &nbsp;&nbsp; 📞 +234 708 260 8103 &nbsp;&nbsp; ✉️ pi.projects20@gmail.com</div>
+    <!-- ── CLIENT BLOCK: bold name, normal address ── -->
+    <div style="margin-bottom: 20px; font-size: 11pt; line-height: 1.5;">
+      <div style="font-weight: 700;">${escapeHtml(clientName)}</div>
+      ${clientAddressLines}
     </div>
+
+    <!-- ── SALUTATION ── -->
+    <div style="margin-bottom: 16px; font-size: 11pt;">${escapeHtml(salutation)}</div>
+
+    <!-- ── TITLE (bold, left-aligned) ── -->
+    ${title ? `<div style="font-weight: 700; font-size: 11pt; margin-bottom: 14px; text-decoration: underline;">${escapeHtml(title)}</div>` : ""}
+
+    <!-- ── BODY ── -->
+    <div style="font-size: 11pt; line-height: 1.6; margin-bottom: 32px;">
+      ${bodyParagraphs || `<p style="color:#adb5bd; font-style:italic;">No body text entered.</p>`}
+    </div>
+
+    <!-- ── SIGNATURE BLOCK ── -->
+    <div style="font-size: 11pt; margin-bottom: 8px;">Yours faithfully,</div>
+    <div style="margin-top: 20px; margin-bottom: 4px;">
+      ${signatureLineOrImg}
+    </div>
+    <div style="font-weight: 700; font-size: 11pt;">${escapeHtml(signatoryName)}</div>
+    ${signatoryTitle ? `<div style="font-size: 11pt; color: #333;">${escapeHtml(signatoryTitle)}</div>` : ""}
+
+    <!-- ── FOOTER: pinned to bottom, centred, icon + two phones + email ── -->
+    <div style="
+        position: absolute;
+        bottom: 12mm;
+        left: 20mm;
+        right: 20mm;
+        border-top: 1px solid #888;
+        padding-top: 6px;
+        text-align: center;
+        font-size: 9pt;
+        color: #444;
+        line-height: 1.6;
+      ">
+      <div>&#128205; Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+      <div>
+        &#128222; +234 809 260 8103 &nbsp;&nbsp;&nbsp;
+        &#128222; +234 708 260 8103 &nbsp;&nbsp;&nbsp;
+        &#9993; pi.projects20@gmail.com
+      </div>
+    </div>
+
   </div>`;
 }
 
@@ -4781,7 +4819,7 @@ async function generateLetterheadPDF(orientation) {
   container.style.width = isLandscape ? "297mm" : "210mm";
   container.style.zIndex = "-9999";
   container.style.background = "white";
-  container.style.padding = "20mm";
+  container.style.padding = "0"; // padding is baked into the letterhead-page HTML
   container.getBoundingClientRect();
 
   try {
