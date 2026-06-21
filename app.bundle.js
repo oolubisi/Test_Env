@@ -4706,7 +4706,7 @@ function generateLetterheadHTML() {
 
   return `<div class="letterhead-page" style="
       position: relative;
-      min-height: calc(297mm - 10mm);
+      min-height: calc(297mm - 1mm);
       background: white;
       font-family: 'Calibri', 'Georgia', serif;
       font-size: 12pt;
