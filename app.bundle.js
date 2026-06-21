@@ -4232,7 +4232,6 @@ async function callApi(action, data = {}) {
     const payload = { action, data: { ...data, token: AUTH_TOKEN } };
     response = await fetch(GAS_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
   } catch (err) {
