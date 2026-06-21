@@ -3354,8 +3354,6 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
         alert("Enter a valid payment amount");
         return;
       }
-      const direction = document.getElementById("pay_dir").value;
-      const isSmall = direction === "Small Expense";
       const stage = isSmall ? "" : document.getElementById("pay_stage").value;
       if (!isSmall && stage) {
         const balanceText = document
@@ -3761,71 +3759,34 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
     </div>`;
   }
 
-  const dateStr = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-  const logoUrl =
-    settings && settings.Logo ? getDirectImageUrl(settings.Logo) : "";
-  const signName =
-    settings && settings.Name_Signed ? escapeHtml(settings.Name_Signed) : "";
-  const signImg =
-    settings && settings.Sign_Signed
-      ? getDirectImageUrl(settings.Sign_Signed)
-      : "";
-
-  let headerHtml = `<div class="report-header" style="border-bottom: 2.5px solid #000; padding-bottom: 2px; margin-bottom: 18px;"><div style="display: flex; justify-content: space-between; align-items: flex-end;">`;
-  headerHtml += `<div style="flex:1;"><div style="font-size: 11px; color: #495057; font-weight: 600; margin-bottom: 2px;">${escapeHtml(dateStr)}</div><div style="font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #495057; line-height: 1.1;">Work Order</div></div>`;
-  if (logoUrl) {
-    headerHtml += `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${escapeAttr(logoUrl)}" style="max-height:120px; max-width:280px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
-  }
-  headerHtml += `</div>`;
-  headerHtml += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: flex; justify-content: space-between; align-items: baseline;"><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div><strong style="color:#000;">Work Order ID:</strong> ${escapeHtml(workorder.workOrderId || "—")}</div></div></div>`;
-  headerHtml += `</div>`;
-
-  let signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid; text-align: left;">
-    <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
-    <div style="display: inline-block; text-align: center;">
-      ${signImg ? `<div style="margin-bottom: 4px;"><img src="${escapeAttr(signImg)}" style="max-height:50px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
-      <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
-      <div style="font-size: 12px; font-weight: 700;">${signName || "_________________________"}</div>
+  return `${generateReportHeader("Work Order", project)}
+    <div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
+      <div><strong>Work Order ID:</strong> ${escapeHtml(workorder.workOrderId)}</div>
+      <div><strong>Vendor:</strong> ${escapeHtml(vendor ? vendor.company : workorder.vendorId)}${vendor && vendor.trade ? ` (${escapeHtml(vendor.trade)})` : ""}</div>
+      <div><strong>Contact:</strong> ${escapeHtml(vendor ? vendor.contactName : "—")}</div>
+      <div><strong>Phone:</strong> ${escapeHtml(vendor ? vendor.phone1 : "—")}</div>
+      <div><strong>Status:</strong> ${escapeHtml(workorder.status)}</div>
     </div>
-  </div>`;
-
-  return `<div class="report-page-wrapper">
-    <div class="report-content">
-      ${headerHtml}
-      <div style="margin-bottom: 16px; font-size: 12px; line-height: 1.6;">
-        <div><strong>Vendor:</strong> ${escapeHtml(vendor ? vendor.company : workorder.vendorId)}${vendor && vendor.trade ? ` (${escapeHtml(vendor.trade)})` : ""}</div>
-        <div><strong>Contact:</strong> ${escapeHtml(vendor ? vendor.contactName : "—")}</div>
-        <div><strong>Phone:</strong> ${escapeHtml(vendor ? vendor.phone1 : "—")}</div>
-        <div><strong>Status:</strong> ${escapeHtml(workorder.status)}</div>
-      </div>
-      <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
-        <thead>
-          <tr>
-            <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
-            <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
-            <th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">U/M</th>
-            <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Rate (₦)</th>
-            <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Amount (₦)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemRows}
-          <tr style="background:#e9ecef; font-weight:900;">
-            <td colspan="4" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
-            <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
-          </tr>
-        </tbody>
-      </table>
-      ${notesHtml}
-      ${termsHtml}
-      ${signatureBlock}
-    </div>
-    ${generateReportFooter()}
-  </div>`;
+    <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px; margin-bottom: 16px;">
+      <thead>
+        <tr>
+          <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
+          <th style="background:#000; color:#fff; text-align:center; padding:8px; font-size:10px; text-transform:uppercase; width:70px;">U/M</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Rate (₦)</th>
+          <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Amount (₦)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemRows}
+        <tr style="background:#e9ecef; font-weight:900;">
+          <td colspan="4" style="border-bottom:2px solid #000; padding:8px; font-size:12px;"><strong>TOTAL WORK ORDER VALUE</strong></td>
+          <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalWO)}</td>
+        </tr>
+      </tbody>
+    </table>
+    ${notesHtml}
+    ${termsHtml}`;
 }
 
 // ===== dashboard.js =====
