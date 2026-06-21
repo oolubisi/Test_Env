@@ -362,16 +362,18 @@ input[type="checkbox"] {
   .accounts-row {
     page-break-inside: avoid;
   }
-  .report-page-wrapper {
+  .report-page-wrapper,
+  .letterhead-page {
     position: relative;
     min-height: calc(297mm - 30mm);
     page-break-inside: avoid;
   }
-  .report-page-wrapper > .report-content {
-    /* content flows naturally */
+  .report-page-wrapper > .report-content,
+  .letterhead-page > .letterhead-content {
     display: block;
   }
-  .report-footer {
+  .report-footer,
+  .unified-footer {
     position: absolute;
     bottom: 8px;
     left: 0;
