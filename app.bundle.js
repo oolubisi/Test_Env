@@ -3354,8 +3354,6 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
         alert("Enter a valid payment amount");
         return;
       }
-      const direction = document.getElementById("pay_dir").value;
-      const isSmall = direction === "Small Expense";
       const stage = isSmall ? "" : document.getElementById("pay_stage").value;
       if (!isSmall && stage) {
         const balanceText = document
@@ -3781,7 +3779,7 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
     headerHtml += `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${escapeAttr(logoUrl)}" style="max-height:120px; max-width:280px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
   }
   headerHtml += `</div>`;
-  headerHtml += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: flex; justify-content: space-between; align-items: baseline;"><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div><strong style="color:#000;">Work Order ID:</strong> ${escapeHtml(workorder.workOrderId || "—")}</div></div></div>`;
+  headerHtml += `<div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #adb5bd; font-size: 12px; line-height: 1.6;"><div style="display: flex; justify-content: space-between; align-items: baseline;"><div><strong style="color:#000;">Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div><div style="font-size:16px;"><strong style="color:#000;">Work Order ID:</strong> ${escapeHtml(workorder.workOrderId || "—")}</div></div></div>`;
   headerHtml += `</div>`;
 
   let signatureBlock = `<div style="margin-top: 32px; page-break-inside: avoid; text-align: left;">
