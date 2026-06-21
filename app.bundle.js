@@ -4706,7 +4706,7 @@ function generateLetterheadHTML() {
 
   return `<div class="letterhead-page" style="
       position: relative;
-      min-height: calc(297mm - 40mm);
+      min-height: calc(297mm - 10mm);
       background: white;
       font-family: 'Calibri', 'Georgia', serif;
       font-size: 12pt;
@@ -4720,7 +4720,7 @@ function generateLetterheadHTML() {
       <div style="text-align: right;">
         ${
           logoUrl
-            ? `<img src="${escapeAttr(logoUrl)}" style="height: 90px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
+            ? `<img src="${escapeAttr(logoUrl)}" style="height: 150px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
             : `<div style="height:90px;"></div>`
         }
         <div style="font-size: 11pt; margin-top: 10px; color: #000;">${escapeHtml(date)}</div>
