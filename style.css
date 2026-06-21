@@ -380,3 +380,74 @@ input[type="checkbox"] {
     page-break-inside: avoid;
   }
 }
+
+/* ===== Letterhead Styles ===== */
+#view-letterhead label {
+  display: block;
+  font-weight: 800;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+#view-letterhead input,
+#view-letterhead textarea {
+  margin-bottom: 4px;
+}
+
+.letterhead-page {
+  position: relative;
+  min-height: calc(297mm - 40mm);
+  padding: 0;
+  background: white;
+  color: #000;
+  font-family: "Inter", sans-serif;
+}
+
+.letterhead-content {
+  padding: 20mm 20mm 30mm 20mm;
+}
+
+.letterhead-footer {
+  position: absolute;
+  bottom: 10mm;
+  left: 20mm;
+  right: 20mm;
+  padding-top: 10px;
+  border-top: 1.5px solid #000;
+  text-align: center;
+  color: #495057;
+  line-height: 1.5;
+}
+
+/* Print styles for letterhead */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #letterhead-print-container,
+  #letterhead-print-container * {
+    visibility: visible;
+  }
+  #letterhead-print-container {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+  .letterhead-page {
+    min-height: 100vh;
+    page-break-inside: avoid;
+  }
+  .letterhead-footer {
+    position: fixed;
+    bottom: 10mm;
+    left: 20mm;
+    right: 20mm;
+    page-break-inside: avoid;
+  }
+}
