@@ -258,33 +258,7 @@
               <option value="landscape">Landscape (A4)</option>
             </select>
           </div>
-
-          <div
-            style="
-              margin-top: 12px;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            "
-          >
-            <input
-              type="checkbox"
-              id="rep-include-signature"
-              checked
-              style="width: auto; accent-color: var(--primary)"
-            />
-            <label
-              for="rep-include-signature"
-              style="font-weight: 700; font-size: 14px; margin: 0"
-              >Include Signature Block</label
-            >
-          </div>
-
-          <button
-            class="action-btn"
-            onclick="compileFieldReport(this)"
-            style="margin-top: 15px"
-          >
+          <button class="action-btn" onclick="compileFieldReport(this)">
             <i class="fas fa-file-alt"></i> Generate Report
           </button>
         </div>
@@ -681,7 +655,6 @@
       </div>
     </div>
 
-    <script src="branding.js"></script>
     <script src="app.bundle.js"></script>
   </body>
 </html>

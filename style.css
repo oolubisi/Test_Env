@@ -336,10 +336,6 @@ input[type="checkbox"] {
   #report-print-container * {
     visibility: visible;
   }
-  #letterhead-print-container,
-  #letterhead-print-container * {
-    visibility: visible;
-  }
   #report-print-container {
     display: block !important;
     position: absolute;
@@ -350,15 +346,12 @@ input[type="checkbox"] {
     padding: 0;
     background: white;
   }
-  #letterhead-print-container {
-    display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background: white;
+  .report-header {
+    margin-bottom: 15px;
+  }
+  .snags-report-grid {
+    height: calc(297mm - 40mm);
+    page-break-inside: avoid;
   }
   .report-table thead {
     display: table-header-group;
@@ -369,17 +362,15 @@ input[type="checkbox"] {
   .accounts-row {
     page-break-inside: avoid;
   }
-  .unified-page,
-  .letterhead-page {
+  .report-page-wrapper {
     position: relative;
     min-height: calc(297mm - 30mm);
     page-break-inside: avoid;
   }
-  .unified-page > .unified-body,
-  .letterhead-page > .letterhead-content {
+  .report-page-wrapper > .report-content {
+    /* content flows naturally */
     display: block;
   }
-  .unified-footer,
   .report-footer {
     position: absolute;
     bottom: 8px;
@@ -393,11 +384,8 @@ input[type="checkbox"] {
     text-align: center;
     page-break-inside: avoid;
   }
-  .snags-report-grid {
-    height: calc(297mm - 40mm);
-    page-break-inside: avoid;
-  }
 }
+
 /* ===== Letterhead Styles ===== */
 #view-letterhead label {
   display: block;
