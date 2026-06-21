@@ -1997,6 +1997,44 @@ function financialRowHTML(label, amount, isBold, color) {
   return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; ${style}"><span style="font-weight: ${isBold ? "900" : "600"}; font-size: ${isBold ? "14px" : "13px"};">${escapeHtml(label)}</span><span style="font-weight: ${isBold ? "900" : "700"}; font-size: ${isBold ? "15px" : "13px"}; text-align: right; ${colorStyle}">₦${moneyValue(amount)}</span></div>`;
 }
 
+function shouldIncludeReportSignature() {
+  const checkbox = document.getElementById("rep-include-signature");
+  return !checkbox || checkbox.checked;
+}
+
+function wrapReportLayout(content, options) {
+  const opts = options || {};
+  if (typeof wrapUnifiedPage !== "function") return content;
+  return wrapUnifiedPage(content, {
+    showSignature: opts.includeSignature !== false,
+    signatureLabel: opts.signatureLabel || "Authorized Signatory",
+  });
+}
+
+function getPcrStorageKey(projectId) {
+  return `fieldscan:pcr:${projectId}`;
+}
+
+function getProjectPcrFields(projectId) {
+  try {
+    return JSON.parse(localStorage.getItem(getPcrStorageKey(projectId)) || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveProjectPcrFields() {
+  const projectId = getCurrentProjectId();
+  if (!projectId) return;
+  const payload = {
+    completion: document.getElementById("pcr-completion")?.value || "",
+    summary: document.getElementById("pcr-summary")?.value || "",
+    declaration: document.getElementById("pcr-declaration")?.value || "",
+  };
+  localStorage.setItem(getPcrStorageKey(projectId), JSON.stringify(payload));
+  alert("PCR fields saved.");
+}
+
 function renderFinancialAll(projects, payments, selectedFields) {
   const allCols = [
     {
@@ -2131,14 +2169,7 @@ function renderFinancialAll(projects, payments, selectedFields) {
   const totalCells = totalMapFn();
   const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalCells[c.key]).join("")}</tr>`;
   const table = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead>${thead}</thead><tbody>${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}${totalRow}</tbody></table>`;
-  return `<div class="report-page-wrapper">
-    <div class="report-content">
-      ${generateReportHeader("Financial Summary — All Projects", null)}
-      ${table}
-      ${generateSignatureBlock()}
-    </div>
-    ${generateReportFooter()}
-  </div>`;
+  return `${generateReportHeader("Financial Summary — All Projects", null)}${table}`;
 }
 
 function renderFinancialProject(project, payments) {
@@ -2247,11 +2278,6 @@ function renderScopeReport(project, settings) {
     <div class="report-content">
       ${generateReportHeader("Project Scope", project, settings)}
       <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>
-      ${signatureBlock}
-    </div>
-    <div class="report-footer">
-      <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
-      <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
     </div>
   </div>`;
 }
@@ -2300,7 +2326,9 @@ function renderProgressReport(project, logs) {
   return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
 }
 
-function renderProjectCompletionReport(project, progressLogs, snags, workorders, payments) {
+function renderProjectCompletionReport(project, progressLogs, snags, payments, options) {
+  const opts = options || {};
+  const pcrFields = getProjectPcrFields(project.projectId);
   const reportDate = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
@@ -2310,18 +2338,18 @@ function renderProjectCompletionReport(project, progressLogs, snags, workorders,
     (a, b) => new Date(b.dateRecorded) - new Date(a.dateRecorded),
   )[0];
   const completionValue =
-    latestProgress && latestProgress.completionPercentage !== undefined
+    pcrFields.completion !== undefined && pcrFields.completion !== ""
+      ? Number(pcrFields.completion) || 0
+      : latestProgress && latestProgress.completionPercentage !== undefined
       ? Number(latestProgress.completionPercentage) || 0
       : project.projectStatus === "Handed Over"
         ? 100
         : 0;
   const openSnags = snags.filter((s) => s.status !== "Completed").length;
   const completedSnags = snags.length - openSnags;
-  const closedWorkorders = workorders.filter(
-    (w) => w.status === "Completed" || w.status === "Closed",
-  ).length;
   const financials = computeProjectFinancials(project, payments);
   const latestNote =
+    pcrFields.summary ||
     (latestProgress && latestProgress.commentNarrative) ||
     project.notes ||
     "Works completed in line with recorded project scope and site updates.";
@@ -2348,7 +2376,7 @@ function renderProjectCompletionReport(project, progressLogs, snags, workorders,
       ${metric("Completion", `${Math.min(100, Math.max(0, completionValue))}%`)}
       ${metric("Open Snags", String(openSnags))}
       ${metric("Closed Snags", String(completedSnags))}
-      ${metric("Work Orders", `${closedWorkorders}/${workorders.length}`)}
+      ${metric("Status", statusText)}
     </div>
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
       <div>
@@ -2364,10 +2392,10 @@ function renderProjectCompletionReport(project, progressLogs, snags, workorders,
     </div>
     <div style="font-size:10.5pt; line-height:1.45; border:1px solid #adb5bd; padding:10px; margin-bottom:12px;">
       <div style="font-weight:800; margin-bottom:5px;">Completion Declaration</div>
-      <div>This report confirms that the project works recorded for the above project have reached ${escapeHtml(statusText.toLowerCase())} status, subject to any open snags noted in FieldScan Pro.</div>
+      <div>${escapeHtml(pcrFields.declaration || `This report confirms that the project works recorded for the above project have reached ${statusText.toLowerCase()} status, subject to any open snags noted in FieldScan Pro.`)}</div>
     </div>`;
-  return wrapUnifiedPage(body, {
-    showSignature: true,
+  return wrapReportLayout(body, {
+    includeSignature: opts.includeSignature,
     signatureLabel: "Project Sign-Off",
   });
 }
@@ -2464,6 +2492,7 @@ async function compileFieldReport(btn) {
     const type = typeSel.value;
     const scope = scopeSel ? scopeSel.value : "all";
     const filter = filterSel ? filterSel.value : "";
+    const includeSignature = shouldIncludeReportSignature();
     if (type !== "financial_all" && scope !== "all" && !filter) {
       alert("Please select a " + scope.replace("Specific ", "").toLowerCase());
       return;
@@ -2577,9 +2606,6 @@ async function compileFieldReport(btn) {
       const projectSnags = (cache.snags || []).filter(
         (s) => s.projectId === filter,
       );
-      const projectWorkorders = (cache.workorders || []).filter(
-        (w) => w.projectId === filter,
-      );
       const projectPayments = (cache.payments || []).filter(
         (p) => p.projectId === filter,
       );
@@ -2587,8 +2613,8 @@ async function compileFieldReport(btn) {
         project,
         projectLogs,
         projectSnags,
-        projectWorkorders,
         projectPayments,
+        { includeSignature },
       );
     } else if (type === "takeoff") {
       const project = (cache.projects || []).find(
@@ -2625,6 +2651,9 @@ async function compileFieldReport(btn) {
         cache.vendors || [],
         cache.settings || {},
       );
+    }
+    if (type !== "pcr") {
+      html = wrapReportLayout(html, { includeSignature });
     }
     const preview = document.getElementById("report-preview-viewport");
     const printContainer = document.getElementById("report-print-container");
@@ -3986,9 +4015,7 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
       </table>
       ${notesHtml}
       ${termsHtml}
-      ${signatureBlock}
     </div>
-    ${generateReportFooter()}
   </div>`;
 }
 
@@ -4188,6 +4215,47 @@ async function saveProjectScope() {
   }
 }
 
+async function loadProjectPcrFields() {
+  const projectId = getCurrentProjectId();
+  if (!projectId) return;
+  let cache = getCache();
+  if (!cache.progressLogsLoaded) {
+    try {
+      cache.progressLogs = (await callApi("getProgressLogs", {})) || [];
+      cache.progressLogsLoaded = true;
+      setCache(cache);
+    } catch (e) {}
+    cache = getCache();
+  }
+  const project = (cache.projects || []).find((p) => p.projectId === projectId);
+  const fields = getProjectPcrFields(projectId);
+  const latestProgress = [...(cache.progressLogs || [])]
+    .filter((l) => l.projectId === projectId)
+    .sort((a, b) => new Date(b.dateRecorded) - new Date(a.dateRecorded))[0];
+  const fallbackCompletion =
+    latestProgress && latestProgress.completionPercentage !== undefined
+      ? latestProgress.completionPercentage
+      : project && project.projectStatus === "Handed Over"
+        ? 100
+        : "";
+  const summaryEl = document.getElementById("pcr-summary");
+  const declarationEl = document.getElementById("pcr-declaration");
+  const completionEl = document.getElementById("pcr-completion");
+  if (completionEl) completionEl.value = fields.completion || fallbackCompletion;
+  if (summaryEl) {
+    summaryEl.value =
+      fields.summary ||
+      (latestProgress && latestProgress.commentNarrative) ||
+      (project && project.notes) ||
+      "Works completed in line with recorded project scope and site updates.";
+  }
+  if (declarationEl) {
+    declarationEl.value =
+      fields.declaration ||
+      "This report confirms that the project works recorded for the above project have reached completion status, subject to any open snags noted in FieldScan Pro.";
+  }
+}
+
 // Dedicated subtotal-only update — calls the backend's updateProjectContractSubtotal action
 async function updateProjectContractSubtotal(projectId, contractSubtotal) {
   const payload = {
@@ -4228,6 +4296,7 @@ function switchConsoleSegment(seg) {
   if (seg === "snags") loadSnagsListings();
   if (seg === "workorders") loadWorkOrdersListings();
   if (seg === "payments") loadPaymentsListings();
+  if (seg === "pcr") loadProjectPcrFields();
 }
 
 async function loadTakeOffListings(forceRefresh = false) {
@@ -4776,6 +4845,9 @@ function generateLetterheadHTML() {
   const signatory = document.getElementById("letter-signatory").value || "";
   const signatoryTitle =
     document.getElementById("letter-signatory-title").value || "";
+  const includeSignature =
+    !document.getElementById("letter-include-signature") ||
+    document.getElementById("letter-include-signature").checked;
 
   const cache = getCache();
   const settings = cache.settings || {};
@@ -4805,6 +4877,15 @@ function generateLetterheadHTML() {
   const signatureLineOrImg = signImageUrl
     ? `<img src="${escapeAttr(signImageUrl)}" style="height:48px; max-width:180px; object-fit:contain; display:block; margin-bottom:2px;" onerror="this.style.display='none'">`
     : `<div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 4px;"></div>`;
+  const signatureBlock = includeSignature
+    ? `<!-- ── SIGNATURE BLOCK ── -->
+    <div style="font-size: 11pt; margin-bottom: 8px;">Yours faithfully,</div>
+    <div style="margin-top: 20px; margin-bottom: 4px;">
+      ${signatureLineOrImg}
+    </div>
+    <div style="font-weight: 700; font-size: 11pt;">${escapeHtml(signatoryName)}</div>
+    ${signatoryTitle ? `<div style="font-size: 11pt; color: #333;">${escapeHtml(signatoryTitle)}</div>` : ""}`
+    : "";
 
   return `<div class="letterhead-page" style="
       position: relative;
@@ -4846,13 +4927,7 @@ function generateLetterheadHTML() {
       ${bodyParagraphs || `<p style="color:#adb5bd; font-style:italic;">No body text entered.</p>`}
     </div>
 
-    <!-- ── SIGNATURE BLOCK ── -->
-    <div style="font-size: 11pt; margin-bottom: 8px;">Yours faithfully,</div>
-    <div style="margin-top: 20px; margin-bottom: 4px;">
-      ${signatureLineOrImg}
-    </div>
-    <div style="font-weight: 700; font-size: 11pt;">${escapeHtml(signatoryName)}</div>
-    ${signatoryTitle ? `<div style="font-size: 11pt; color: #333;">${escapeHtml(signatoryTitle)}</div>` : ""}
+    ${signatureBlock}
 
     <!-- ── FOOTER: pinned to bottom, centred, icon + two phones + email ── -->
     <div style="
@@ -5011,6 +5086,7 @@ window.triggerEditProjectProfile = triggerEditProjectProfile;
 window.switchConsoleSegment = switchConsoleSegment;
 window.toggleScopeEdit = toggleScopeEdit;
 window.saveProjectScope = saveProjectScope;
+window.saveProjectPcrFields = saveProjectPcrFields;
 window.updateProjectContractSubtotal = updateProjectContractSubtotal;
 window.openModal = openModal;
 window.openModalWithRecord = openModalWithRecord;
