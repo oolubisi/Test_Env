@@ -3,7 +3,7 @@
 
 // ===== config.js =====
 const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbwipyM8n8F2K997gy_mqyEneKGt_d2RzyvB4DjYSdf66V9qpql2h7PHjm_5NmSKZwPj/exec";
+  "https://script.google.com/macros/s/AKfycbwQ5HeJP9_msrGeaHRpqn9cgXYwwV48oLS2uBb-F8S90rwprmtoSONpM1UxSECWw41v/exec";
 const AUTH_TOKEN = "FieldScan2025!SecureToken";
 const ATTACHMENT_DELIMITER = "|||";
 
@@ -287,9 +287,16 @@ function deleteSelectedTemplates() {
   if (!confirm(`Delete ${selectedTemplateIds.size} selected custom templates?`))
     return;
   const custom = getCustomTemplates();
+  const toDelete = Array.from(selectedTemplateIds);
   const remaining = custom.filter((t) => !selectedTemplateIds.has(t.id));
-  saveCustomTemplates(remaining);
+  saveCustomTemplates(remaining, false); // localStorage
   selectedTemplateIds.clear();
+  // Delete each from sheet (fire-and-forget)
+  toDelete.forEach((id) =>
+    callApi("deleteTakeOffTemplate", { templateId: id }).catch((e) =>
+      console.warn("deleteTakeOffTemplate failed for", id, e),
+    ),
+  );
   loadTemplatesSegment();
 }
 
@@ -342,58 +349,1067 @@ const MASTER_UNITS = [
   { value: "m³", label: "m³ — Cubic Metres" },
 ];
 
-function groupSyncedTemplateRows(rows) {
-  const map = new Map();
-  (rows || [])
-    .filter((row) => row.isActive !== "No")
-    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
-    .forEach((row) => {
-      const id = row.templateId || "tmpl-standard-construction";
-      if (!map.has(id)) {
-        map.set(id, {
-          id,
-          name: row.templateName || "Take-Off Template",
-          description: row.templateDescription || "",
-          synced: true,
-          items: [],
-        });
-      }
-      map.get(id).items.push({
-        templateItemId: row.templateItemId,
-        roomArea: row.roomArea || "",
-        tradeCategory: row.tradeCategory || "",
-        description: row.description || "",
+const BUILT_IN_TEMPLATES = [
+  {
+    id: "tmpl-3bed-standard",
+    name: "Standard 3-Bed Flat",
+    description:
+      "Complete take-off template for a standard 3-bedroom apartment",
+    items: [
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
         quantity: 0,
-        unit: row.unit || "pcs",
-        scopeNotes: row.scopeNotes || "",
-        sortOrder: Number(row.sortOrder) || 0,
-      });
-    });
-  return Array.from(map.values());
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Kitchen cabinets",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Sink and fittings",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "WC suite",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Shower fittings",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Painting/Decorating",
+        description: "Wall painting",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Electrical",
+        description: "Light fittings",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-bathroom-fitout",
+    name: "Bathroom Fit-Out",
+    description: "Complete bathroom renovation package",
+    items: [
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "WC pan and cistern",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Wash hand basin",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Shower mixer and tray",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Water heater",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Extractor fan",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Mirror light",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Aluminum/Glazing",
+        description: "Shower cubicle",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Ironmongery",
+        description: "Towel rails",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-kitchen-fitout",
+    name: "Kitchen Fit-Out",
+    description: "Complete kitchen installation package",
+    items: [
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Base cabinets",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Wall cabinets",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Carpentry/Joinery",
+        description: "Countertop",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Sink and tap",
+        unit: "set",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Gas cooker point",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Cooker socket",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Floor tiles",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Tiling/Flooring",
+        description: "Wall tiles (backsplash)",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Power sockets",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-electrical-roughin",
+    name: "Electrical Rough-In",
+    description: "Electrical first fix for all rooms",
+    items: [
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Living Room",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Master Bedroom",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bedroom",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Kitchen",
+        tradeCategory: "Electrical",
+        description: "Socket boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Bathroom/Toilet",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Electrical",
+        description: "Conduit run",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "Corridor/Hallway",
+        tradeCategory: "Electrical",
+        description: "Switch boxes",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+  {
+    id: "tmpl-external-works",
+    name: "External Works",
+    description: "External and landscaping items",
+    items: [
+      {
+        roomArea: "External Works",
+        tradeCategory: "Civil/Structural",
+        description: "Concrete apron",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Civil/Structural",
+        description: "Drainage channels",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Landscaping",
+        description: "Topsoil and turf",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Landscaping",
+        description: "Perimeter fence",
+        unit: "m",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Electrical",
+        description: "External light points",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Plumbing/Mechanical",
+        description: "Water storage tank",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "External Works",
+        tradeCategory: "Security/Access Control",
+        description: "Gate motor",
+        unit: "pcs",
+        quantity: 0,
+      },
+      {
+        roomArea: "Garage",
+        tradeCategory: "Civil/Structural",
+        description: "Floor concrete",
+        unit: "sqm",
+        quantity: 0,
+      },
+      {
+        roomArea: "Garage",
+        tradeCategory: "Electrical",
+        description: "Roller shutter door",
+        unit: "pcs",
+        quantity: 0,
+      },
+    ],
+  },
+];
+
+function getBuiltInTemplates() {
+  return JSON.parse(JSON.stringify(BUILT_IN_TEMPLATES));
+}
+function getCustomTemplates() {
+  try {
+    const raw = localStorage.getItem("fb_customTemplates");
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
 }
 
-async function ensureSyncedTemplates(forceRefresh) {
-  const cache = getCache();
-  if (forceRefresh || !cache.takeoffTemplatesLoaded) {
+// Persist to localStorage AND sync each template to the backend sheet.
+// Pass syncToSheet=false for bulk-replace operations that call syncTemplatesToSheet() themselves.
+function saveCustomTemplates(templates, syncToSheet = true) {
+  localStorage.setItem("fb_customTemplates", JSON.stringify(templates));
+  if (syncToSheet) {
+    // Fire-and-forget — don't block the UI
+    syncTemplatesToSheet(templates).catch((e) =>
+      console.warn("Template sheet sync failed:", e),
+    );
+  }
+}
+
+// Push every custom template to the backend sheet (upsert).
+// Called after any create/edit/import operation.
+async function syncTemplatesToSheet(templates) {
+  if (!navigator.onLine) return; // will naturally re-sync next time user is online
+  for (const t of templates) {
     try {
-      cache.takeoffTemplates = (await callApi("getTakeOffTemplates", {})) || [];
-      cache.takeoffTemplatesLoaded = true;
-      setCache(cache);
+      await callApi("saveTakeOffTemplate", {
+        templateId: t.id,
+        name: t.name,
+        description: t.description || "",
+        items: t.items || [],
+      });
     } catch (e) {
-      throw e;
+      console.warn("syncTemplatesToSheet: failed for", t.id, e);
     }
   }
-  return groupSyncedTemplateRows(getCache().takeoffTemplates || []);
 }
 
-function getAllTemplates() {
-  return groupSyncedTemplateRows(
-    (getCache().takeoffTemplates || []).filter((r) => r.isActive !== "No"),
+// Load templates from the backend sheet and merge into localStorage.
+// Sheet is the source of truth; localStorage is the cache.
+// Returns the merged array so callers can re-render immediately.
+async function loadTemplatesFromSheet() {
+  try {
+    const res = await callApi("getTakeOffTemplates", {});
+    // Backend returns an array directly (or wrapped in { data: [...] })
+    const sheetTemplates = Array.isArray(res)
+      ? res
+      : Array.isArray(res?.data)
+        ? res.data
+        : [];
+
+    if (!sheetTemplates.length) return getCustomTemplates();
+
+    const local = getCustomTemplates();
+    const localMap = new Map(local.map((t) => [t.id, t]));
+
+    // Merge: sheet wins on conflicts (sheet is source of truth)
+    sheetTemplates.forEach((s) => {
+      localMap.set(s.templateId || s.id, {
+        id: s.templateId || s.id,
+        name: s.name || "",
+        description: s.description || "",
+        items: Array.isArray(s.items) ? s.items : [],
+      });
+    });
+
+    const merged = Array.from(localMap.values());
+    // Write merged result back to localStorage without re-syncing to sheet
+    saveCustomTemplates(merged, false);
+    return merged;
+  } catch (e) {
+    console.warn("loadTemplatesFromSheet failed:", e);
+    return getCustomTemplates();
+  }
+}
+function getHiddenBuiltInIds() {
+  try {
+    const raw = localStorage.getItem("fb_hiddenBuiltInTemplates");
+    const hasVisited = localStorage.getItem("fb_templatesVisited");
+    if (hasVisited && raw !== null) return new Set(JSON.parse(raw));
+    localStorage.setItem("fb_templatesVisited", "true");
+    const allIds = new Set(getBuiltInTemplates().map((t) => t.id));
+    saveHiddenBuiltInIds(allIds);
+    return allIds;
+  } catch (e) {
+    return new Set();
+  }
+}
+function saveHiddenBuiltInIds(ids) {
+  localStorage.setItem(
+    "fb_hiddenBuiltInTemplates",
+    JSON.stringify(Array.from(ids)),
   );
 }
-
+function hideBuiltInTemplate(id) {
+  const hidden = getHiddenBuiltInIds();
+  hidden.add(id);
+  saveHiddenBuiltInIds(hidden);
+  loadTemplatesSegment();
+}
+function hideAllBuiltInTemplates() {
+  saveHiddenBuiltInIds(new Set(getBuiltInTemplates().map((t) => t.id)));
+  loadTemplatesSegment();
+}
+function showAllBuiltInTemplates() {
+  localStorage.setItem("fb_hiddenBuiltInTemplates", JSON.stringify([]));
+  loadTemplatesSegment();
+}
+function getAllTemplates() {
+  return [...getCustomTemplates(), ...getBuiltInTemplates()];
+}
 function findTemplateById(id) {
   return getAllTemplates().find((t) => t.id === id);
+}
+function deleteCustomTemplate(id) {
+  const filtered = getCustomTemplates().filter((t) => t.id !== id);
+  saveCustomTemplates(filtered, false); // localStorage only — sheet deletion is separate
+  selectedTemplateIds.delete(id);
+  // Delete from sheet (fire-and-forget)
+  callApi("deleteTakeOffTemplate", { templateId: id }).catch((e) =>
+    console.warn("deleteTakeOffTemplate sheet sync failed:", e),
+  );
+}
+function generateTemplateId() {
+  return "TMPL-CUST-" + Date.now();
+}
+
+function exportAllTemplatesJSON() {
+  const templates = getCustomTemplates();
+  if (!templates.length) {
+    alert("No custom templates to export.");
+    return;
+  }
+  const data = {
+    exportedAt: new Date().toISOString(),
+    app: "FieldScan Pro",
+    version: "1.0",
+    templates: templates,
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `FieldScan_Templates_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportSingleTemplateJSON(templateId) {
+  const t = findTemplateById(templateId);
+  if (!t) {
+    alert("Template not found.");
+    return;
+  }
+  const data = {
+    exportedAt: new Date().toISOString(),
+    app: "FieldScan Pro",
+    version: "1.0",
+    templates: [t],
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `FieldScan_Template_${t.name.replace(/[^a-z0-9]/gi, "_")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importTemplatesFromJSON(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data || !Array.isArray(data.templates)) {
+          reject(
+            new Error("Invalid template file. Missing 'templates' array."),
+          );
+          return;
+        }
+        const incoming = data.templates.filter(
+          (t) => t && t.id && t.name && Array.isArray(t.items),
+        );
+        if (!incoming.length) {
+          reject(new Error("No valid templates found in file."));
+          return;
+        }
+        const existing = getCustomTemplates();
+        const existingIds = new Set(existing.map((t) => t.id));
+        let added = 0,
+          skipped = 0;
+        incoming.forEach((t) => {
+          if (existingIds.has(t.id)) {
+            skipped++;
+          } else {
+            // Strip any non-template fields and ensure clean structure
+            const clean = {
+              id: t.id,
+              name: t.name,
+              description: t.description || "Imported template",
+              items: (t.items || []).map((i) => ({
+                roomArea: i.roomArea || "",
+                tradeCategory: i.tradeCategory || "",
+                description: i.description || "",
+                unit: i.unit || "pcs",
+                quantity: 0,
+              })),
+            };
+            existing.push(clean);
+            added++;
+          }
+        });
+        saveCustomTemplates(existing, false); // localStorage
+        // Sync only the newly added templates to the sheet
+        const newOnes = existing.filter((t) => !existingIds.has(t.id));
+        syncTemplatesToSheet(newOnes).catch((e) =>
+          console.warn("Import sheet sync failed:", e),
+        );
+        resolve({ added, skipped, total: incoming.length });
+      } catch (e) {
+        reject(
+          new Error("Failed to parse JSON: " + (e.message || "Unknown error")),
+        );
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsText(file);
+  });
+}
+
+function openImportTemplatesModal() {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Import Templates";
+  overlay.style.display = "flex";
+  body.innerHTML = `<p style="font-size:14px; color:var(--muted); margin-bottom:12px;">Select a JSON file exported from FieldScan Pro. Templates with duplicate IDs will be skipped.</p><input type="file" id="tmpl_import_file" accept="application/json" style="width:100%; padding:12px; font-size:16px;"><div id="tmpl_import_result" style="margin-top:12px; font-size:13px; font-weight:700; display:none;"></div>`;
+  submit.style.display = "block";
+  submit.innerText = "Import";
+  submit.onclick = async () => {
+    const fileInput = document.getElementById("tmpl_import_file");
+    if (!fileInput.files || !fileInput.files[0]) {
+      alert("Select a JSON file");
+      return;
+    }
+    submit.disabled = true;
+    submit.innerText = "Importing...";
+    try {
+      const result = await importTemplatesFromJSON(fileInput.files[0]);
+      const resultDiv = document.getElementById("tmpl_import_result");
+      resultDiv.style.display = "block";
+      resultDiv.innerHTML = `<span style="color:var(--success);">✓ ${result.added} imported</span>${result.skipped > 0 ? `, <span style="color:#fd7e14;">${result.skipped} skipped (duplicate)</span>` : ""}`;
+      loadTemplatesSegment();
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
+    } catch (e) {
+      alert("⚠️ " + e.message);
+      submit.disabled = false;
+      submit.innerText = "Import";
+    }
+  };
+}
+
+function loadTemplatesSegment() {
+  const container = document.getElementById("console-templates-list");
+  if (!container) return;
+  const all = getAllTemplates();
+  const projectId = getCurrentProjectId();
+  const cache = getCache();
+  const projectItems = (cache.takeoffs || []).filter(
+    (i) => i.projectId === projectId,
+  );
+
+  let html = "";
+  if (projectItems.length > 0) {
+    html += `<div class="card" style="background: var(--card-light); border-style: dashed;"><div style="display:flex; justify-content:space-between; align-items:center; gap:10px;"><div><strong style="font-size:15px;">Save Current Take-Offs as Template</strong><div style="font-size:12px; color:var(--muted); margin-top:2px;">${projectItems.length} items in this project</div></div><button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px;" onclick="openSaveAsTemplateModal()"><i class="fas fa-save"></i> Save</button></div></div>`;
+  }
+
+  const customTemplates = getCustomTemplates();
+  const builtInTemplates = getBuiltInTemplates();
+  const hiddenIds = getHiddenBuiltInIds();
+  const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
+  const allBuiltInsHidden = visibleBuiltIns.length === 0;
+  const allIds = new Set(all.map((t) => t.id));
+  for (const id of selectedTemplateIds) {
+    if (!allIds.has(id)) selectedTemplateIds.delete(id);
+  }
+
+  if (!customTemplates.length && !visibleBuiltIns.length) {
+    html += `<p style="text-align:center; padding:20px; color:var(--muted);">No templates available.</p>`;
+    container.innerHTML = html;
+    selectedTemplateIds.clear();
+    return;
+  }
+
+  html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>`;
+  html += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.refreshTemplatesFromSheet()"><i class="fas fa-sync-alt"></i> Refresh Templates</button>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportAllTemplatesJSON()"><i class="fas fa-download"></i> Export All</button>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--primary);" onclick="window.openImportTemplatesModal()"><i class="fas fa-upload"></i> Import</button>
+  </div>`;
+  if (customTemplates.length > 0 && selectedTemplateIds.size > 0) {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:10px 0;"><span style="font-size:13px; font-weight:700;">${selectedTemplateIds.size} selected</span><button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--danger);" onclick="window.deleteSelectedTemplates()"><i class="fas fa-trash"></i> Delete Selected</button></div>`;
+  }
+  if (customTemplates.length) {
+    html += customTemplates
+      .map((t) => {
+        const isChecked = selectedTemplateIds.has(t.id);
+        return `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
+      })
+      .join("");
+  } else {
+    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>`;
+  }
+
+  html += `<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>`;
+  if (allBuiltInsHidden) {
+    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">All built-in templates are hidden.<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; margin-left:8px;" onclick="window.showAllBuiltInTemplates()"><i class="fas fa-eye"></i> Show All</button></p>`;
+  } else {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;"><span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideAllBuiltInTemplates()"><i class="fas fa-eye-slash"></i> Hide All</button></div>`;
+    html += visibleBuiltIns
+      .map(
+        (t) =>
+          `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><div style="width:18px; flex-shrink:0;"></div><strong style="font-size:16px;">${escapeHtml(t.name)}</strong></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`,
+      )
+      .join("");
+  }
+  container.innerHTML = html;
+}
+
+function openSaveAsTemplateModal() {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Save as Template";
+  overlay.style.display = "flex";
+  body.innerHTML = `<label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Template Name</label><input id="tmpl_name" style="width:100%; padding:12px; font-size:16px;" placeholder="e.g. My Standard Flat"><label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Description</label><textarea id="tmpl_desc" rows="2" style="width:100%; padding:12px; font-size:16px;" placeholder="Brief description..."></textarea>`;
+  submit.style.display = "block";
+  submit.innerText = "Save Template";
+  submit.onclick = async () => {
+    const name = document.getElementById("tmpl_name").value.trim();
+    const desc = document.getElementById("tmpl_desc").value.trim();
+    if (!name) {
+      alert("Enter a template name");
+      return;
+    }
+    const cache = getCache();
+    const projectId = getCurrentProjectId();
+    const items = (cache.takeoffs || []).filter(
+      (i) => i.projectId === projectId,
+    );
+    if (!items.length) {
+      alert("No items to save");
+      return;
+    }
+    const stripped = items.map((i) => ({
+      roomArea: i.roomArea,
+      tradeCategory: i.tradeCategory,
+      description: i.description,
+      unit: i.unit,
+      quantity: 0,
+    }));
+    const newTemplate = {
+      id: generateTemplateId(),
+      name,
+      description: desc || "Custom template",
+      items: stripped,
+    };
+    const custom = getCustomTemplates();
+    custom.push(newTemplate);
+    // Save to localStorage immediately
+    saveCustomTemplates(custom, false);
+    closeModal();
+    loadTemplatesSegment();
+    // Sync to sheet in background, show toast on result
+    try {
+      submit.disabled = true;
+      await callApi("saveTakeOffTemplate", {
+        templateId: newTemplate.id,
+        name: newTemplate.name,
+        description: newTemplate.description,
+        items: newTemplate.items,
+      });
+      showSyncToast("✅ Template saved to sheet");
+    } catch (e) {
+      console.warn("saveTakeOffTemplate sheet sync failed:", e);
+      showSyncToast(
+        "⚠️ Saved locally. Sheet sync failed — will retry on next refresh.",
+      );
+    }
+  };
+}
+
+function openEditTemplateModal(id) {
+  const t = findTemplateById(id);
+  if (!t) return;
+  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
+    alert("Built-in templates cannot be edited");
+    return;
+  }
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Edit Template";
+  overlay.style.display = "flex";
+  const roomOptions = MASTER_ROOM_TYPES.map(
+    (r) => `<option value="${escapeAttr(r)}">`,
+  ).join("");
+  const tradeOptions = MASTER_TRADE_CATEGORIES.map(
+    (t) => `<option value="${escapeAttr(t)}">`,
+  ).join("");
+  const itemsHtml = t.items
+    .map(
+      (item, idx) =>
+        `<div class="tmpl-edit-row" style="display:grid; grid-template-columns: 1fr 1fr 1fr 80px 30px; gap:6px; margin-bottom:8px; align-items:center;"><input list="edit-room-types" value="${escapeAttr(item.roomArea)}" placeholder="Room" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><input list="edit-trade-cats" value="${escapeAttr(item.tradeCategory)}" placeholder="Trade" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><input value="${escapeAttr(item.description)}" placeholder="Description" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><input value="${escapeAttr(item.unit)}" placeholder="Unit" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><button onclick="this.parentElement.remove()" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; height:32px; font-size:16px;">×</button></div>`,
+    )
+    .join("");
+  body.innerHTML = `<datalist id="edit-room-types">${roomOptions}</datalist><datalist id="edit-trade-cats">${tradeOptions}</datalist><label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Template Name</label><input id="edit_tmpl_name" value="${escapeAttr(t.name)}" style="width:100%; padding:12px; font-size:16px; border:1.5px solid var(--border); border-radius:12px;"><label style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;">Description</label><textarea id="edit_tmpl_desc" rows="2" style="width:100%; padding:12px; font-size:16px; border:1.5px solid var(--border); border-radius:12px;">${escapeHtml(t.description)}</textarea><div style="margin-top:16px; margin-bottom:8px; font-weight:800; font-size:13px; text-transform:uppercase;">Items</div><div id="edit_tmpl_items">${itemsHtml}</div><button class="action-btn" style="margin-top:10px; background:var(--card-light); color:var(--text);" onclick="addEditTemplateItemRow()"><i class="fas fa-plus"></i> Add Item</button>`;
+  submit.style.display = "block";
+  submit.innerText = "Save Changes";
+  submit.onclick = async () => {
+    const name = document.getElementById("edit_tmpl_name").value.trim();
+    const desc = document.getElementById("edit_tmpl_desc").value.trim();
+    if (!name) {
+      alert("Enter a template name");
+      return;
+    }
+    const rows = document.querySelectorAll("#edit_tmpl_items > .tmpl-edit-row");
+    const newItems = [];
+    rows.forEach((row) => {
+      const inputs = row.querySelectorAll("input");
+      const description = inputs[2].value.trim();
+      if (description)
+        newItems.push({
+          roomArea: inputs[0].value.trim(),
+          tradeCategory: inputs[1].value.trim(),
+          description: description,
+          unit: inputs[3].value.trim() || "pcs",
+          quantity: 0,
+        });
+    });
+    if (!newItems.length) {
+      alert("Template must have at least one item with a description");
+      return;
+    }
+    const custom = getCustomTemplates();
+    const idx = custom.findIndex((c) => c.id === id);
+    if (idx !== -1) {
+      custom[idx].name = name;
+      custom[idx].description = desc || "Custom template";
+      custom[idx].items = newItems;
+      saveCustomTemplates(custom, false); // localStorage immediately
+      closeModal();
+      loadTemplatesSegment();
+      // Sync to sheet in background
+      try {
+        await callApi("saveTakeOffTemplate", {
+          templateId: custom[idx].id,
+          name: custom[idx].name,
+          description: custom[idx].description,
+          items: custom[idx].items,
+        });
+        showSyncToast("✅ Template updated on sheet");
+      } catch (e) {
+        console.warn("saveTakeOffTemplate edit sync failed:", e);
+        showSyncToast("⚠️ Saved locally. Sheet sync failed.");
+      }
+    }
+  };
+}
+
+function addEditTemplateItemRow() {
+  const container = document.getElementById("edit_tmpl_items");
+  if (!container) return;
+  const div = document.createElement("div");
+  div.className = "tmpl-edit-row";
+  div.style.cssText =
+    "display:grid; grid-template-columns: 1fr 1fr 1fr 80px 30px; gap:6px; margin-bottom:8px; align-items:center;";
+  div.innerHTML = `<input list="edit-room-types" placeholder="Room" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><input list="edit-trade-cats" placeholder="Trade" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><input placeholder="Description" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><input placeholder="Unit" style="padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><button onclick="this.parentElement.remove()" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; height:32px; font-size:16px;">×</button>`;
+  container.appendChild(div);
 }
 
 function previewTemplate(id) {
@@ -408,10 +1424,10 @@ function previewTemplate(id) {
   const rows = t.items
     .map(
       (i) =>
-        `<tr><td style="border-bottom:1px solid #adb5bd;padding:8px;font-size:12px;">${escapeHtml(i.tradeCategory)}</td><td style="border-bottom:1px solid #adb5bd;padding:8px;font-size:12px;">${escapeHtml(i.description)}</td><td style="border-bottom:1px solid #adb5bd;padding:8px;font-size:12px;text-align:right;font-weight:700;">${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</td></tr>`,
+        `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(i.roomArea)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(i.tradeCategory)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(i.description)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; font-weight:700;">${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</td></tr>`,
     )
     .join("");
-  body.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-bottom:10px;">${escapeHtml(t.description)} - ${t.items.length} items</p><div style="max-height:50vh;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#000;color:#fff;"><th style="padding:8px;text-align:left;font-size:10px;text-transform:uppercase;">Trade</th><th style="padding:8px;text-align:left;font-size:10px;text-transform:uppercase;">Description</th><th style="padding:8px;text-align:right;font-size:10px;text-transform:uppercase;">Qty</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  body.innerHTML = `<p style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(t.description)} — ${t.items.length} items</p><div style="max-height:50vh; overflow-y:auto;"><table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#000; color:#fff;"><th style="padding:8px; text-align:left; font-size:10px; text-transform:uppercase;">Room</th><th style="padding:8px; text-align:left; font-size:10px; text-transform:uppercase;">Trade</th><th style="padding:8px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th><th style="padding:8px; text-align:right; font-size:10px; text-transform:uppercase;">Qty</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   submit.style.display = "block";
   submit.innerText = "Close";
   submit.onclick = closeModal;
@@ -421,13 +1437,16 @@ async function applyTemplateToProject(templateId) {
   const t = findTemplateById(templateId);
   if (!t) return;
   if (
-    !confirm(
-      `Apply "${t.name}" (${t.items.length} items) to this project?\n\nQuantities will be set to 0 for field measurement.`,
-    )
+    !confirm(`Apply "${t.name}" (${t.items.length} items) to this project?
+
+Quantities will be set to 0 for field measurement.`)
   )
     return;
   const projectId = getCurrentProjectId();
-  if (!projectId) return alert("No project selected");
+  if (!projectId) {
+    alert("No project selected");
+    return;
+  }
   const btn = document.querySelector(
     `button[onclick="applyTemplateToProject('${escapeAttr(templateId)}')"]`,
   );
@@ -437,18 +1456,19 @@ async function applyTemplateToProject(templateId) {
   }
   try {
     for (const item of t.items) {
-      await callApi("saveTakeOffItem", {
+      const payload = {
         itemId:
           "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
-        projectId,
-        roomArea: item.roomArea || "",
-        tradeCategory: item.tradeCategory || "",
-        description: item.description || "",
+        projectId: projectId,
+        roomArea: item.roomArea,
+        tradeCategory: item.tradeCategory,
+        description: item.description,
         quantity: 0,
-        unit: item.unit || "pcs",
+        unit: item.unit,
         beforePhotoUrl: "",
-        scopeNotes: item.scopeNotes || "From template: " + t.name,
-      });
+        scopeNotes: "From template: " + t.name,
+      };
+      await callApi("saveTakeOffItem", payload);
     }
     loadTakeOffListings(true);
     alert(`Template applied: ${t.items.length} items added.`);
@@ -462,216 +1482,6 @@ async function applyTemplateToProject(templateId) {
   }
 }
 
-async function loadTemplatesSegment(forceRefresh = false) {
-  const container = document.getElementById("console-templates-list");
-  if (!container) return;
-  container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading templates...</p>`;
-  let templates = [];
-  let loadError = "";
-  try {
-    templates = await ensureSyncedTemplates(forceRefresh);
-  } catch (e) {
-    loadError = e.message || "Could not load templates.";
-  }
-  const projectId = getCurrentProjectId();
-  const cache = getCache();
-  const projectItems = (cache.takeoffs || []).filter(
-    (i) => i.projectId === projectId,
-  );
-
-  let html = "";
-  if (projectItems.length > 0) {
-    html += `<div class="card" style="background: var(--card-light); border-style: dashed;"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div><strong style="font-size:15px;">Save Current Take-Offs as Template</strong><div style="font-size:12px;color:var(--muted);margin-top:2px;">${projectItems.length} items in this project</div></div><button class="action-btn" style="width:auto;padding:8px 16px;font-size:13px;" onclick="openSaveAsTemplateModal()"><i class="fas fa-save"></i> Save</button></div></div>`;
-  }
-  html += `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="loadTemplatesSegment(true)"><i class="fas fa-sync-alt"></i> Refresh Templates</button></div>`;
-  if (loadError) {
-    container.innerHTML =
-      html +
-      `<div class="card" style="border-color:var(--danger);"><strong>Templates could not load</strong><div style="font-size:13px;color:var(--muted);margin-top:6px;">${escapeHtml(loadError)}</div><div style="font-size:13px;color:var(--muted);margin-top:6px;">Update/deploy code.gs, then refresh templates.</div></div>`;
-    return;
-  }
-  if (!templates.length) {
-    container.innerHTML =
-      html +
-      `<div class="card"><strong>No templates found</strong><div style="font-size:13px;color:var(--muted);margin-top:6px;">The backend returned zero template rows. Calling getTakeOffTemplates should create and populate the TakeOffTemplates sheet if the latest code.gs is deployed.</div></div>`;
-    return;
-  }
-  html += templates
-    .map(
-      (t) =>
-        `<div class="card" style="cursor:default;"><div style="display:flex;justify-content:space-between;align-items:start;gap:12px;"><div style="flex:1;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px;background:var(--primary);color:#fff;padding:2px 6px;border-radius:4px;text-transform:uppercase;margin-left:8px;">Synced</span><div style="font-size:12px;color:var(--muted);margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">${t.items.length} items</div></div><div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;"><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:var(--card-light);color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto;padding:6px 12px;font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`,
-    )
-    .join("");
-  container.innerHTML = html;
-}
-
-function openSaveAsTemplateModal() {
-  const body = document.getElementById("modalBody");
-  const submit = document.getElementById("modalSubmit");
-  const title = document.getElementById("modalTitle");
-  const overlay = document.getElementById("modalOverlay");
-  title.innerText = "Save as Synced Template";
-  overlay.style.display = "flex";
-  body.innerHTML = `<label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Template Name</label><input id="tmpl_name" style="width:100%;padding:12px;font-size:16px;" placeholder="e.g. My Standard Template"><label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Description</label><textarea id="tmpl_desc" rows="2" style="width:100%;padding:12px;font-size:16px;" placeholder="Brief description..."></textarea>`;
-  submit.style.display = "block";
-  submit.innerText = "Save Template";
-  submit.onclick = async () => {
-    const name = document.getElementById("tmpl_name").value.trim();
-    const desc = document.getElementById("tmpl_desc").value.trim();
-    if (!name) return alert("Enter a template name");
-    const cache = getCache();
-    const projectId = getCurrentProjectId();
-    const items = (cache.takeoffs || []).filter(
-      (i) => i.projectId === projectId,
-    );
-    if (!items.length) return alert("No items to save");
-    submit.disabled = true;
-    submit.innerText = "Saving...";
-    const templateId = "tmpl-" + Date.now();
-    try {
-      for (let idx = 0; idx < items.length; idx++) {
-        const i = items[idx];
-        await callApi("saveTakeOffTemplate", {
-          templateItemId: templateId + "-" + String(idx + 1).padStart(3, "0"),
-          templateId,
-          templateName: name,
-          templateDescription: desc || "Synced template",
-          roomArea: i.roomArea || "",
-          tradeCategory: i.tradeCategory || "",
-          description: i.description || "",
-          quantity: 0,
-          unit: i.unit || "pcs",
-          scopeNotes: i.scopeNotes || "",
-          sortOrder: idx + 1,
-          isActive: "Yes",
-        });
-      }
-      closeModal();
-      await loadTemplatesSegment(true);
-      alert("Template saved across devices");
-    } catch (e) {
-      alert("Failed to save template: " + (e.message || "Unknown error"));
-      submit.disabled = false;
-      submit.innerText = "Save Template";
-    }
-  };
-}
-
-function openEditTemplateModal(id) {
-  const t = findTemplateById(id);
-  if (!t) return;
-  const body = document.getElementById("modalBody");
-  const submit = document.getElementById("modalSubmit");
-  const title = document.getElementById("modalTitle");
-  const overlay = document.getElementById("modalOverlay");
-  title.innerText = "Edit Synced Template";
-  overlay.style.display = "flex";
-  const rows = t.items
-    .map(
-      (item) =>
-        `<div class="tmpl-edit-row" data-template-item-id="${escapeAttr(item.templateItemId || "")}" style="display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;"><input value="${escapeAttr(item.roomArea)}" placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.tradeCategory)}" placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.description)}" placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="${escapeAttr(item.unit)}" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.dataset.deleted='true';this.parentElement.style.display='none';" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button></div>`,
-    )
-    .join("");
-  body.innerHTML = `<label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Template Name</label><input id="edit_tmpl_name" value="${escapeAttr(t.name)}" style="width:100%;padding:12px;font-size:16px;border:1.5px solid var(--border);border-radius:12px;"><label style="display:block;font-weight:800;margin-top:12px;margin-bottom:4px;">Description</label><textarea id="edit_tmpl_desc" rows="2" style="width:100%;padding:12px;font-size:16px;border:1.5px solid var(--border);border-radius:12px;">${escapeHtml(t.description)}</textarea><div style="margin-top:16px;margin-bottom:8px;font-weight:800;font-size:13px;text-transform:uppercase;">Items</div><div id="edit_tmpl_items">${rows}</div><button class="action-btn" style="margin-top:10px;background:var(--card-light);color:var(--text);" onclick="addEditTemplateItemRow()"><i class="fas fa-plus"></i> Add Item</button>`;
-  submit.style.display = "block";
-  submit.innerText = "Save Changes";
-  submit.onclick = async () => {
-    const name = document.getElementById("edit_tmpl_name").value.trim();
-    const desc = document.getElementById("edit_tmpl_desc").value.trim();
-    if (!name) return alert("Enter a template name");
-    submit.disabled = true;
-    submit.innerText = "Saving...";
-    try {
-      const rows = Array.from(
-        document.querySelectorAll("#edit_tmpl_items > .tmpl-edit-row"),
-      );
-      for (let idx = 0; idx < rows.length; idx++) {
-        const row = rows[idx];
-        const itemId = row.dataset.templateItemId;
-        if (row.dataset.deleted === "true") {
-          if (itemId)
-            await callApi("deleteTakeOffTemplate", { templateItemId: itemId });
-          continue;
-        }
-        const inputs = row.querySelectorAll("input");
-        const payload = {
-          templateItemId: itemId || id + "-" + Date.now() + "-" + idx,
-          templateId: id,
-          templateName: name,
-          templateDescription: desc || "Synced template",
-          roomArea: inputs[0].value.trim(),
-          tradeCategory: inputs[1].value.trim(),
-          description: inputs[2].value.trim(),
-          quantity: 0,
-          unit: inputs[3].value.trim() || "pcs",
-          scopeNotes: "",
-          sortOrder: idx + 1,
-          isActive: "Yes",
-        };
-        if (!payload.description) continue;
-        await callApi(
-          itemId ? "updateTakeOffTemplate" : "saveTakeOffTemplate",
-          payload,
-        );
-      }
-      closeModal();
-      await loadTemplatesSegment(true);
-      alert("Template updated across devices");
-    } catch (e) {
-      alert("Failed to update template: " + (e.message || "Unknown error"));
-      submit.disabled = false;
-      submit.innerText = "Save Changes";
-    }
-  };
-}
-
-function addEditTemplateItemRow() {
-  const container = document.getElementById("edit_tmpl_items");
-  if (!container) return;
-  const div = document.createElement("div");
-  div.className = "tmpl-edit-row";
-  div.style.cssText =
-    "display:grid;grid-template-columns:1fr 1fr 2fr 80px 30px;gap:6px;margin-bottom:8px;align-items:center;";
-  div.innerHTML = `<input placeholder="Area" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input placeholder="Trade" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input placeholder="Description" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><input value="pcs" placeholder="Unit" style="padding:8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;"><button onclick="this.parentElement.remove()" style="background:var(--danger);color:white;border:none;border-radius:6px;cursor:pointer;height:32px;font-size:16px;">×</button>`;
-  container.appendChild(div);
-}
-
-async function deleteSelectedTemplates() {
-  alert("Open a synced template and remove items there.");
-}
-
-function hideAllBuiltInTemplates() {
-  loadTemplatesSegment(true);
-}
-
-function showAllBuiltInTemplates() {
-  loadTemplatesSegment(true);
-}
-
-function deleteCustomTemplate(id) {
-  openEditTemplateModal(id);
-}
-
-function exportAllTemplatesJSON() {
-  alert("Templates are now synced through the backend.");
-}
-
-function exportSingleTemplateJSON() {
-  alert("Templates are now synced through the backend.");
-}
-
-function importTemplatesFromJSON() {
-  alert(
-    "Use Save Current Take-Offs as Template or edit synced templates directly.",
-  );
-}
-
-function openImportTemplatesModal() {
-  alert(
-    "Use Save Current Take-Offs as Template or edit synced templates directly.",
-  );
-}
-
 // ===== db.js =====
 // Seed in-memory cache from localStorage backups so the app has data
 // immediately on page load without waiting for the network.
@@ -679,7 +1489,6 @@ function openImportTemplatesModal() {
   const seeds = [
     { key: "projects", action: "getProjects", isArray: true },
     { key: "takeoffs", action: "getTakeOffItems", isArray: true },
-    { key: "takeoffTemplates", action: "getTakeOffTemplates", isArray: true },
     { key: "progressLogs", action: "getProgressLogs", isArray: true },
     { key: "snags", action: "getSnags", isArray: true },
     { key: "vendors", action: "getVendors", isArray: true },
@@ -810,7 +1619,6 @@ async function deleteSnagPhotosLocally(snagId) {
 const GET_ACTION_BY_STORE = {
   projects: "getProjects",
   takeoffs: "getTakeOffItems",
-  takeoffTemplates: "getTakeOffTemplates",
   progressLogs: "getProgressLogs",
   snags: "getSnags",
   vendors: "getVendors",
@@ -825,21 +1633,6 @@ const MUTATION_MAP = {
   saveTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   updateTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "upsert" },
   deleteTakeOffItem: { store: "takeoffs", idKey: "itemId", mode: "delete" },
-  saveTakeOffTemplate: {
-    store: "takeoffTemplates",
-    idKey: "templateItemId",
-    mode: "upsert",
-  },
-  updateTakeOffTemplate: {
-    store: "takeoffTemplates",
-    idKey: "templateItemId",
-    mode: "upsert",
-  },
-  deleteTakeOffTemplate: {
-    store: "takeoffTemplates",
-    idKey: "templateItemId",
-    mode: "delete",
-  },
   saveProgressLog: { store: "progressLogs", idKey: "logId", mode: "upsert" },
   saveSnag: { store: "snags", idKey: "snagId", mode: "upsert" },
   updateSnag: { store: "snags", idKey: "snagId", mode: "upsert" },
@@ -948,9 +1741,7 @@ async function generateReportPDF(orientation) {
   container.style.minWidth = isLandscape ? "297mm" : "210mm";
   container.style.zIndex = "-9999";
   container.style.background = "white";
-  container.style.padding = container.querySelector(".unified-page")
-    ? "0"
-    : "15mm";
+  container.style.padding = "15mm";
   container.getBoundingClientRect();
 
   try {
@@ -1101,7 +1892,6 @@ function handleReportScopePopulation() {
     type === "scope" ||
     type === "snags" ||
     type === "progress" ||
-    type === "pcr" ||
     type === "takeoff"
   )
     validScopes = ["project"];
@@ -1315,48 +2105,6 @@ function financialRowHTML(label, amount, isBold, color) {
   return `<div style="display: flex; justify-content: space-between; margin-bottom: 4px; ${style}"><span style="font-weight: ${isBold ? "900" : "600"}; font-size: ${isBold ? "14px" : "13px"};">${escapeHtml(label)}</span><span style="font-weight: ${isBold ? "900" : "700"}; font-size: ${isBold ? "15px" : "13px"}; text-align: right; ${colorStyle}">₦${moneyValue(amount)}</span></div>`;
 }
 
-function shouldIncludeReportSignature() {
-  const checkbox = document.getElementById("rep-include-signature");
-  return !checkbox || checkbox.checked;
-}
-
-function wrapReportLayout(content, options) {
-  const opts = options || {};
-  if (typeof wrapUnifiedPage !== "function") return content;
-  return wrapUnifiedPage(content, {
-    showSignature: opts.includeSignature !== false,
-    signatureLabel: opts.signatureLabel || "Authorized Signatory",
-  });
-}
-
-function getPcrStorageKey(projectId) {
-  return `fieldscan:pcr:${projectId}`;
-}
-
-function getProjectPcrFields(projectId) {
-  try {
-    return JSON.parse(
-      localStorage.getItem(getPcrStorageKey(projectId)) || "{}",
-    );
-  } catch (e) {
-    return {};
-  }
-}
-
-function saveProjectPcrFields() {
-  const projectId = getCurrentProjectId();
-  if (!projectId) return;
-  const payload = {
-    completion: document.getElementById("pcr-completion")?.value || "",
-    status: document.getElementById("pcr-status")?.value || "",
-    showWht: !!document.getElementById("pcr-show-wht")?.checked,
-    summary: document.getElementById("pcr-summary")?.value || "",
-    declaration: document.getElementById("pcr-declaration")?.value || "",
-  };
-  localStorage.setItem(getPcrStorageKey(projectId), JSON.stringify(payload));
-  alert("PCR fields saved.");
-}
-
 function renderFinancialAll(projects, payments, selectedFields) {
   const allCols = [
     {
@@ -1491,7 +2239,14 @@ function renderFinancialAll(projects, payments, selectedFields) {
   const totalCells = totalMapFn();
   const totalRow = `<tr style="background:#e9ecef; font-weight:900;">${cols.map((c) => totalCells[c.key]).join("")}</tr>`;
   const table = `<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead>${thead}</thead><tbody>${rows || `<tr><td colspan="${cols.length}" style="padding:20px; text-align:center; color:#495057;">No projects</td></tr>`}${totalRow}</tbody></table>`;
-  return `${generateReportHeader("Financial Summary — All Projects", null)}${table}`;
+  return `<div class="report-page-wrapper">
+    <div class="report-content">
+      ${generateReportHeader("Financial Summary — All Projects", null)}
+      ${table}
+      ${generateSignatureBlock()}
+    </div>
+    ${generateReportFooter()}
+  </div>`;
 }
 
 function renderFinancialProject(project, payments) {
@@ -1600,6 +2355,11 @@ function renderScopeReport(project, settings) {
     <div class="report-content">
       ${generateReportHeader("Project Scope", project, settings)}
       <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; border: 1px solid #adb5bd; padding: 16px; border-radius: 8px; background: #f8f9fa;">${escapeHtml(project.scope || "No scope defined.")}</div>
+      ${signatureBlock}
+    </div>
+    <div class="report-footer">
+      <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+      <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
     </div>
   </div>`;
 }
@@ -1646,93 +2406,6 @@ function renderProgressReport(project, logs) {
     )
     .join("");
   return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
-}
-
-function renderProjectCompletionReport(
-  project,
-  progressLogs,
-  snags,
-  payments,
-  options,
-) {
-  const opts = options || {};
-  const pcrFields = getProjectPcrFields(project.projectId);
-  const reportDate = new Date().toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const latestProgress = [...progressLogs].sort(
-    (a, b) => new Date(b.dateRecorded) - new Date(a.dateRecorded),
-  )[0];
-  const completionValue =
-    pcrFields.completion !== undefined && pcrFields.completion !== ""
-      ? Number(pcrFields.completion) || 0
-      : latestProgress && latestProgress.completionPercentage !== undefined
-        ? Number(latestProgress.completionPercentage) || 0
-        : project.projectStatus === "Handed Over"
-          ? 100
-          : 0;
-  const openSnags = snags.filter((s) => s.status !== "Completed").length;
-  const completedSnags = snags.length - openSnags;
-  const financials = computeProjectFinancials(project, payments);
-  const latestNote =
-    pcrFields.summary ||
-    (latestProgress && latestProgress.commentNarrative) ||
-    project.notes ||
-    "Works completed in line with recorded project scope and site updates.";
-  const statusText =
-    pcrFields.status ||
-    (project.projectStatus === "Handed Over" || completionValue >= 100
-      ? "Complete"
-      : "Substantially Complete");
-  const showWht = !!pcrFields.showWht;
-  const balanceValue = showWht
-    ? financials.netReceivable - financials.totalReceived
-    : financials.balanceExpected;
-  const field = (label, value) =>
-    `<div style="border-bottom:1px solid #d0d4d9; padding:5px 0;"><span style="display:inline-block; width:34%; font-weight:700; color:#343a40;">${escapeHtml(label)}</span><span>${escapeHtml(value || "-")}</span></div>`;
-  const metric = (label, value) =>
-    `<div style="border:1px solid #adb5bd; padding:8px; min-height:48px;"><div style="font-size:9pt; font-weight:700; text-transform:uppercase; color:#495057;">${escapeHtml(label)}</div><div style="font-size:14pt; font-weight:800; margin-top:3px;">${escapeHtml(value)}</div></div>`;
-  const body = `
-    <div style="text-align:right; font-size:10.5pt; margin-top:-18px; margin-bottom:16px;">${escapeHtml(reportDate)}</div>
-    <div style="border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:14px;">
-      <div style="font-size:18pt; font-weight:800; text-transform:uppercase; letter-spacing:0;">Project Completion Report</div>
-      <div style="font-size:10pt; font-weight:700; color:#495057; margin-top:3px;">PCR / ${escapeHtml(project.projectId || "-")}</div>
-    </div>
-    <div style="font-size:10.5pt; line-height:1.35; margin-bottom:14px;">
-      ${field("Client", project.clientName)}
-      ${field("Project ID", project.projectId)}
-      ${field("Site Location", project.siteLocation)}
-      ${field("Client Phone", project.clientPhone)}
-    </div>
-    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:7px; margin-bottom:14px;">
-      ${metric("Completion", `${Math.min(100, Math.max(0, completionValue))}%`)}
-      ${metric("Open Snags", String(openSnags))}
-      ${metric("Closed Snags", String(completedSnags))}
-      ${metric("Status", statusText)}
-    </div>
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
-      <div>
-        <div style="font-size:11pt; font-weight:800; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:6px;">Completion Summary</div>
-        <div style="font-size:10.5pt; line-height:1.45; text-align:justify;">${escapeHtml(latestNote)}</div>
-      </div>
-      <div>
-        <div style="font-size:11pt; font-weight:800; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:6px;">Financial Snapshot</div>
-        ${financialRowHTML("Contract Value", financials.totalContract, false)}
-        ${showWht ? financialRowHTML("WHT", financials.wht, false) : ""}
-        ${financialRowHTML("Payments Received", financials.totalReceived, false)}
-        ${financialRowHTML("Balance Expected", balanceValue, true)}
-      </div>
-    </div>
-    <div style="font-size:10.5pt; line-height:1.45; border:1px solid #adb5bd; padding:10px; margin-bottom:12px;">
-      <div style="font-weight:800; margin-bottom:5px;">Completion Declaration</div>
-      <div>${escapeHtml(pcrFields.declaration || `This report confirms that the project works recorded for the above project have reached ${statusText.toLowerCase()} status, subject to any open snags noted in FieldScan Pro.`)}</div>
-    </div>`;
-  return wrapReportLayout(body, {
-    includeSignature: opts.includeSignature,
-    signatureLabel: "Project Sign-Off",
-  });
 }
 
 function renderTakeoffReport(project, items) {
@@ -1827,7 +2500,6 @@ async function compileFieldReport(btn) {
     const type = typeSel.value;
     const scope = scopeSel ? scopeSel.value : "all";
     const filter = filterSel ? filterSel.value : "";
-    const includeSignature = shouldIncludeReportSignature();
     if (type !== "financial_all" && scope !== "all" && !filter) {
       alert("Please select a " + scope.replace("Specific ", "").toLowerCase());
       return;
@@ -1927,30 +2599,6 @@ async function compileFieldReport(btn) {
         (l) => l.projectId === filter,
       );
       html = renderProgressReport(project, projectLogs);
-    } else if (type === "pcr") {
-      const project = (cache.projects || []).find(
-        (p) => p.projectId === filter,
-      );
-      if (!project) {
-        alert("Project not found");
-        return;
-      }
-      const projectLogs = (cache.progressLogs || []).filter(
-        (l) => l.projectId === filter,
-      );
-      const projectSnags = (cache.snags || []).filter(
-        (s) => s.projectId === filter,
-      );
-      const projectPayments = (cache.payments || []).filter(
-        (p) => p.projectId === filter,
-      );
-      html = renderProjectCompletionReport(
-        project,
-        projectLogs,
-        projectSnags,
-        projectPayments,
-        { includeSignature },
-      );
     } else if (type === "takeoff") {
       const project = (cache.projects || []).find(
         (p) => p.projectId === filter,
@@ -1986,9 +2634,6 @@ async function compileFieldReport(btn) {
         cache.vendors || [],
         cache.settings || {},
       );
-    }
-    if (type !== "pcr") {
-      html = wrapReportLayout(html, { includeSignature });
     }
     const preview = document.getElementById("report-preview-viewport");
     const printContainer = document.getElementById("report-print-container");
@@ -3350,7 +3995,9 @@ function renderWorkOrderDetailReport(workorder, project, vendors, settings) {
       </table>
       ${notesHtml}
       ${termsHtml}
+      ${signatureBlock}
     </div>
+    ${generateReportFooter()}
   </div>`;
 }
 
@@ -3550,58 +4197,6 @@ async function saveProjectScope() {
   }
 }
 
-async function loadProjectPcrFields() {
-  const projectId = getCurrentProjectId();
-  if (!projectId) return;
-  let cache = getCache();
-  if (!cache.progressLogsLoaded) {
-    try {
-      cache.progressLogs = (await callApi("getProgressLogs", {})) || [];
-      cache.progressLogsLoaded = true;
-      setCache(cache);
-    } catch (e) {}
-    cache = getCache();
-  }
-  const project = (cache.projects || []).find((p) => p.projectId === projectId);
-  const fields = getProjectPcrFields(projectId);
-  const latestProgress = [...(cache.progressLogs || [])]
-    .filter((l) => l.projectId === projectId)
-    .sort((a, b) => new Date(b.dateRecorded) - new Date(a.dateRecorded))[0];
-  const fallbackCompletion =
-    latestProgress && latestProgress.completionPercentage !== undefined
-      ? latestProgress.completionPercentage
-      : project && project.projectStatus === "Handed Over"
-        ? 100
-        : "";
-  const summaryEl = document.getElementById("pcr-summary");
-  const declarationEl = document.getElementById("pcr-declaration");
-  const completionEl = document.getElementById("pcr-completion");
-  const statusEl = document.getElementById("pcr-status");
-  const showWhtEl = document.getElementById("pcr-show-wht");
-  if (completionEl)
-    completionEl.value = fields.completion || fallbackCompletion;
-  if (statusEl) {
-    const fallbackStatus =
-      project && project.projectStatus === "Handed Over"
-        ? "Complete"
-        : "Substantially Complete";
-    statusEl.value = fields.status || fallbackStatus;
-  }
-  if (showWhtEl) showWhtEl.checked = !!fields.showWht;
-  if (summaryEl) {
-    summaryEl.value =
-      fields.summary ||
-      (latestProgress && latestProgress.commentNarrative) ||
-      (project && project.notes) ||
-      "Works completed in line with recorded project scope and site updates.";
-  }
-  if (declarationEl) {
-    declarationEl.value =
-      fields.declaration ||
-      "This report confirms that the project works recorded for the above project have reached completion status, subject to any open snags noted in FieldScan Pro.";
-  }
-}
-
 // Dedicated subtotal-only update — calls the backend's updateProjectContractSubtotal action
 async function updateProjectContractSubtotal(projectId, contractSubtotal) {
   const payload = {
@@ -3637,12 +4232,17 @@ function switchConsoleSegment(seg) {
   document.getElementById(`console-seg-${seg}`).classList.add("active-view");
   document.getElementById(`seg-btn-${seg}`).classList.add("active");
   if (seg === "takeoff") loadTakeOffListings();
-  if (seg === "templates") loadTemplatesSegment();
+  if (seg === "templates") {
+    // Render from localStorage immediately, then merge from sheet in background
+    loadTemplatesSegment();
+    loadTemplatesFromSheet()
+      .then(() => loadTemplatesSegment())
+      .catch(() => {});
+  }
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
   if (seg === "workorders") loadWorkOrdersListings();
   if (seg === "payments") loadPaymentsListings();
-  if (seg === "pcr") loadProjectPcrFields();
 }
 
 async function loadTakeOffListings(forceRefresh = false) {
@@ -3847,7 +4447,6 @@ let cache = {
   vendors: [],
   workorders: [],
   payments: [],
-  takeoffTemplates: [],
   settings: {},
 };
 let currentSelectedProjectId = null;
@@ -3923,7 +4522,6 @@ async function callApi(action, data = {}) {
     const message =
       result.message || result.error || "Server rejected the request";
     console.warn(`callApi [${action}] server error:`, message);
-    if (action === "getTakeOffTemplates") throw new Error(message);
     if (isGet)
       return readBackup(
         action,
@@ -3948,9 +4546,6 @@ const DEPENDENCY_ORDER = {
   saveTakeOffItem: 5,
   updateTakeOffItem: 5,
   deleteTakeOffItem: 5,
-  saveTakeOffTemplate: 5,
-  updateTakeOffTemplate: 5,
-  deleteTakeOffTemplate: 5,
   saveProgressLog: 6,
   saveSnag: 7,
   updateSnag: 7,
@@ -4102,7 +4697,6 @@ async function refreshAllData() {
     const endpoints = [
       { action: "getProjects", key: "projects", isArray: true },
       { action: "getTakeOffItems", key: "takeoffs", isArray: true },
-      { action: "getTakeOffTemplates", key: "takeoffTemplates", isArray: true },
       { action: "getProgressLogs", key: "progressLogs", isArray: true },
       { action: "getSnags", key: "snags", isArray: true },
       { action: "getVendors", key: "vendors", isArray: true },
@@ -4197,9 +4791,6 @@ function generateLetterheadHTML() {
   const signatory = document.getElementById("letter-signatory").value || "";
   const signatoryTitle =
     document.getElementById("letter-signatory-title").value || "";
-  const includeSignature =
-    !document.getElementById("letter-include-signature") ||
-    document.getElementById("letter-include-signature").checked;
 
   const cache = getCache();
   const settings = cache.settings || {};
@@ -4229,24 +4820,15 @@ function generateLetterheadHTML() {
   const signatureLineOrImg = signImageUrl
     ? `<img src="${escapeAttr(signImageUrl)}" style="height:48px; max-width:180px; object-fit:contain; display:block; margin-bottom:2px;" onerror="this.style.display='none'">`
     : `<div style="border-bottom: 1.5px solid #000; width: 200px; margin-bottom: 4px;"></div>`;
-  const signatureBlock = includeSignature
-    ? `<!-- ── SIGNATURE BLOCK ── -->
-    <div style="font-size: 11pt; margin-bottom: 8px;">Yours faithfully,</div>
-    <div style="margin-top: 20px; margin-bottom: 4px;">
-      ${signatureLineOrImg}
-    </div>
-    <div style="font-weight: 700; font-size: 11pt;">${escapeHtml(signatoryName)}</div>
-    ${signatoryTitle ? `<div style="font-size: 11pt; color: #333;">${escapeHtml(signatoryTitle)}</div>` : ""}`
-    : "";
 
   return `<div class="letterhead-page" style="
       position: relative;
-      min-height: calc(297mm - 1mm);
+      min-height: calc(297mm - 40mm);
       background: white;
       font-family: 'Calibri', 'Georgia', serif;
       font-size: 12pt;
       color: #000;
-      padding: 10mm 10mm 15mm 15mm;
+      padding: 20mm 20mm 40mm 20mm;
       box-sizing: border-box;
     ">
 
@@ -4255,7 +4837,7 @@ function generateLetterheadHTML() {
       <div style="text-align: right;">
         ${
           logoUrl
-            ? `<img src="${escapeAttr(logoUrl)}" style="height: 120px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
+            ? `<img src="${escapeAttr(logoUrl)}" style="height: 90px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
             : `<div style="height:90px;"></div>`
         }
         <div style="font-size: 11pt; margin-top: 10px; color: #000;">${escapeHtml(date)}</div>
@@ -4272,19 +4854,25 @@ function generateLetterheadHTML() {
     <div style="margin-bottom: 16px; font-size: 11pt;">${escapeHtml(salutation)}</div>
 
     <!-- ── TITLE (bold, left-aligned) ── -->
-    ${title ? `<div style="font-weight: 700; font-size: 11pt; margin-bottom: 14px; text-decoration: ">${escapeHtml(title)}</div>` : ""}
+    ${title ? `<div style="font-weight: 700; font-size: 11pt; margin-bottom: 14px; text-decoration: underline;">${escapeHtml(title)}</div>` : ""}
 
     <!-- ── BODY ── -->
     <div style="font-size: 11pt; line-height: 1.6; margin-bottom: 32px;">
       ${bodyParagraphs || `<p style="color:#adb5bd; font-style:italic;">No body text entered.</p>`}
     </div>
 
-    ${signatureBlock}
+    <!-- ── SIGNATURE BLOCK ── -->
+    <div style="font-size: 11pt; margin-bottom: 8px;">Yours faithfully,</div>
+    <div style="margin-top: 20px; margin-bottom: 4px;">
+      ${signatureLineOrImg}
+    </div>
+    <div style="font-weight: 700; font-size: 11pt;">${escapeHtml(signatoryName)}</div>
+    ${signatoryTitle ? `<div style="font-size: 11pt; color: #333;">${escapeHtml(signatoryTitle)}</div>` : ""}
 
     <!-- ── FOOTER: pinned to bottom, centred, icon + two phones + email ── -->
     <div style="
         position: absolute;
-        bottom: 5mm;
+        bottom: 12mm;
         left: 20mm;
         right: 20mm;
         border-top: 1px solid #888;
@@ -4438,7 +5026,6 @@ window.triggerEditProjectProfile = triggerEditProjectProfile;
 window.switchConsoleSegment = switchConsoleSegment;
 window.toggleScopeEdit = toggleScopeEdit;
 window.saveProjectScope = saveProjectScope;
-window.saveProjectPcrFields = saveProjectPcrFields;
 window.updateProjectContractSubtotal = updateProjectContractSubtotal;
 window.openModal = openModal;
 window.openModalWithRecord = openModalWithRecord;
@@ -4482,6 +5069,32 @@ window.exportAllTemplatesJSON = exportAllTemplatesJSON;
 window.exportSingleTemplateJSON = exportSingleTemplateJSON;
 window.importTemplatesFromJSON = importTemplatesFromJSON;
 window.openImportTemplatesModal = openImportTemplatesModal;
+window.syncTemplatesToSheet = syncTemplatesToSheet;
+window.loadTemplatesFromSheet = loadTemplatesFromSheet;
+
+async function refreshTemplatesFromSheet() {
+  const btn = document.querySelector(
+    'button[onclick="window.refreshTemplatesFromSheet()"]',
+  );
+  const origHtml = btn ? btn.innerHTML : "";
+  if (btn) {
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Refreshing...`;
+    btn.disabled = true;
+  }
+  try {
+    await loadTemplatesFromSheet();
+    loadTemplatesSegment();
+    showSyncToast("✅ Templates refreshed from sheet");
+  } catch (e) {
+    showSyncToast("⚠️ Could not reach sheet. Showing local templates.");
+  } finally {
+    if (btn) {
+      btn.innerHTML = origHtml;
+      btn.disabled = false;
+    }
+  }
+}
+window.refreshTemplatesFromSheet = refreshTemplatesFromSheet;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
@@ -4574,7 +5187,6 @@ window.addEventListener("load", () => {
       { action: "getSnags", key: "snags", isArray: true },
       { action: "getProgressLogs", key: "progressLogs", isArray: true },
       { action: "getTakeOffItems", key: "takeoffs", isArray: true },
-      { action: "getTakeOffTemplates", key: "takeoffTemplates", isArray: true },
       { action: "getSettings", key: "settings", isArray: false },
     ];
     for (const ep of endpoints) {
