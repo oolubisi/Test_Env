@@ -4711,7 +4711,7 @@ function generateLetterheadHTML() {
       font-family: 'Calibri', 'Georgia', serif;
       font-size: 12pt;
       color: #000;
-      padding: 10mm 10mm 2mm 15mm;
+      padding: 10mm 10mm 15mm 15mm;
       box-sizing: border-box;
     ">
 
@@ -4755,7 +4755,7 @@ function generateLetterheadHTML() {
     <!-- ── FOOTER: pinned to bottom, centred, icon + two phones + email ── -->
     <div style="
         position: absolute;
-        bottom: 12mm;
+        bottom: 5mm;
         left: 20mm;
         right: 20mm;
         border-top: 1px solid #888;
