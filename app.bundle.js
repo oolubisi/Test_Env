@@ -4720,7 +4720,7 @@ function generateLetterheadHTML() {
       <div style="text-align: right;">
         ${
           logoUrl
-            ? `<img src="${escapeAttr(logoUrl)}" style="height: 130px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
+            ? `<img src="${escapeAttr(logoUrl)}" style="height: 120px; max-width: 200px; object-fit: contain; display: block; margin-left: auto;" onerror="this.style.display='none'">`
             : `<div style="height:90px;"></div>`
         }
         <div style="font-size: 11pt; margin-top: 10px; color: #000;">${escapeHtml(date)}</div>
