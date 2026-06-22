@@ -1436,24 +1436,116 @@ function previewTemplate(id) {
 async function applyTemplateToProject(templateId) {
   const t = findTemplateById(templateId);
   if (!t) return;
-  if (
-    !confirm(`Apply "${t.name}" (${t.items.length} items) to this project?
-
-Quantities will be set to 0 for field measurement.`)
-  )
-    return;
   const projectId = getCurrentProjectId();
   if (!projectId) {
     alert("No project selected");
     return;
   }
-  const btn = document.querySelector(
-    `button[onclick="applyTemplateToProject('${escapeAttr(templateId)}')"]`,
-  );
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`;
+
+  // Switch to the Take-Off tab and show a preview card — no API call yet
+  switchConsoleSegment("takeoff");
+
+  const container = document.getElementById("console-takeoff-list");
+  const pendingId = "pending-tmpl-" + templateId;
+
+  // Remove any existing preview card for this template (re-apply case)
+  const existing = document.getElementById(pendingId);
+  if (existing) existing.remove();
+
+  // Build the items table rows
+  const rowsHtml = t.items
+    .map(
+      (item, idx) => `
+    <tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:8px 6px; font-size:13px;">${escapeHtml(item.description)}</td>
+      <td style="padding:8px 6px; font-size:13px; color:var(--muted); white-space:nowrap;">${escapeHtml(item.tradeCategory)}</td>
+      <td style="padding:8px 6px; font-size:13px; color:var(--muted);">${escapeHtml(item.roomArea)}</td>
+      <td style="padding:8px 6px; font-size:13px; text-align:right; font-weight:700;">0 ${escapeHtml(item.unit)}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const card = document.createElement("div");
+  card.id = pendingId;
+  card.className = "card";
+  card.style.cssText =
+    "border:2px solid var(--primary); border-radius:20px; padding:0; overflow:hidden; margin-bottom:12px;";
+  card.innerHTML = `
+    <!-- Card header -->
+    <div style="background:var(--primary); color:#fff; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <div>
+        <div style="font-weight:900; font-size:15px;">${escapeHtml(t.name)}</div>
+        <div style="font-size:12px; opacity:0.85; margin-top:2px;">${t.items.length} items · quantities set to 0 for field measurement</div>
+      </div>
+      <button onclick="document.getElementById('${escapeAttr(pendingId)}').remove()"
+        style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:10px; width:32px; height:32px; font-size:18px; cursor:pointer; flex-shrink:0; line-height:1;">&times;</button>
+    </div>
+    <!-- Items table -->
+    <div style="overflow-x:auto; padding:0 4px;">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--card-light);">
+            <th style="padding:8px 6px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:800; color:var(--muted);">Description</th>
+            <th style="padding:8px 6px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:800; color:var(--muted);">Trade</th>
+            <th style="padding:8px 6px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:800; color:var(--muted);">Area</th>
+            <th style="padding:8px 6px; font-size:10px; text-align:right; text-transform:uppercase; font-weight:800; color:var(--muted);">Qty</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>
+    <!-- Action buttons -->
+    <div style="padding:12px 16px; display:flex; gap:8px; border-top:1px solid var(--border); background:var(--card);">
+      <button id="${escapeAttr(pendingId)}-confirm" class="action-btn"
+        style="flex:1; background:var(--primary);"
+        onclick="window.confirmApplyTemplate('${escapeAttr(templateId)}', '${escapeAttr(pendingId)}')">
+        <i class="fas fa-check"></i> Confirm &amp; Add to Take-Off
+      </button>
+      <button class="action-btn"
+        style="width:auto; padding:14px 18px; background:var(--card-light); color:var(--text);"
+        onclick="document.getElementById('${escapeAttr(pendingId)}').remove()">
+        Cancel
+      </button>
+    </div>`;
+
+  // Prepend the preview card so it's the first thing the user sees
+  container.prepend(card);
+  card.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Select or deselect all items in a named template group
+function toggleGroupSelection(groupLabel, checked) {
+  const cache = getCache();
+  const projectId = getCurrentProjectId();
+  const TMPL_PREFIX = "From template: ";
+  (cache.takeoffs || [])
+    .filter((i) => {
+      if (i.projectId !== projectId) return false;
+      const note = String(i.scopeNotes || "");
+      const itemGroup = note.startsWith(TMPL_PREFIX)
+        ? note.slice(TMPL_PREFIX.length).split("\n")[0].trim()
+        : null;
+      return itemGroup === groupLabel;
+    })
+    .forEach((i) => {
+      if (checked) selectedTakeOffIds.add(i.itemId);
+      else selectedTakeOffIds.delete(i.itemId);
+    });
+  loadTakeOffListings();
+}
+
+async function confirmApplyTemplate(templateId, pendingId) {
+  const t = findTemplateById(templateId);
+  if (!t) return;
+  const projectId = getCurrentProjectId();
+  if (!projectId) return;
+
+  const confirmBtn = document.getElementById(`${pendingId}-confirm`);
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving ${t.items.length} items…`;
   }
+
   try {
     for (const item of t.items) {
       const payload = {
@@ -1470,14 +1562,18 @@ Quantities will be set to 0 for field measurement.`)
       };
       await callApi("saveTakeOffItem", payload);
     }
-    loadTakeOffListings(true);
-    alert(`Template applied: ${t.items.length} items added.`);
+    // Remove preview card and reload take-off list with the newly saved items
+    const card = document.getElementById(pendingId);
+    if (card) card.remove();
+    await loadTakeOffListings(true);
+    showSyncToast(`✅ ${t.items.length} items added from "${t.name}"`);
   } catch (e) {
-    alert("Error applying template: " + (e.message || "Unknown error"));
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="fas fa-check"></i> Apply`;
+    showSyncToast(
+      "⚠️ Error applying template: " + (e.message || "Unknown error"),
+    );
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = `<i class="fas fa-check"></i> Confirm & Add to Take-Off`;
     }
   }
 }
@@ -4238,22 +4334,156 @@ async function loadTakeOffListings(forceRefresh = false) {
     selectedTakeOffIds.clear();
     return;
   }
+
+  // ── Group items by their template source ──────────────────────────────────
+  // scopeNotes starting with "From template: X" → group under that template name
+  // Everything else → "Ungrouped" bucket
+  const TMPL_PREFIX = "From template: ";
+  const groups = new Map(); // key = display label, value = { label, items[], isTemplate }
+
+  projectItems.forEach((i) => {
+    const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
+    let groupKey;
+    if (String(i.scopeNotes || "").startsWith(TMPL_PREFIX)) {
+      groupKey = i.scopeNotes.slice(TMPL_PREFIX.length).split("\n")[0].trim();
+    } else {
+      groupKey = "__ungrouped__";
+    }
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        label: groupKey === "__ungrouped__" ? null : groupKey,
+        items: [],
+        isTemplate: groupKey !== "__ungrouped__",
+      });
+    }
+    groups.get(groupKey).items.push(i);
+  });
+
+  // ── Build HTML ─────────────────────────────────────────────────────────────
   let html = "";
-  if (selectedTakeOffIds.size > 0)
-    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><span style="font-size:13px; font-weight:700;">${selectedTakeOffIds.size} selected</span><button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--danger);" onclick="window.deleteSelectedTakeOffs()"><i class="fas fa-trash"></i> Delete Selected</button></div>`;
-  html += projectItems
-    .map((i) => {
-      const key = `takeoff_item:${i.itemId}`;
-      window.modalRecordCache = window.modalRecordCache || {};
-      window.modalRecordCache[key] = i;
-      const isChecked = selectedTakeOffIds.has(i.itemId);
-      const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
-      if (isHeader) {
-        return `<div class="card" style="background:var(--card-light); border-left:4px solid var(--primary); cursor:default; padding:10px 16px; margin-bottom:8px;"><div style="display:flex; align-items:center; gap:10px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)"><strong style="font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHtml(i.description)}</strong></div></div>`;
-      }
-      return `<div class="card" style="cursor:pointer; position:relative;"><div style="display:flex; align-items:start; gap:10px;"><input type="checkbox" style="width:auto; margin-top:2px; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)"><div style="flex:1;" onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">${escapeHtml(i.description)}<br><strong>${escapeHtml(i.quantity)} ${escapeHtml(i.unit)}</strong>${i.scopeNotes ? `<div style="font-size:11px; color:var(--muted); margin-top:4px;">${escapeHtml(i.scopeNotes)}</div>` : ""}</div></div></div>`;
-    })
-    .join("");
+
+  // Bulk-delete toolbar
+  if (selectedTakeOffIds.size > 0) {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span style="font-size:13px; font-weight:700;">${selectedTakeOffIds.size} selected</span>
+      <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--danger);" onclick="window.deleteSelectedTakeOffs()">
+        <i class="fas fa-trash"></i> Delete Selected
+      </button>
+    </div>`;
+  }
+
+  groups.forEach((group) => {
+    if (group.isTemplate) {
+      // ── Template group card ─────────────────────────────────────────────
+      const groupItems = group.items;
+      const groupItemCount = groupItems.length;
+      const allChecked = groupItems.every((i) =>
+        selectedTakeOffIds.has(i.itemId),
+      );
+      const groupId = "grp-" + group.label.replace(/[^a-z0-9]/gi, "_");
+
+      const rowsHtml = groupItems
+        .map((i) => {
+          const key = `takeoff_item:${i.itemId}`;
+          window.modalRecordCache = window.modalRecordCache || {};
+          window.modalRecordCache[key] = i;
+          const isChecked = selectedTakeOffIds.has(i.itemId);
+          const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
+
+          if (isHeader) {
+            return `<tr style="background:var(--card-light);">
+            <td colspan="5" style="padding:8px 10px; font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:0.4px; border-bottom:1px solid var(--border);">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""}
+                  onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
+                ${escapeHtml(i.description)}
+              </div>
+            </td>
+          </tr>`;
+          }
+
+          return `<tr style="border-bottom:1px solid var(--border); cursor:pointer;"
+          onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">
+          <td style="padding:8px 6px; width:28px;" onclick="event.stopPropagation()">
+            <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""}
+              onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
+          </td>
+          <td style="padding:8px 6px; font-size:13px;">${escapeHtml(i.description)}</td>
+          <td style="padding:8px 6px; font-size:12px; color:var(--muted);">${escapeHtml(i.tradeCategory || "")}</td>
+          <td style="padding:8px 6px; font-size:12px; color:var(--muted);">${escapeHtml(i.roomArea || "")}</td>
+          <td style="padding:8px 6px; font-size:13px; font-weight:700; text-align:right; white-space:nowrap;">
+            ${escapeHtml(String(i.quantity))} ${escapeHtml(i.unit)}
+          </td>
+        </tr>`;
+        })
+        .join("");
+
+      html += `<div class="card" style="padding:0; overflow:hidden; margin-bottom:12px; border:1.5px solid var(--border);">
+        <!-- Template group header -->
+        <div style="background:var(--card-light); padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1.5px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+            <input type="checkbox" style="width:auto; cursor:pointer; flex-shrink:0;" ${allChecked ? "checked" : ""}
+              title="Select all in this group"
+              onchange="window.toggleGroupSelection('${escapeAttr(group.label)}', this.checked)">
+            <div style="min-width:0;">
+              <div style="font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(group.label)}</div>
+              <div style="font-size:11px; color:var(--muted); margin-top:1px;">${groupItemCount} items</div>
+            </div>
+          </div>
+          <span style="font-size:10px; font-weight:900; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; text-transform:uppercase; flex-shrink:0;">Template</span>
+        </div>
+        <!-- Line items table -->
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr style="background:#000; color:#fff;">
+                <th style="padding:6px; width:28px;"></th>
+                <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Description</th>
+                <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Trade</th>
+                <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Area</th>
+                <th style="padding:6px 8px; font-size:10px; text-align:right; text-transform:uppercase; font-weight:700;">Qty / Unit</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>`;
+    } else {
+      // ── Ungrouped items (manually added / non-template) ─────────────────
+      group.items.forEach((i) => {
+        const key = `takeoff_item:${i.itemId}`;
+        window.modalRecordCache = window.modalRecordCache || {};
+        window.modalRecordCache[key] = i;
+        const isChecked = selectedTakeOffIds.has(i.itemId);
+        const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
+
+        if (isHeader) {
+          html += `<div class="card" style="background:var(--card-light); border-left:4px solid var(--primary); cursor:default; padding:10px 16px; margin-bottom:8px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""}
+                onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
+              <strong style="font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHtml(i.description)}</strong>
+            </div>
+          </div>`;
+        } else {
+          html += `<div class="card" style="cursor:pointer; position:relative; margin-bottom:8px;"
+            onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">
+            <div style="display:flex; align-items:start; gap:10px;">
+              <input type="checkbox" style="width:auto; margin-top:2px; cursor:pointer;" ${isChecked ? "checked" : ""}
+                onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
+              <div style="flex:1;">
+                <div style="font-size:14px; font-weight:600;">${escapeHtml(i.description)}</div>
+                <div style="font-size:13px; font-weight:900; margin-top:2px;">${escapeHtml(String(i.quantity))} ${escapeHtml(i.unit)}</div>
+                ${i.tradeCategory ? `<div style="font-size:11px; color:var(--muted); margin-top:3px;">${escapeHtml(i.tradeCategory)}${i.roomArea ? " · " + escapeHtml(i.roomArea) : ""}</div>` : ""}
+                ${i.scopeNotes && !i.scopeNotes.startsWith("__HEADER__:") ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">${escapeHtml(i.scopeNotes)}</div>` : ""}
+              </div>
+            </div>
+          </div>`;
+        }
+      });
+    }
+  });
+
   container.innerHTML = html;
 }
 
@@ -5051,6 +5281,8 @@ window.showAllBuiltInTemplates = showAllBuiltInTemplates;
 window.shareReport = shareReport;
 window.previewTemplate = previewTemplate;
 window.applyTemplateToProject = applyTemplateToProject;
+window.confirmApplyTemplate = confirmApplyTemplate;
+window.toggleGroupSelection = toggleGroupSelection;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
 window.loadTemplatesSegment = loadTemplatesSegment;
 window.deleteCustomTemplate = deleteCustomTemplate;
