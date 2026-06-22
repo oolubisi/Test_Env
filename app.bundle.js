@@ -1442,78 +1442,184 @@ async function applyTemplateToProject(templateId) {
     return;
   }
 
-  // Switch to the Take-Off tab and show a preview card — no API call yet
-  switchConsoleSegment("takeoff");
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const titleEl = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
 
-  const container = document.getElementById("console-takeoff-list");
-  const pendingId = "pending-tmpl-" + templateId;
+  titleEl.innerText = "Apply Template";
+  overlay.style.display = "flex";
+  body.innerHTML = "";
+  submit.disabled = false;
+  submit.innerText = "Add Selected Items";
+  submit.style.display = "block";
+  currentModalFiles = [];
 
-  // Remove any existing preview card for this template (re-apply case)
-  const existing = document.getElementById(pendingId);
-  if (existing) existing.remove();
+  const unitOptions = MASTER_UNITS.map(
+    (u) =>
+      `<option value="${escapeAttr(u.value)}">${escapeHtml(u.label)}</option>`,
+  ).join("");
 
-  // Build the items table rows
-  const rowsHtml = t.items
+  const itemRowsHtml = t.items
     .map(
       (item, idx) => `
-    <tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:8px 6px; font-size:13px;">${escapeHtml(item.description)}</td>
-      <td style="padding:8px 6px; font-size:13px; color:var(--muted); white-space:nowrap;">${escapeHtml(item.tradeCategory)}</td>
-      <td style="padding:8px 6px; font-size:13px; color:var(--muted);">${escapeHtml(item.roomArea)}</td>
-      <td style="padding:8px 6px; font-size:13px; text-align:right; font-weight:700;">0 ${escapeHtml(item.unit)}</td>
+    <tr class="to-tmpl-row" data-idx="${idx}">
+      <td style="padding:6px 4px; border-bottom:1px solid var(--border); width:32px; vertical-align:middle; text-align:center;">
+        <input type="checkbox" class="to-tmpl-chk" checked
+          style="width:auto; cursor:pointer;"
+          onchange="window.updateTmplGroupCheckbox()">
+      </td>
+      <td style="padding:4px; border-bottom:1px solid var(--border);">
+        <input class="to-line-desc" value="${escapeAttr(item.description)}"
+          placeholder="Description"
+          style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+      </td>
+      <td style="padding:4px; border-bottom:1px solid var(--border); width:64px;">
+        <input class="to-line-qty" type="number" value="0" min="0" step="0.01"
+          style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;">
+      </td>
+      <td style="padding:4px; border-bottom:1px solid var(--border); width:96px;">
+        <select class="to-line-unit"
+          style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+          <option value="" disabled>Unit</option>
+          ${unitOptions}
+        </select>
+      </td>
+      <td style="padding:4px; border-bottom:1px solid var(--border);">
+        <input class="to-line-notes" value="${escapeAttr(item.tradeCategory || "")}"
+          placeholder="Notes / trade"
+          style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;">
+      </td>
     </tr>`,
     )
     .join("");
 
-  const card = document.createElement("div");
-  card.id = pendingId;
-  card.className = "card";
-  card.style.cssText =
-    "border:2px solid var(--primary); border-radius:20px; padding:0; overflow:hidden; margin-bottom:12px;";
-  card.innerHTML = `
-    <!-- Card header -->
-    <div style="background:var(--primary); color:#fff; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <div>
-        <div style="font-weight:900; font-size:15px;">${escapeHtml(t.name)}</div>
-        <div style="font-size:12px; opacity:0.85; margin-top:2px;">${t.items.length} items · quantities set to 0 for field measurement</div>
+  body.innerHTML = `
+    <div style="background:var(--card-light); border:1.5px solid var(--border); border-radius:12px; padding:10px 14px; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+      <input type="checkbox" id="tmpl-group-chk" checked style="width:auto; cursor:pointer;"
+        onchange="window.toggleAllTmplRows(this.checked)">
+      <div style="flex:1; min-width:0;">
+        <strong style="font-size:15px;">${escapeHtml(t.name)}</strong>
+        <span id="tmpl-sel-count" style="font-size:12px; color:var(--muted); margin-left:8px;">${t.items.length} of ${t.items.length} selected</span>
       </div>
-      <button onclick="document.getElementById('${escapeAttr(pendingId)}').remove()"
-        style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:10px; width:32px; height:32px; font-size:18px; cursor:pointer; flex-shrink:0; line-height:1;">&times;</button>
+      <span style="font-size:10px; font-weight:900; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; text-transform:uppercase; flex-shrink:0;">Template</span>
     </div>
-    <!-- Items table -->
-    <div style="overflow-x:auto; padding:0 4px;">
-      <table style="width:100%; border-collapse:collapse;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px;">
         <thead>
-          <tr style="background:var(--card-light);">
-            <th style="padding:8px 6px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:800; color:var(--muted);">Description</th>
-            <th style="padding:8px 6px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:800; color:var(--muted);">Trade</th>
-            <th style="padding:8px 6px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:800; color:var(--muted);">Area</th>
-            <th style="padding:8px 6px; font-size:10px; text-align:right; text-transform:uppercase; font-weight:800; color:var(--muted);">Qty</th>
+          <tr style="background:#000; color:#fff;">
+            <th style="width:32px; padding:6px;"></th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+            <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:64px;">Qty</th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase; width:96px;">U/M</th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Notes / Trade</th>
           </tr>
         </thead>
-        <tbody>${rowsHtml}</tbody>
+        <tbody id="to_tmpl_body">${itemRowsHtml}</tbody>
       </table>
     </div>
-    <!-- Action buttons -->
-    <div style="padding:12px 16px; display:flex; gap:8px; border-top:1px solid var(--border); background:var(--card);">
-      <button id="${escapeAttr(pendingId)}-confirm" class="action-btn"
-        style="flex:1; background:var(--primary);"
-        onclick="window.confirmApplyTemplate('${escapeAttr(templateId)}', '${escapeAttr(pendingId)}')">
-        <i class="fas fa-check"></i> Confirm &amp; Add to Take-Off
-      </button>
-      <button class="action-btn"
-        style="width:auto; padding:14px 18px; background:var(--card-light); color:var(--text);"
-        onclick="document.getElementById('${escapeAttr(pendingId)}').remove()">
-        Cancel
-      </button>
+    <div style="display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap;">
+      <span style="font-size:12px; font-weight:700; color:var(--muted);">Set unit for selected:</span>
+      <select id="tmpl-bulk-unit" style="padding:6px 10px; font-size:13px; border:1.5px solid var(--border); border-radius:8px;">
+        <option value="">— choose —</option>${unitOptions}
+      </select>
+      <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);"
+        onclick="window.applyBulkUnitToTmpl()">Apply to selected</button>
     </div>`;
 
-  // Prepend the preview card so it's the first thing the user sees
-  container.prepend(card);
-  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Pre-select unit on each row from template data
+  body.querySelectorAll(".to-tmpl-row").forEach((row, idx) => {
+    const unit = t.items[idx]?.unit || "";
+    const sel = row.querySelector(".to-line-unit");
+    if (sel && unit) sel.value = unit;
+  });
+
+  submit.onclick = async () => {
+    const tableRows = document.querySelectorAll("#to_tmpl_body tr.to-tmpl-row");
+    const selected = Array.from(tableRows).filter(
+      (row) => row.querySelector(".to-tmpl-chk")?.checked,
+    );
+    if (!selected.length) {
+      alert("Select at least one item");
+      return;
+    }
+    for (const row of selected) {
+      if (!row.querySelector(".to-line-unit").value) {
+        alert("Select a unit for all ticked items");
+        return;
+      }
+    }
+    submit.disabled = true;
+    submit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> GPS…`;
+    const gps = await getGPSLocation();
+    submit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving ${selected.length} items…`;
+    let saved = 0,
+      failed = 0;
+    for (const row of selected) {
+      const desc = row.querySelector(".to-line-desc").value.trim();
+      if (!desc) continue;
+      const payload = {
+        itemId:
+          "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
+        projectId,
+        roomArea: "",
+        tradeCategory: row.querySelector(".to-line-notes").value.trim(),
+        description: desc,
+        quantity: Number(row.querySelector(".to-line-qty").value) || 0,
+        unit: row.querySelector(".to-line-unit").value,
+        beforePhotoUrl: "",
+        scopeNotes:
+          "From template: " +
+          t.name +
+          (gps !== "GPS Unavailable" ? "\n📍 " + gps : ""),
+      };
+      try {
+        await callApi("saveTakeOffItem", payload);
+        saved++;
+      } catch (e) {
+        failed++;
+      }
+    }
+    closeModal();
+    await loadTakeOffListings(true);
+    showSyncToast(
+      failed
+        ? `⚠️ ${saved} saved, ${failed} failed`
+        : `✅ ${saved} item${saved !== 1 ? "s" : ""} added from "${t.name}"`,
+    );
+  };
 }
 
-// Select or deselect all items in a named template group
+function toggleAllTmplRows(checked) {
+  document.querySelectorAll("#to_tmpl_body .to-tmpl-chk").forEach((chk) => {
+    chk.checked = checked;
+  });
+  updateTmplGroupCheckbox();
+}
+
+function updateTmplGroupCheckbox() {
+  const all = document.querySelectorAll("#to_tmpl_body .to-tmpl-chk");
+  const ticked = Array.from(all).filter((c) => c.checked);
+  const grpChk = document.getElementById("tmpl-group-chk");
+  const countEl = document.getElementById("tmpl-sel-count");
+  if (grpChk) {
+    grpChk.checked = ticked.length === all.length;
+    grpChk.indeterminate = ticked.length > 0 && ticked.length < all.length;
+  }
+  if (countEl)
+    countEl.textContent = `${ticked.length} of ${all.length} selected`;
+}
+
+function applyBulkUnitToTmpl() {
+  const unit = document.getElementById("tmpl-bulk-unit")?.value;
+  if (!unit) return;
+  document.querySelectorAll("#to_tmpl_body tr.to-tmpl-row").forEach((row) => {
+    if (row.querySelector(".to-tmpl-chk")?.checked)
+      row.querySelector(".to-line-unit").value = unit;
+  });
+}
+
+// Select or deselect all items in a named template group in the take-off list
 function toggleGroupSelection(groupLabel, checked) {
   const cache = getCache();
   const projectId = getCurrentProjectId();
@@ -1532,50 +1638,6 @@ function toggleGroupSelection(groupLabel, checked) {
       else selectedTakeOffIds.delete(i.itemId);
     });
   loadTakeOffListings();
-}
-
-async function confirmApplyTemplate(templateId, pendingId) {
-  const t = findTemplateById(templateId);
-  if (!t) return;
-  const projectId = getCurrentProjectId();
-  if (!projectId) return;
-
-  const confirmBtn = document.getElementById(`${pendingId}-confirm`);
-  if (confirmBtn) {
-    confirmBtn.disabled = true;
-    confirmBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving ${t.items.length} items…`;
-  }
-
-  try {
-    for (const item of t.items) {
-      const payload = {
-        itemId:
-          "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
-        projectId: projectId,
-        roomArea: item.roomArea,
-        tradeCategory: item.tradeCategory,
-        description: item.description,
-        quantity: 0,
-        unit: item.unit,
-        beforePhotoUrl: "",
-        scopeNotes: "From template: " + t.name,
-      };
-      await callApi("saveTakeOffItem", payload);
-    }
-    // Remove preview card and reload take-off list with the newly saved items
-    const card = document.getElementById(pendingId);
-    if (card) card.remove();
-    await loadTakeOffListings(true);
-    showSyncToast(`✅ ${t.items.length} items added from "${t.name}"`);
-  } catch (e) {
-    showSyncToast(
-      "⚠️ Error applying template: " + (e.message || "Unknown error"),
-    );
-    if (confirmBtn) {
-      confirmBtn.disabled = false;
-      confirmBtn.innerHTML = `<i class="fas fa-check"></i> Confirm & Add to Take-Off`;
-    }
-  }
 }
 
 // ===== db.js =====
@@ -5281,7 +5343,9 @@ window.showAllBuiltInTemplates = showAllBuiltInTemplates;
 window.shareReport = shareReport;
 window.previewTemplate = previewTemplate;
 window.applyTemplateToProject = applyTemplateToProject;
-window.confirmApplyTemplate = confirmApplyTemplate;
+window.toggleAllTmplRows = toggleAllTmplRows;
+window.updateTmplGroupCheckbox = updateTmplGroupCheckbox;
+window.applyBulkUnitToTmpl = applyBulkUnitToTmpl;
 window.toggleGroupSelection = toggleGroupSelection;
 window.openSaveAsTemplateModal = openSaveAsTemplateModal;
 window.loadTemplatesSegment = loadTemplatesSegment;
