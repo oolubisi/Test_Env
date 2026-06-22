@@ -1483,35 +1483,6 @@ Quantities will be set to 0 for field measurement.`)
 }
 
 // ===== db.js =====
-// Seed in-memory cache from localStorage backups so the app has data
-// immediately on page load without waiting for the network.
-(function seedCacheFromBackup() {
-  const seeds = [
-    { key: "projects", action: "getProjects", isArray: true },
-    { key: "takeoffs", action: "getTakeOffItems", isArray: true },
-    { key: "progressLogs", action: "getProgressLogs", isArray: true },
-    { key: "snags", action: "getSnags", isArray: true },
-    { key: "vendors", action: "getVendors", isArray: true },
-    { key: "workorders", action: "getWorkOrders", isArray: true },
-    { key: "payments", action: "getPayments", isArray: true },
-    { key: "settings", action: "getSettings", isArray: false },
-  ];
-  seeds.forEach(({ key, action, isArray }) => {
-    try {
-      const raw = localStorage.getItem(`fb_${action}`);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (
-          isArray ? Array.isArray(parsed) : parsed && typeof parsed === "object"
-        ) {
-          cache[key] = parsed;
-        }
-      }
-    } catch (e) {
-      console.warn("seedCacheFromBackup failed for", key, e);
-    }
-  });
-})();
 const DB_NAME = "FieldScanOfflineDB";
 const STORE_NAME = "syncQueue";
 const SNAG_PHOTO_STORE = "snagPhotos";
@@ -4450,6 +4421,37 @@ let cache = {
   settings: {},
 };
 let currentSelectedProjectId = null;
+
+// Seed in-memory cache from localStorage backups so the app has data
+// immediately on page load without waiting for the network.
+// Must run here, after `let cache` is declared, to avoid temporal dead zone.
+(function seedCacheFromBackup() {
+  const seeds = [
+    { key: "projects", action: "getProjects", isArray: true },
+    { key: "takeoffs", action: "getTakeOffItems", isArray: true },
+    { key: "progressLogs", action: "getProgressLogs", isArray: true },
+    { key: "snags", action: "getSnags", isArray: true },
+    { key: "vendors", action: "getVendors", isArray: true },
+    { key: "workorders", action: "getWorkOrders", isArray: true },
+    { key: "payments", action: "getPayments", isArray: true },
+    { key: "settings", action: "getSettings", isArray: false },
+  ];
+  seeds.forEach(({ key, action, isArray }) => {
+    try {
+      const raw = localStorage.getItem(`fb_${action}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (
+          isArray ? Array.isArray(parsed) : parsed && typeof parsed === "object"
+        ) {
+          cache[key] = parsed;
+        }
+      }
+    } catch (e) {
+      console.warn("seedCacheFromBackup failed for", key, e);
+    }
+  });
+})();
 
 function setCache(newCache) {
   // Deep-merge settings so individual keys (VAT, WHT, Logo…) are never lost
