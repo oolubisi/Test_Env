@@ -47,572 +47,10 @@ const MASTER_UNITS = [
   { value: "m³", label: "m³ — Cubic Metres" },
 ];
 
-const BUILT_IN_TEMPLATES = [
-  {
-    id: "tmpl-3bed-standard",
-    name: "Standard 3-Bed Flat",
-    description:
-      "Complete take-off template for a standard 3-bedroom apartment",
-    items: [
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Painting/Decorating",
-        description: "Wall painting",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Electrical",
-        description: "Light fittings",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Electrical",
-        description: "Power sockets",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Painting/Decorating",
-        description: "Wall painting",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Electrical",
-        description: "Light fittings",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Electrical",
-        description: "Power sockets",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Painting/Decorating",
-        description: "Wall painting",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Light fittings",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Power sockets",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Painting/Decorating",
-        description: "Wall painting",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Light fittings",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Power sockets",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Tiling/Flooring",
-        description: "Wall tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Carpentry/Joinery",
-        description: "Kitchen cabinets",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Electrical",
-        description: "Power sockets",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Sink and fittings",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Tiling/Flooring",
-        description: "Wall tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "WC suite",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Shower fittings",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Electrical",
-        description: "Light fittings",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Corridor/Hallway",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Corridor/Hallway",
-        tradeCategory: "Painting/Decorating",
-        description: "Wall painting",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Corridor/Hallway",
-        tradeCategory: "Electrical",
-        description: "Light fittings",
-        unit: "pcs",
-        quantity: 0,
-      },
-    ],
-  },
-  {
-    id: "tmpl-bathroom-fitout",
-    name: "Bathroom Fit-Out",
-    description: "Complete bathroom renovation package",
-    items: [
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "WC pan and cistern",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Wash hand basin",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Shower mixer and tray",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Water heater",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Tiling/Flooring",
-        description: "Wall tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Electrical",
-        description: "Extractor fan",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Electrical",
-        description: "Mirror light",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Aluminum/Glazing",
-        description: "Shower cubicle",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Ironmongery",
-        description: "Towel rails",
-        unit: "pcs",
-        quantity: 0,
-      },
-    ],
-  },
-  {
-    id: "tmpl-kitchen-fitout",
-    name: "Kitchen Fit-Out",
-    description: "Complete kitchen installation package",
-    items: [
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Carpentry/Joinery",
-        description: "Base cabinets",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Carpentry/Joinery",
-        description: "Wall cabinets",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Carpentry/Joinery",
-        description: "Countertop",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Sink and tap",
-        unit: "set",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Gas cooker point",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Electrical",
-        description: "Cooker socket",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Tiling/Flooring",
-        description: "Floor tiles",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Tiling/Flooring",
-        description: "Wall tiles (backsplash)",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Electrical",
-        description: "Power sockets",
-        unit: "pcs",
-        quantity: 0,
-      },
-    ],
-  },
-  {
-    id: "tmpl-electrical-roughin",
-    name: "Electrical Rough-In",
-    description: "Electrical first fix for all rooms",
-    items: [
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Electrical",
-        description: "Switch boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Living Room",
-        tradeCategory: "Electrical",
-        description: "Socket boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Electrical",
-        description: "Switch boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Master Bedroom",
-        tradeCategory: "Electrical",
-        description: "Socket boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Switch boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Socket boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Switch boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bedroom",
-        tradeCategory: "Electrical",
-        description: "Socket boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Kitchen",
-        tradeCategory: "Electrical",
-        description: "Socket boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Bathroom/Toilet",
-        tradeCategory: "Electrical",
-        description: "Switch boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Corridor/Hallway",
-        tradeCategory: "Electrical",
-        description: "Conduit run",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "Corridor/Hallway",
-        tradeCategory: "Electrical",
-        description: "Switch boxes",
-        unit: "pcs",
-        quantity: 0,
-      },
-    ],
-  },
-  {
-    id: "tmpl-external-works",
-    name: "External Works",
-    description: "External and landscaping items",
-    items: [
-      {
-        roomArea: "External Works",
-        tradeCategory: "Civil/Structural",
-        description: "Concrete apron",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "External Works",
-        tradeCategory: "Civil/Structural",
-        description: "Drainage channels",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "External Works",
-        tradeCategory: "Landscaping",
-        description: "Topsoil and turf",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "External Works",
-        tradeCategory: "Landscaping",
-        description: "Perimeter fence",
-        unit: "m",
-        quantity: 0,
-      },
-      {
-        roomArea: "External Works",
-        tradeCategory: "Electrical",
-        description: "External light points",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "External Works",
-        tradeCategory: "Plumbing/Mechanical",
-        description: "Water storage tank",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "External Works",
-        tradeCategory: "Security/Access Control",
-        description: "Gate motor",
-        unit: "pcs",
-        quantity: 0,
-      },
-      {
-        roomArea: "Garage",
-        tradeCategory: "Civil/Structural",
-        description: "Floor concrete",
-        unit: "sqm",
-        quantity: 0,
-      },
-      {
-        roomArea: "Garage",
-        tradeCategory: "Electrical",
-        description: "Roller shutter door",
-        unit: "pcs",
-        quantity: 0,
-      },
-    ],
-  },
-];
+const BUILT_IN_TEMPLATES = [];
 
 function getBuiltInTemplates() {
-  return JSON.parse(JSON.stringify(BUILT_IN_TEMPLATES));
+  return [];
 }
 function getCustomTemplates() {
   try {
@@ -691,17 +129,7 @@ async function loadTemplatesFromSheet() {
   }
 }
 function getHiddenBuiltInIds() {
-  try {
-    const raw = localStorage.getItem("fb_hiddenBuiltInTemplates");
-    const hasVisited = localStorage.getItem("fb_templatesVisited");
-    if (hasVisited && raw !== null) return new Set(JSON.parse(raw));
-    localStorage.setItem("fb_templatesVisited", "true");
-    const allIds = new Set(getBuiltInTemplates().map((t) => t.id));
-    saveHiddenBuiltInIds(allIds);
-    return allIds;
-  } catch (e) {
-    return new Set();
-  }
+  return new Set();
 }
 function saveHiddenBuiltInIds(ids) {
   localStorage.setItem(
@@ -724,7 +152,7 @@ function showAllBuiltInTemplates() {
   loadTemplatesSegment();
 }
 function getAllTemplates() {
-  return [...getCustomTemplates(), ...getBuiltInTemplates()];
+  return getCustomTemplates();
 }
 function findTemplateById(id) {
   return getAllTemplates().find((t) => t.id === id);
@@ -905,23 +333,19 @@ function loadTemplatesSegment() {
   }
 
   const customTemplates = getCustomTemplates();
-  const builtInTemplates = getBuiltInTemplates();
-  const hiddenIds = getHiddenBuiltInIds();
-  const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
-  const allBuiltInsHidden = visibleBuiltIns.length === 0;
   const allIds = new Set(all.map((t) => t.id));
   for (const id of selectedTemplateIds) {
     if (!allIds.has(id)) selectedTemplateIds.delete(id);
   }
 
-  if (!customTemplates.length && !visibleBuiltIns.length) {
+  if (!customTemplates.length) {
     html += `<p style="text-align:center; padding:20px; color:var(--muted);">No templates available.</p>`;
     container.innerHTML = html;
     selectedTemplateIds.clear();
     return;
   }
 
-  html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>`;
+  html += `<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Templates</div>`;
   html += `<div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">
     <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.refreshTemplatesFromSheet()"><i class="fas fa-sync-alt"></i> Refresh Templates</button>
     <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportAllTemplatesJSON()"><i class="fas fa-download"></i> Export All</button>
@@ -934,25 +358,13 @@ function loadTemplatesSegment() {
     html += customTemplates
       .map((t) => {
         const isChecked = selectedTemplateIds.has(t.id);
-        return `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
+        return `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="window.toggleTemplateSelection('${escapeAttr(t.id)}', this.checked)"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Sheet</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
       })
       .join("");
   } else {
-    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>`;
+    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No templates found. Click Refresh Templates to load from sheet.</p>`;
   }
 
-  html += `<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>`;
-  if (allBuiltInsHidden) {
-    html += `<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">All built-in templates are hidden.<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; margin-left:8px;" onclick="window.showAllBuiltInTemplates()"><i class="fas fa-eye"></i> Show All</button></p>`;
-  } else {
-    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;"><span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideAllBuiltInTemplates()"><i class="fas fa-eye-slash"></i> Hide All</button></div>`;
-    html += visibleBuiltIns
-      .map(
-        (t) =>
-          `<div class="card" style="cursor: default;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><div style="width:18px; flex-shrink:0;"></div><strong style="font-size:16px;">${escapeHtml(t.name)}</strong></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`,
-      )
-      .join("");
-  }
   container.innerHTML = html;
 }
 
@@ -1023,10 +435,7 @@ function openSaveAsTemplateModal() {
 function openEditTemplateModal(id) {
   const t = findTemplateById(id);
   if (!t) return;
-  if (BUILT_IN_TEMPLATES.find((b) => b.id === id)) {
-    alert("Built-in templates cannot be edited");
-    return;
-  }
+
   const body = document.getElementById("modalBody");
   const submit = document.getElementById("modalSubmit");
   const title = document.getElementById("modalTitle");
@@ -1248,44 +657,46 @@ async function applyTemplateToProject(templateId) {
       }
     }
     submit.disabled = true;
-    submit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> GPS…`;
-    const gps = await getGPSLocation();
-    submit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving ${selected.length} items…`;
-    const groupId = "TO-GRP-" + Date.now();
-    let saved = 0,
-      failed = 0;
-    for (const row of selected) {
-      const desc = row.querySelector(".to-line-desc").value.trim();
-      if (!desc) continue;
-      const payload = {
-        itemId:
-          "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
-        projectId,
-        roomArea: "",
-        tradeCategory: row.querySelector(".to-line-notes").value.trim(),
-        description: desc,
-        quantity: Number(row.querySelector(".to-line-qty").value) || 0,
-        unit: row.querySelector(".to-line-unit").value,
-        beforePhotoUrl: "",
-        scopeNotes:
-          "From template: " +
-          t.name +
-          (gps !== "GPS Unavailable" ? "\n📍 " + gps : ""),
-      };
-      try {
-        await callApi("saveTakeOffItem", payload);
-        saved++;
-      } catch (e) {
-        failed++;
-      }
+    submit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving…`;
+
+    // Build line items in Take-Off format (description, qty, unit only)
+    const lineItems = selected.map((row) => ({
+      description: row.querySelector(".to-line-desc").value.trim(),
+      qty: Number(row.querySelector(".to-line-qty").value) || 0,
+      unit: row.querySelector(".to-line-unit").value,
+    })).filter((item) => item.description);
+
+    if (!lineItems.length) {
+      alert("No valid items to save");
+      submit.disabled = false;
+      submit.innerText = "Add Selected Items";
+      return;
     }
-    closeModal();
-    await loadTakeOffListings(true);
-    showSyncToast(
-      failed
-        ? `⚠️ ${saved} saved, ${failed} failed`
-        : `✅ ${saved} item${saved !== 1 ? "s" : ""} added from "${t.name}"`,
-    );
+
+    const payload = {
+      projectId: projectId,
+      title: t.name,
+      lineItems: lineItems,
+      notes: `Applied from template: ${t.name}${t.description ? " — " + t.description : ""}`,
+      date: todayFormatted(),
+    };
+
+    try {
+      const result = await callApi("saveTakeOff", payload);
+      closeModal();
+      // Refresh the Take-Off tab (take-offs data)
+      const cache = getCache();
+      cache.takeOffsLoaded = false;
+      setCache(cache);
+      if (typeof loadTakeOff2Listings === "function") {
+        await loadTakeOff2Listings(true);
+      }
+      showSyncToast(`✅ ${lineItems.length} item${lineItems.length !== 1 ? "s" : ""} added to Take-Off from "${t.name}"`);
+    } catch (e) {
+      submit.disabled = false;
+      submit.innerText = "Add Selected Items";
+      alert("Failed to save: " + (e.message || "Unknown error"));
+    }
   };
 }
 

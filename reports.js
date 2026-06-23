@@ -1,4 +1,8 @@
 // ===== reports.js =====
+
+// Track current report type for layout system
+let currentReportType = "";
+
 async function generateReportPDF(orientation) {
   orientation = (orientation || "portrait").toLowerCase();
   const isLandscape = orientation === "landscape" || orientation === "l";
@@ -323,6 +327,16 @@ function getSelectedFinancialFields() {
 }
 
 function generateReportHeader(title, project, settings) {
+  // Use layout system if available and a report type is set
+  if (typeof getLayoutForReport === "function" && currentReportType) {
+    try {
+      const layout = getLayoutForReport(currentReportType);
+      if (layout && typeof generateLayoutHeader === "function") {
+        return generateLayoutHeader(title, project, layout);
+      }
+    } catch (e) {}
+  }
+  // Fallback: original letterhead-style header
   if (settings && settings.data) settings = settings.data;
   const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
@@ -344,6 +358,14 @@ function generateReportHeader(title, project, settings) {
 }
 
 function generateSignatureBlock() {
+  if (typeof getLayoutForReport === "function" && currentReportType) {
+    try {
+      const layout = getLayoutForReport(currentReportType);
+      if (layout && typeof generateLayoutSignature === "function") {
+        return generateLayoutSignature(layout);
+      }
+    } catch (e) {}
+  }
   return `<div style="margin-top: 32px; page-break-inside: avoid;">
     <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; color: #495057;">Authorized Signatory</div>
     <div style="display: inline-block; text-align: center;">
@@ -354,6 +376,14 @@ function generateSignatureBlock() {
 }
 
 function generateReportFooter() {
+  if (typeof getLayoutForReport === "function" && currentReportType) {
+    try {
+      const layout = getLayoutForReport(currentReportType);
+      if (layout && typeof generateLayoutFooter === "function") {
+        return generateLayoutFooter(layout);
+      }
+    } catch (e) {}
+  }
   return `<div class="report-footer">
     <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
     <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
@@ -708,10 +738,10 @@ function renderProgressReport(project, logs) {
   const rows = sorted
     .map(
       (l) =>
-        `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; white-space:nowrap;">${escapeHtml(l.dateRecorded)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><strong>${escapeHtml(l.tradeCategory)}</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;"><div style="background:#e9ecef; border-radius:4px; height:16px; width:100px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:8px;"><div style="background:var(--primary); height:100%; width:${Math.min(100, Math.max(0, Number(l.completionPercentage) || 0))}%;"></div></div><strong>${escapeHtml(l.completionPercentage)}%</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(l.commentNarrative || "—")}</td></tr>`,
+        `<tr><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; white-space:nowrap;">${escapeHtml(l.dateRecorded)}</td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; width:90px;"><strong>${escapeHtml(l.tradeCategory)}</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top; width:100px;"><div style="background:#e9ecef; border-radius:4px; height:16px; width:100px; overflow:hidden; display:inline-block; vertical-align:middle; margin-right:8px;"><div style="background:#6c757d; height:100%; width:${Math.min(100, Math.max(0, Number(l.completionPercentage) || 0))}%;"></div></div><strong style="color:#6c757d;">${escapeHtml(l.completionPercentage)}%</strong></td><td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; vertical-align:top;">${escapeHtml(l.commentNarrative || "—")}</td></tr>`,
     )
     .join("");
-  return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:120px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>`;
+  return `${generateReportHeader("Progress Report", project)}<table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;"><thead><tr><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; white-space:nowrap;">Date</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:90px;">Trade</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase; width:100px;">%</th><th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Comments</th></tr></thead><tbody>${rows || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No progress logs recorded.</td></tr>'}</tbody></table>${generateSignatureBlock()}${generateReportFooter()}`;
 }
 
 function renderTakeoffReport(project, items) {
@@ -804,6 +834,7 @@ async function compileFieldReport(btn) {
       return;
     }
     const type = typeSel.value;
+    currentReportType = type; // Set for layout system
     const scope = scopeSel ? scopeSel.value : "all";
     const filter = filterSel ? filterSel.value : "";
     if (type !== "financial_all" && scope !== "all" && !filter) {

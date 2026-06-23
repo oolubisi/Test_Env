@@ -13,6 +13,7 @@ function showPage(pageId) {
     if (pageId === "vendors") refreshVendorsListView();
     if (pageId === "accounts") loadAccountsView();
     if (pageId === "reports") initReportsConsoleEngine();
+    if (pageId === "print-layouts") renderPrintLayoutsPage();
     if (pageId === "letterhead") loadLetterheadView();
   }
   window.scrollTo(0, 0);
@@ -109,7 +110,7 @@ window.refreshTemplatesFromSheet = refreshTemplatesFromSheet;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
-    navigator.serviceWorker.register("./sw.js").catch((e) => console.warn(e)),
+    navigator.serviceWorker.register("./sw.js?v=11").catch((e) => console.warn(e)),
   );
 }
 window.addEventListener("online", syncQueuedRequests);

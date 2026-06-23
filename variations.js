@@ -46,7 +46,7 @@
     document.querySelectorAll(".segment-btn").forEach((b) => b.classList.remove("active"));
     document.getElementById(`console-seg-${seg}`).classList.add("active-view");
     document.getElementById(`seg-btn-${seg}`).classList.add("active");
-    if (seg === "takeoff") loadTakeOffListings();
+    if (seg === "takeoff") loadTakeOff2Listings();
     if (seg === "progress") loadProgressTimelineFeed();
     if (seg === "snags") loadSnagsListings();
     if (seg === "workorders") loadWorkOrdersListings();
@@ -103,7 +103,7 @@ async function loadVariationsListings(forceRefresh = false) {
         Approved: "var(--success)",
         Rejected: "var(--danger)",
       };
-      return `<div class="card" style="border-left:6px solid ${statusColors[v.status] || "var(--muted)"};">
+      return `<div class="card" style="border-left:6px solid ${statusColors[v.status] || "var(--muted)"}; cursor:pointer;" onclick="window.openVariationModal(window.modalRecordCache['${key}'])" title="Click to edit">
         <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
           <div>
             <strong style="font-size:18px;">${escapeHtml(v.variationNumber || v.variationId)}</strong>
@@ -113,7 +113,7 @@ async function loadVariationsListings(forceRefresh = false) {
           <span style="font-size:16px; font-weight:900;">₦${moneyValue(v.total)}</span>
         </div>
         ${v.notes ? `<div style="margin-top:8px; font-size:13px; color:var(--muted);">${escapeHtml(v.notes)}</div>` : ""}
-        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;" onclick="event.stopPropagation()">
           <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.openVariationModal(window.modalRecordCache['${key}'])">
             <i class="fas fa-edit"></i> Edit
           </button>
@@ -124,6 +124,206 @@ async function loadVariationsListings(forceRefresh = false) {
       </div>`;
     })
     .join("");
+}
+
+async function loadTakeOff2Listings(forceRefresh = false) {
+  const container = document.getElementById("console-takeoff-list");
+  if (!container) return;
+  let cache = getCache();
+  if (forceRefresh || !cache.takeOffsLoaded) {
+    container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading take-offs...</p>`;
+    try {
+      const items = await callApi("getTakeOffs", { projectId: getCurrentProjectId() });
+      cache = getCache();
+      cache.takeOffs = items || [];
+      cache.takeOffsLoaded = true;
+      setCache(cache);
+    } catch (e) {
+      console.warn("loadTakeOff2Listings failed:", e);
+    }
+  }
+  const projectId = getCurrentProjectId();
+  const projectTakeOffs = (cache.takeOffs || []).filter((t) => t.projectId === projectId);
+  if (!projectTakeOffs.length) {
+    container.innerHTML = `<p style="text-align:center;padding:20px;">No take-offs recorded.</p>`;
+    return;
+  }
+  container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">` + projectTakeOffs
+    .map((t) => {
+      const key = `takeoff:${t.takeOffId}`;
+      window.modalRecordCache = window.modalRecordCache || {};
+      window.modalRecordCache[key] = t;
+      let lineItems = [];
+      try {
+        lineItems = JSON.parse(t.lineItems || "[]");
+      } catch (e) {}
+      return `<div class="card" style="cursor:pointer; text-align:center; display:flex; flex-direction:column; justify-content:center; min-height:80px;" onclick="window.openTakeOff2Modal(window.modalRecordCache['${key}'])" title="Click to edit">
+        <strong style="font-size:14px;">${escapeHtml(t.title)}</strong>
+        <span style="font-size:11px; color:var(--muted); margin-top:4px;">${lineItems.length} item${lineItems.length !== 1 ? "s" : ""}</span>
+      </div>`;
+    })
+    .join("") + `</div>`;
+}
+
+// ===== SIMPLIFIED TAKE-OFF MODAL (for Take-Off tab) =====
+function openTakeOff2Modal(editData = null) {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  const isEdit = !!editData;
+  overlay.style.display = "flex";
+  body.innerHTML = "";
+  submit.style.display = "none"; // Hide default submit; buttons are inside body
+
+  const labelStyle = 'style="display:block; font-weight:800; margin-top:12px; margin-bottom:4px;"';
+  const largeInput = 'style="width:100%; padding:12px; font-size:16px;"';
+
+  const projectId = getCurrentProjectId();
+
+  let lineItems = [];
+  if (isEdit && editData.lineItems) {
+    try {
+      const parsed = JSON.parse(editData.lineItems);
+      if (Array.isArray(parsed)) lineItems = parsed;
+    } catch (e) {
+      lineItems = [];
+    }
+  }
+
+  // Build line items HTML (only Description, Qty, Unit — no Rate, no Amount)
+  const lineItemsHtml = lineItems
+    .map(
+      (item) =>
+        `<tr class="to-line-row">
+      <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(item.description || "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+      <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="to-line-qty" type="number" value="${escapeAttr(item.qty || "")}" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
+      <td style="padding:4px; border-bottom:1px solid var(--border); width:80px;"><input class="to-line-unit" value="${escapeAttr(item.unit || "pcs")}" placeholder="Unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:center;"></td>
+      <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">&times;</button></td>
+    </tr>`,
+    )
+    .join("");
+
+  title.innerText = isEdit ? "Edit Take-Off" : "New Take-Off";
+
+  // Delete + Save on same line
+  const actionButtons = isEdit
+    ? `<div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="action-btn" id="to_delete_btn" style="background:var(--danger); flex:1;"><i class="fas fa-trash"></i> Delete</button>
+        <button class="action-btn" id="to_save_btn" style="flex:1;"><i class="fas fa-save"></i> Save</button>
+      </div>`
+    : `<button class="action-btn" id="to_save_btn" style="margin-top:16px; width:100%;"><i class="fas fa-save"></i> Save</button>`;
+
+  body.innerHTML = `
+    <input type="hidden" id="to_id" value="${escapeAttr(isEdit ? editData.variationId : "")}">
+
+    <label ${labelStyle}>Trade</label>
+    <input id="to_title" value="${escapeAttr(isEdit ? editData.title : "")}" placeholder="e.g. Tiling / Flooring" ${largeInput}>
+
+    <label ${labelStyle}>Line Items</label>
+    <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px;">
+      <thead>
+        <tr style="background:#000; color:#fff;">
+          <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+          <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:70px;">Qty</th>
+          <th style="padding:6px; text-align:center; font-size:10px; text-transform:uppercase; width:80px;">Unit</th>
+          <th style="width:30px;"></th>
+        </tr>
+      </thead>
+      <tbody id="to_line_items_body">${lineItemsHtml}</tbody>
+    </table>
+    <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.addTakeOff2LineItem()">
+      <i class="fas fa-plus"></i> Add Line Item
+    </button>
+
+    <label ${labelStyle}>Notes</label>
+    <textarea id="to_notes" rows="3" ${largeInput}>${escapeHtml(isEdit ? editData.notes : "")}</textarea>
+
+    ${actionButtons}
+  `;
+
+  // Bind save handler
+  document.getElementById("to_save_btn").onclick = buildTakeOff2SaveHandler(isEdit, editData, projectId);
+
+  // Bind delete handler (edit mode only)
+  if (isEdit) {
+    document.getElementById("to_delete_btn").onclick = () => {
+      if (confirm("Delete this take-off?")) {
+        callApi("deleteTakeOff", { takeOffId: editData.takeOffId })
+          .then(() => {
+            closeModal();
+            loadTakeOff2Listings(true);
+          })
+          .catch(() => {});
+      }
+    };
+  }
+}
+
+function buildTakeOff2SaveHandler(isEdit, editData, projectId) {
+  return function() {
+    const title = document.getElementById("to_title").value.trim();
+    if (!title) {
+      alert("Enter a trade name");
+      return;
+    }
+
+    const rows = document.querySelectorAll("#to_line_items_body tr");
+    const lineItems = [];
+    rows.forEach((row) => {
+      const desc = row.querySelector(".to-line-desc").value.trim();
+      if (desc) {
+        lineItems.push({
+          description: desc,
+          qty: Number(row.querySelector(".to-line-qty").value) || 0,
+          unit: row.querySelector(".to-line-unit").value.trim() || "pcs",
+        });
+      }
+    });
+
+    if (!lineItems.length) {
+      alert("Add at least one line item");
+      return;
+    }
+
+    const submit = document.getElementById("to_save_btn");
+    submit.disabled = true;
+    submit.innerText = "Saving...";
+
+    const payload = {
+      projectId: projectId,
+      title: title,
+      lineItems: lineItems,
+      notes: document.getElementById("to_notes").value,
+      date: todayFormatted(),
+    };
+    if (isEdit) {
+      payload.takeOffId = editData.takeOffId;
+    }
+
+    callApi(isEdit ? "updateTakeOff" : "saveTakeOff", payload)
+      .then(() => {
+        closeModal();
+        loadTakeOff2Listings(true);
+      })
+      .catch((err) => {
+        submit.disabled = false;
+        submit.innerText = "Save";
+        alert("Save failed: " + (err?.message || "Unknown error"));
+      });
+  };
+}
+
+function addTakeOff2LineItem() {
+  const tbody = document.getElementById("to_line_items_body");
+  if (!tbody) return;
+  const row = document.createElement("tr");
+  row.className = "to-line-row";
+  row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+    <td style="padding:4px; border-bottom:1px solid var(--border); width:70px;"><input class="to-line-qty" type="number" value="" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
+    <td style="padding:4px; border-bottom:1px solid var(--border); width:80px;"><input class="to-line-unit" value="pcs" placeholder="Unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:center;"></td>
+    <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">&times;</button></td>`;
+  tbody.appendChild(row);
 }
 
 function openVariationModal(editData = null) {
@@ -547,5 +747,8 @@ window.recalcVariationTotals = recalcVariationTotals;
 window.previewVariationReport = previewVariationReport;
 window.regenerateVariationPreview = regenerateVariationPreview;
 window.loadPcrView = loadPcrView;
+window.loadTakeOff2Listings = loadTakeOff2Listings;
+window.openTakeOff2Modal = openTakeOff2Modal;
+window.addTakeOff2LineItem = addTakeOff2LineItem;
 
   // Pre-load all data lists in the background so reports and dropdowns work immediately

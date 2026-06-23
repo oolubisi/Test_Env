@@ -116,7 +116,7 @@ function switchConsoleSegment(seg) {
     .forEach((b) => b.classList.remove("active"));
   document.getElementById(`console-seg-${seg}`).classList.add("active-view");
   document.getElementById(`seg-btn-${seg}`).classList.add("active");
-  if (seg === "takeoff") loadTakeOffListings();
+  if (seg === "takeoff") loadTakeOff2Listings();
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
   if (seg === "workorders") loadWorkOrdersListings();
@@ -140,14 +140,6 @@ async function loadTakeOffListings(forceRefresh = false) {
   for (const id of selectedTakeOffIds) {
     if (!validIds.has(id)) selectedTakeOffIds.delete(id);
   }
-  if (!projectItems.length) {
-    container.innerHTML = `<p style="text-align:center;padding:20px;">No take‑off items yet.</p>`;
-    selectedTakeOffIds.clear();
-    return;
-  }
-
-  const groups = getTakeOffGroups(projectItems);
-
   let html = `<div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
     <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--primary);" onclick="window.openTemplatesModal()">
       <i class="fas fa-layer-group"></i> Templates
@@ -156,6 +148,15 @@ async function loadTakeOffListings(forceRefresh = false) {
       <i class="fas fa-plus"></i> New Take‑Off
     </button>
   </div>`;
+
+  if (!projectItems.length) {
+    html += `<p style="text-align:center;padding:20px;">No take‑off items yet.</p>`;
+    selectedTakeOffIds.clear();
+    container.innerHTML = html;
+    return;
+  }
+
+  const groups = getTakeOffGroups(projectItems);
 
   if (selectedTakeOffIds.size > 0) {
     html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -314,7 +315,7 @@ function toggleGroupSelection(groupId, checked) {
   loadTakeOffListings();
 }
 
-function openTemplatesModal() {
+async function openTemplatesModal() {
   const body = document.getElementById("modalBody");
   const submit = document.getElementById("modalSubmit");
   const title = document.getElementById("modalTitle");
@@ -323,18 +324,26 @@ function openTemplatesModal() {
   overlay.style.display = "flex";
   submit.style.display = "none";
 
-  // Build templates HTML directly into the modal body
-  const all = getAllTemplates();
+  // Show loading spinner first
+  body.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Loading templates...</div>';
+
+  // Load from sheet (localStorage is cache; sheet is source of truth)
+  try {
+    await loadTemplatesFromSheet();
+  } catch (e) {
+    console.warn("Failed to load templates from sheet:", e);
+  }
+
+  renderTemplatesModalBody(body);
+}
+
+function renderTemplatesModalBody(body) {
   const customTemplates = getCustomTemplates();
-  const builtInTemplates = getBuiltInTemplates();
-  const hiddenIds = getHiddenBuiltInIds();
-  const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
-  const allBuiltInsHidden = visibleBuiltIns.length === 0;
 
   let html = '<div style="max-height:60vh; overflow-y:auto;">';
 
-  // Custom templates
-  html += '<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>';
+  // Templates from sheet
+  html += '<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Templates</div>';
   html += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">';
   html += '<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.refreshTemplatesFromSheet()"><i class="fas fa-sync-alt"></i> Refresh</button>';
   html += '<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportAllTemplatesJSON()"><i class="fas fa-download"></i> Export All</button>';
@@ -343,26 +352,29 @@ function openTemplatesModal() {
 
   if (customTemplates.length) {
     html += customTemplates.map((t) => {
-      return `<div class="card" style="cursor: default; margin-bottom:8px;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
+      return `<div class="card" style="cursor: default; margin-bottom:8px;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Sheet</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
     }).join("");
   } else {
-    html += '<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>';
-  }
-
-  // Built-in templates
-  html += '<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>';
-  if (allBuiltInsHidden) {
-    html += '<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">All built-in templates are hidden.<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; margin-left:8px;" onclick="window.showAllBuiltInTemplates()"><i class="fas fa-eye"></i> Show All</button></p>';
-  } else {
-    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;"><span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideAllBuiltInTemplates()"><i class="fas fa-eye-slash"></i> Hide All</button></div>`;
-    html += visibleBuiltIns.map((t) => {
-      return `<div class="card" style="cursor: default; margin-bottom:8px;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><div style="width:18px; flex-shrink:0;"></div><strong style="font-size:16px;">${escapeHtml(t.name)}</strong></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
-    }).join("");
+    html += '<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No templates found. Click Refresh to load from sheet, or Import to add templates.</p>';
   }
 
   html += '</div>';
   body.innerHTML = html;
 }
+
+// Refresh templates from sheet and re-render modal
+window.refreshTemplatesFromSheet = async function() {
+  const body = document.getElementById("modalBody");
+  if (body) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> Refreshing...</div>';
+  }
+  try {
+    await loadTemplatesFromSheet();
+  } catch (e) {
+    console.warn("Refresh failed:", e);
+  }
+  if (body) renderTemplatesModalBody(body);
+};
 
 function openTakeOffGroupModal(groupId) {
   const cache = getCache();
@@ -389,9 +401,11 @@ function openTakeOffGroupModal(groupId) {
 
 async function loadProgressTimelineFeed(forceRefresh = false) {
   const container = document.getElementById("console-progress-feed");
+  const overallEl = document.getElementById("console-progress-overall");
   let cache = getCache();
   if (forceRefresh || !cache.progressLogsLoaded) {
     container.innerHTML = `<p style="text-align:center;padding:15px;"><i class="fas fa-spinner fa-spin"></i> Loading progress logs...</p>`;
+    if (overallEl) overallEl.innerHTML = "";
     const logs = await callApi("getProgressLogs", {});
     cache = getCache();
     cache.progressLogs = logs || [];
@@ -404,14 +418,27 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
   );
   if (!projectLogs.length) {
     container.innerHTML = `<p style="text-align:center;padding:20px;">No progress logs.</p>`;
+    if (overallEl) overallEl.innerHTML = "";
     return;
   }
-  container.innerHTML = projectLogs
-    .map(
-      (l) =>
-        `<div class="card"><strong>${escapeHtml(l.tradeCategory)}</strong> - ${escapeHtml(l.completionPercentage)}%<br>${escapeHtml(l.commentNarrative)}<br><small>${escapeHtml(l.dateRecorded)}</small></div>`,
-    )
-    .join("");
+  // Calculate overall average percentage
+  const totalPct = projectLogs.reduce((sum, l) => sum + (Number(l.completionPercentage) || 0), 0);
+  const avgPct = Math.round(totalPct / projectLogs.length);
+  if (overallEl) {
+    const color = avgPct >= 80 ? "var(--success)" : avgPct >= 50 ? "#fd7e14" : "var(--danger)";
+    overallEl.innerHTML = `<span style="color:${color};">${avgPct}%</span>`;
+  }
+  // Render cards in 2-column grid: trade + percentage only
+  container.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">` + projectLogs
+    .map((l) => {
+      const pct = Number(l.completionPercentage) || 0;
+      const color = pct >= 80 ? "var(--success)" : pct >= 50 ? "#fd7e14" : "var(--danger)";
+      return `<div class="card" style="text-align:center; display:flex; flex-direction:column; justify-content:center; min-height:80px;">
+        <strong style="font-size:14px;">${escapeHtml(l.tradeCategory)}</strong>
+        <span style="font-size:20px; font-weight:900; color:${color}; margin-top:4px;">${pct}%</span>
+      </div>`;
+    })
+    .join("") + `</div>`;
 }
 
 async function loadSnagsListings(forceRefresh = false) {

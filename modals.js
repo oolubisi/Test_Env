@@ -100,6 +100,11 @@ function generateFrontendPreviewId(type) {
 
 function closeModal() {
   document.getElementById("modalOverlay").style.display = "none";
+  // Restore default submit button in case a custom modal replaced it
+  const foot = document.getElementById("modalFoot");
+  if (foot) {
+    foot.innerHTML = '<button id="modalSubmit" class="action-btn">Save</button>';
+  }
 }
 
 async function openModal(type, editData = null) {
@@ -113,6 +118,11 @@ async function openModal(type, editData = null) {
   submit.disabled = false;
   submit.innerText = "Save";
   submit.style.display = "block";
+  // Restore default foot in case a previous custom modal changed it
+  const foot = document.getElementById("modalFoot");
+  if (foot && foot.innerHTML.indexOf('id="modalSubmit"') === -1) {
+    foot.innerHTML = '<button id="modalSubmit" class="action-btn">Save</button>';
+  }
   currentModalFiles = [];
   currentAvatarPhoto = "";
   const labelStyle =
@@ -499,15 +509,16 @@ async function openModal(type, editData = null) {
   } else if (type === "progress_entry") {
     const uniqueId = "LOG-" + Date.now();
     title.innerText = "Log Progress";
-    body.innerHTML = `<label ${labelStyle}>Trade</label><input id="l_trade" ${largeInput}><label ${labelStyle}>Completion %</label><select id="l_pct" ${largeInput}><option value="" selected disabled>Select %</option><option>10</option><option>35</option><option>75</option><option>100</option></select><label ${labelStyle}>Comments</label><textarea id="l_comm" rows="3" ${largeInput}></textarea><div id="progressAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div><label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="l_photo" accept="image/*" multiple style="display:none"></label>`;
+    body.innerHTML = `<label ${labelStyle}>Trade</label><input id="l_trade" ${largeInput}><label ${labelStyle}>Completion %</label><input id="l_pct" type="number" min="0" max="100" step="1" placeholder="Enter 0-100" oninput="this.value=this.value.replace(/[^0-9]/g,'');if(this.value>100)this.value=100;if(this.value<0)this.value=0;" ${largeInput}><label ${labelStyle}>Comments</label><textarea id="l_comm" rows="3" ${largeInput}></textarea><div id="progressAttachmentsPreviews" class="modal-preview-grid" style="display:none;"></div><label class="icon-upload-label"><i class="fas fa-paperclip"></i><input type="file" id="l_photo" accept="image/*" multiple style="display:none"></label>`;
     document.getElementById("l_photo").onchange = (e) =>
       processIncomingMultiAttachments(
         e.target.files,
         "progressAttachmentsPreviews",
       );
     submit.onclick = async () => {
-      if (!document.getElementById("l_pct").value) {
-        alert("Select a completion %");
+      const pct = document.getElementById("l_pct").value;
+      if (!pct || pct === "" || Number(pct) < 0 || Number(pct) > 100) {
+        alert("Enter a completion % between 0 and 100");
         return;
       }
       if (!document.getElementById("l_trade").value.trim()) {
@@ -522,7 +533,7 @@ async function openModal(type, editData = null) {
         logId: uniqueId,
         projectId: getCurrentProjectId(),
         tradeCategory: document.getElementById("l_trade").value,
-        completionPercentage: document.getElementById("l_pct").value,
+        completionPercentage: String(Math.round(Number(pct))),
         commentNarrative:
           document.getElementById("l_comm").value +
           (gps !== "GPS Unavailable"
