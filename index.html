@@ -21,6 +21,7 @@
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <link rel="stylesheet" href="style.css" />
     <base target="_blank" />
+    <base target="_blank" />
   </head>
   <body>
     <div class="main">
@@ -487,6 +488,13 @@
           </button>
           <button
             class="segment-btn"
+            id="seg-btn-variations"
+            onclick="switchConsoleSegment('variations')"
+          >
+            Variations
+          </button>
+          <button
+            class="segment-btn"
             id="seg-btn-pcr"
             onclick="switchConsoleSegment('pcr')"
           >
@@ -676,6 +684,16 @@
             + Log Payment
           </button>
         </div>
+        <div id="console-seg-variations" class="console-tab-window page-view">
+          <div id="console-variations-list"></div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openVariationModal(null)"
+          >
+            + New Variation
+          </button>
+        </div>
         <div id="console-seg-pcr" class="console-tab-window page-view">
           <div class="card">
             <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 800">
@@ -703,9 +721,7 @@
               <option value="Substantially Complete">
                 Substantially Complete
               </option>
-              <option value="Practical Completion">
-                Practical Completion
-              </option>
+              <option value="Practical Completion">Practical Completion</option>
               <option value="Pending Snag Resolution">
                 Pending Snag Resolution
               </option>
@@ -720,11 +736,7 @@
                 font-weight: 800;
               "
             >
-              <input
-                type="checkbox"
-                id="pcr-show-wht"
-                style="width: auto"
-              />
+              <input type="checkbox" id="pcr-show-wht" style="width: auto" />
               Show WHT in financial snapshot
             </label>
             <label style="display: block; font-weight: 800; margin-top: 10px"
@@ -750,6 +762,24 @@
             >
               Save PCR Fields
             </button>
+            <div
+              style="
+                margin-top: 16px;
+                border-top: 1px solid var(--border);
+                padding-top: 12px;
+              "
+            >
+              <strong
+                style="
+                  font-size: 14px;
+                  text-transform: uppercase;
+                  display: block;
+                  margin-bottom: 8px;
+                "
+                >Approved Variations</strong
+              >
+              <div id="pcr-variations-list"></div>
+            </div>
           </div>
         </div>
       </div>
