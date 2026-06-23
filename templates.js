@@ -1260,15 +1260,14 @@ async function applyTemplateToProject(templateId) {
         itemId:
           "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5),
         projectId,
-        roomArea: "",
-        tradeCategory: row.querySelector(".to-line-notes").value.trim(),
+        roomArea: "__GRP__:" + groupId,
+        tradeCategory: t.name,
         description: desc,
         quantity: Number(row.querySelector(".to-line-qty").value) || 0,
         unit: row.querySelector(".to-line-unit").value,
         beforePhotoUrl: "",
         scopeNotes:
-          "From template: " +
-          t.name +
+          row.querySelector(".to-line-notes").value.trim() +
           (gps !== "GPS Unavailable" ? "\n📍 " + gps : ""),
       };
       try {
@@ -1315,25 +1314,4 @@ function applyBulkUnitToTmpl() {
     if (row.querySelector(".to-tmpl-chk")?.checked)
       row.querySelector(".to-line-unit").value = unit;
   });
-}
-
-// Select or deselect all items in a named template group in the take-off list
-function toggleGroupSelection(groupLabel, checked) {
-  const cache = getCache();
-  const projectId = getCurrentProjectId();
-  const TMPL_PREFIX = "From template: ";
-  (cache.takeoffs || [])
-    .filter((i) => {
-      if (i.projectId !== projectId) return false;
-      const note = String(i.scopeNotes || "");
-      const itemGroup = note.startsWith(TMPL_PREFIX)
-        ? note.slice(TMPL_PREFIX.length).split("\n")[0].trim()
-        : null;
-      return itemGroup === groupLabel;
-    })
-    .forEach((i) => {
-      if (checked) selectedTakeOffIds.add(i.itemId);
-      else selectedTakeOffIds.delete(i.itemId);
-    });
-  loadTakeOffListings();
 }

@@ -107,6 +107,11 @@ async function refreshTemplatesFromSheet() {
   }
 }
 window.refreshTemplatesFromSheet = refreshTemplatesFromSheet;
+window.openTemplatesModal = openTemplatesModal;
+window.openTakeOffGroupModal = openTakeOffGroupModal;
+window.addTakeOffGroupLine = addTakeOffGroupLine;
+window.getTakeOffGroups = getTakeOffGroups;
+window.toggleGroupSelection = toggleGroupSelection;
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
@@ -190,7 +195,7 @@ window.addEventListener("load", () => {
   refreshMasterDashboard();
   initPwaInstall();
 
-(async function preloadAllData() {
+  (async function preloadAllData() {
     const endpoints = [
       { action: "getVendors", key: "vendors", isArray: true },
       { action: "getPayments", key: "payments", isArray: true },
