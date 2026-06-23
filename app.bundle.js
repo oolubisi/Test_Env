@@ -3792,6 +3792,14 @@ function validateStageAmount() {
   const balanceEl = document.getElementById("pay_balance");
   if (!amountInput || !balanceEl) return;
   const amount = roundMoney(Number(amountInput.value) || 0);
+
+  // ✅ Small Expense is a single full payment — don't cap it at the balance display
+  const dir = document.getElementById("pay_dir")?.value;
+  if (dir === "Small Expense") {
+    if (hint) hint.style.display = "none";
+    return;
+  }
+
   const balanceText = balanceEl.innerText.replace(/[₦,]/g, "");
   const balance = roundMoney(Number(balanceText) || 0);
   if (amount > balance && balance >= 0) {
