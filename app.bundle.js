@@ -3725,8 +3725,9 @@ function onPaymentDirectionChange() {
     const amountInput = document.getElementById("pay_amount");
     if (totalInput && amountInput) {
       totalInput.value = amountInput.value || "";
-      totalInput.disabled = true;
-      totalInput.style.background = "#f0f0f0";
+      // ✅ Keep editable for Small Expense
+      totalInput.disabled = false;
+      totalInput.style.background = "white";
     }
   } else {
     const totalInput = document.getElementById("pay_total_invoice");
