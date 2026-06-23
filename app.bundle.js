@@ -6130,4 +6130,4 @@ window.addEventListener("load", () => {
   })();
 
   if (navigator.onLine) syncQueuedRequests();
-};);
+});
