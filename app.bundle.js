@@ -3610,7 +3610,7 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
       : isSmallExpense
         ? ""
         : "";
-    body.innerHTML = `<label ${labelStyle}>ID</label><input value="${isEdit ? editData.paymentId : "Auto-generated"}" disabled style="${largeInput} background:#f0f0f0;"><input type="hidden" id="pay_id_hidden" value="${escapeAttr(isEdit ? editData.paymentId : "")}"><input type="hidden" id="pay_group_id" value="${escapeAttr(isEdit && editData.paymentGroupId ? editData.paymentGroupId : "")}"><label ${labelStyle}>Direction</label><select id="pay_dir" ${largeInput} onchange="window.onPaymentDirectionChange()">
+    body.innerHTML = `<label ${labelStyle}>ID</label><input value="${isEdit ? editData.paymentId || "Auto-generated" : "Auto-generated"}" disabled style="${largeInput} background:#f0f0f0;"><input type="hidden" id="pay_id_hidden" value="${escapeAttr(isEdit ? editData.paymentId : "")}"><input type="hidden" id="pay_group_id" value="${escapeAttr(isEdit && editData.paymentGroupId ? editData.paymentGroupId : "")}"><label ${labelStyle}>Direction</label><select id="pay_dir" ${largeInput} onchange="window.onPaymentDirectionChange()">
 <option value="Client Receipt" ${currentDir === "Client Receipt" ? "selected" : ""}>Client Receipt</option>
 <option value="Outgoing Payment" ${currentDir === "Outgoing Payment" ? "selected" : ""}>Outgoing Payment</option>
 <option value="Small Expense" ${currentDir === "Small Expense" ? "selected" : ""}>Small Expense</option>
@@ -3676,8 +3676,12 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
       let paymentGroupId = document.getElementById("pay_group_id").value;
       if (!isEdit && !isSmall && !paymentGroupId)
         paymentGroupId = "PAY-GRP-" + Date.now();
+
+      // ✅ FIX: distinguish "Add Stage" (new record) from true edit
+      const isRealEdit = isEdit && editData.paymentId;
+
       const payload = {
-        paymentId: isEdit ? editData.paymentId : "PAY-" + Date.now(),
+        paymentId: isRealEdit ? editData.paymentId : "PAY-" + Date.now(),
         projectId: getCurrentProjectId(),
         paymentDate: todayFormatted(),
         paymentDirection: direction,
@@ -3690,11 +3694,11 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
         status: "",
         stage: stage,
         paymentGroupId:
-          paymentGroupId || (isEdit ? editData.paymentGroupId : ""),
+          paymentGroupId || (isRealEdit ? editData.paymentGroupId : ""),
         notes: document.getElementById("pay_notes").value,
         attachments: normalizeAttachments(currentModalFiles),
       };
-      callApi(isEdit ? "updatePayment" : "savePayment", payload)
+      callApi(isRealEdit ? "updatePayment" : "savePayment", payload)
         .then(() => {
           closeModal();
           loadPaymentsListings(true);
