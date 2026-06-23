@@ -47,10 +47,6 @@
     document.getElementById(`console-seg-${seg}`).classList.add("active-view");
     document.getElementById(`seg-btn-${seg}`).classList.add("active");
     if (seg === "takeoff") loadTakeOffListings();
-    if (seg === "templates") {
-      loadTemplatesSegment();
-      loadTemplatesFromSheet().then(() => loadTemplatesSegment()).catch(() => {});
-    }
     if (seg === "progress") loadProgressTimelineFeed();
     if (seg === "snags") loadSnagsListings();
     if (seg === "workorders") loadWorkOrdersListings();

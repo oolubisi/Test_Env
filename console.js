@@ -117,13 +117,6 @@ function switchConsoleSegment(seg) {
   document.getElementById(`console-seg-${seg}`).classList.add("active-view");
   document.getElementById(`seg-btn-${seg}`).classList.add("active");
   if (seg === "takeoff") loadTakeOffListings();
-  if (seg === "templates") {
-    // Render from localStorage immediately, then merge from sheet in background
-    loadTemplatesSegment();
-    loadTemplatesFromSheet()
-      .then(() => loadTemplatesSegment())
-      .catch(() => {});
-  }
   if (seg === "progress") loadProgressTimelineFeed();
   if (seg === "snags") loadSnagsListings();
   if (seg === "workorders") loadWorkOrdersListings();
@@ -153,34 +146,17 @@ async function loadTakeOffListings(forceRefresh = false) {
     return;
   }
 
-  // ── Group items by their template source ──────────────────────────────────
-  // scopeNotes starting with "From template: X" → group under that template name
-  // Everything else → "Ungrouped" bucket
-  const TMPL_PREFIX = "From template: ";
-  const groups = new Map(); // key = display label, value = { label, items[], isTemplate }
+  const groups = getTakeOffGroups(projectItems);
 
-  projectItems.forEach((i) => {
-    const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
-    let groupKey;
-    if (String(i.scopeNotes || "").startsWith(TMPL_PREFIX)) {
-      groupKey = i.scopeNotes.slice(TMPL_PREFIX.length).split("\n")[0].trim();
-    } else {
-      groupKey = "__ungrouped__";
-    }
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, {
-        label: groupKey === "__ungrouped__" ? null : groupKey,
-        items: [],
-        isTemplate: groupKey !== "__ungrouped__",
-      });
-    }
-    groups.get(groupKey).items.push(i);
-  });
+  let html = `<div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+    <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--primary);" onclick="window.openTemplatesModal()">
+      <i class="fas fa-layer-group"></i> Templates
+    </button>
+    <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px;" onclick="window.openTakeOffGroupModal(null)">
+      <i class="fas fa-plus"></i> New Take‑Off
+    </button>
+  </div>`;
 
-  // ── Build HTML ─────────────────────────────────────────────────────────────
-  let html = "";
-
-  // Bulk-delete toolbar
   if (selectedTakeOffIds.size > 0) {
     html += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
       <span style="font-size:13px; font-weight:700;">${selectedTakeOffIds.size} selected</span>
@@ -190,119 +166,198 @@ async function loadTakeOffListings(forceRefresh = false) {
     </div>`;
   }
 
-  groups.forEach((group) => {
-    if (group.isTemplate) {
-      // ── Template group card ─────────────────────────────────────────────
-      const groupItems = group.items;
-      const groupItemCount = groupItems.length;
-      const allChecked = groupItems.every((i) =>
-        selectedTakeOffIds.has(i.itemId),
-      );
-      const groupId = "grp-" + group.label.replace(/[^a-z0-9]/gi, "_");
+  for (const group of groups) {
+    const allChecked = group.items.every((i) => selectedTakeOffIds.has(i.itemId));
+    const itemRows = group.items.map((i) => {
+      const isChecked = selectedTakeOffIds.has(i.itemId);
+      const key = `takeoff_item:${i.itemId}`;
+      window.modalRecordCache = window.modalRecordCache || {};
+      window.modalRecordCache[key] = i;
+      return `<tr style="border-bottom:1px solid var(--border); cursor:pointer;" onclick="window.openTakeOffGroupModal('${escapeAttr(group.groupId)}')">
+        <td style="padding:8px 6px; width:28px;" onclick="event.stopPropagation()">
+          <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""} onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
+        </td>
+        <td style="padding:8px 6px; font-size:13px;">${escapeHtml(i.description)}</td>
+        <td style="padding:8px 6px; font-size:12px; color:var(--muted); text-align:right; white-space:nowrap;">
+          ${escapeHtml(String(i.quantity))} ${escapeHtml(i.unit)}
+        </td>
+      </tr>`;
+    }).join("");
 
-      const rowsHtml = groupItems
-        .map((i) => {
-          const key = `takeoff_item:${i.itemId}`;
-          window.modalRecordCache = window.modalRecordCache || {};
-          window.modalRecordCache[key] = i;
-          const isChecked = selectedTakeOffIds.has(i.itemId);
-          const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
-
-          if (isHeader) {
-            return `<tr style="background:var(--card-light);">
-            <td colspan="5" style="padding:8px 10px; font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:0.4px; border-bottom:1px solid var(--border);">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""}
-                  onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
-                ${escapeHtml(i.description)}
-              </div>
-            </td>
-          </tr>`;
-          }
-
-          return `<tr style="border-bottom:1px solid var(--border); cursor:pointer;"
-          onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">
-          <td style="padding:8px 6px; width:28px;" onclick="event.stopPropagation()">
-            <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""}
-              onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
-          </td>
-          <td style="padding:8px 6px; font-size:13px;">${escapeHtml(i.description)}</td>
-          <td style="padding:8px 6px; font-size:12px; color:var(--muted);">${escapeHtml(i.tradeCategory || "")}</td>
-          <td style="padding:8px 6px; font-size:12px; color:var(--muted);">${escapeHtml(i.roomArea || "")}</td>
-          <td style="padding:8px 6px; font-size:13px; font-weight:700; text-align:right; white-space:nowrap;">
-            ${escapeHtml(String(i.quantity))} ${escapeHtml(i.unit)}
-          </td>
-        </tr>`;
-        })
-        .join("");
-
-      html += `<div class="card" style="padding:0; overflow:hidden; margin-bottom:12px; border:1.5px solid var(--border);">
-        <!-- Template group header -->
-        <div style="background:var(--card-light); padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1.5px solid var(--border);">
-          <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
-            <input type="checkbox" style="width:auto; cursor:pointer; flex-shrink:0;" ${allChecked ? "checked" : ""}
-              title="Select all in this group"
-              onchange="window.toggleGroupSelection('${escapeAttr(group.label)}', this.checked)">
-            <div style="min-width:0;">
-              <div style="font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(group.label)}</div>
-              <div style="font-size:11px; color:var(--muted); margin-top:1px;">${groupItemCount} items</div>
-            </div>
+    html += `<div class="card" style="padding:0; overflow:hidden; margin-bottom:12px; border:1.5px solid var(--border);">
+      <div style="background:var(--card-light); padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1.5px solid var(--border); cursor:pointer;" onclick="window.openTakeOffGroupModal('${escapeAttr(group.groupId)}')">
+        <div style="display:flex; align-items:center; gap:10px; flex:1; min-width:0;">
+          <input type="checkbox" style="width:auto; cursor:pointer; flex-shrink:0;" ${allChecked ? "checked" : ""} title="Select all in this group" onchange="window.toggleGroupSelection('${escapeAttr(group.groupId)}', this.checked)" onclick="event.stopPropagation()">
+          <div style="min-width:0;">
+            <div style="font-weight:900; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(group.name)}</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:1px;">${group.items.length} items</div>
           </div>
-          <span style="font-size:10px; font-weight:900; background:var(--primary); color:#fff; padding:3px 8px; border-radius:4px; text-transform:uppercase; flex-shrink:0;">Template</span>
         </div>
-        <!-- Line items table -->
-        <div style="overflow-x:auto;">
-          <table style="width:100%; border-collapse:collapse;">
-            <thead>
-              <tr style="background:#000; color:#fff;">
-                <th style="padding:6px; width:28px;"></th>
-                <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Description</th>
-                <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Trade</th>
-                <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Area</th>
-                <th style="padding:6px 8px; font-size:10px; text-align:right; text-transform:uppercase; font-weight:700;">Qty / Unit</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
+        <div style="display:flex; gap:6px; flex-shrink:0;">
+          <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="event.stopPropagation(); window.openTakeOffGroupModal('${escapeAttr(group.groupId)}')" title="Edit group">
+            <i class="fas fa-edit"></i>
+          </button>
         </div>
-      </div>`;
-    } else {
-      // ── Ungrouped items (manually added / non-template) ─────────────────
-      group.items.forEach((i) => {
-        const key = `takeoff_item:${i.itemId}`;
-        window.modalRecordCache = window.modalRecordCache || {};
-        window.modalRecordCache[key] = i;
-        const isChecked = selectedTakeOffIds.has(i.itemId);
-        const isHeader = String(i.scopeNotes || "").startsWith("__HEADER__:");
-
-        if (isHeader) {
-          html += `<div class="card" style="background:var(--card-light); border-left:4px solid var(--primary); cursor:default; padding:10px 16px; margin-bottom:8px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <input type="checkbox" style="width:auto; cursor:pointer;" ${isChecked ? "checked" : ""}
-                onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
-              <strong style="font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${escapeHtml(i.description)}</strong>
-            </div>
-          </div>`;
-        } else {
-          html += `<div class="card" style="cursor:pointer; position:relative; margin-bottom:8px;"
-            onclick="window.openModalWithRecord('takeoff_item', window.modalRecordCache['${key}'])">
-            <div style="display:flex; align-items:start; gap:10px;">
-              <input type="checkbox" style="width:auto; margin-top:2px; cursor:pointer;" ${isChecked ? "checked" : ""}
-                onclick="event.stopPropagation(); window.toggleTakeOffSelection('${escapeAttr(i.itemId)}', this.checked)">
-              <div style="flex:1;">
-                <div style="font-size:14px; font-weight:600;">${escapeHtml(i.description)}</div>
-                <div style="font-size:13px; font-weight:900; margin-top:2px;">${escapeHtml(String(i.quantity))} ${escapeHtml(i.unit)}</div>
-                ${i.tradeCategory ? `<div style="font-size:11px; color:var(--muted); margin-top:3px;">${escapeHtml(i.tradeCategory)}${i.roomArea ? " · " + escapeHtml(i.roomArea) : ""}</div>` : ""}
-                ${i.scopeNotes && !i.scopeNotes.startsWith("__HEADER__:") ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">${escapeHtml(i.scopeNotes)}</div>` : ""}
-              </div>
-            </div>
-          </div>`;
-        }
-      });
-    }
-  });
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="background:#000; color:#fff;">
+              <th style="padding:6px; width:28px;"></th>
+              <th style="padding:6px 8px; font-size:10px; text-align:left; text-transform:uppercase; font-weight:700;">Description</th>
+              <th style="padding:6px 8px; font-size:10px; text-align:right; text-transform:uppercase; font-weight:700; width:80px;">Qty / Unit</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
 
   container.innerHTML = html;
+}
+
+function getTakeOffGroups(projectItems) {
+  const groups = [];
+  const processed = new Set();
+
+  // 1. New-style groups (roomArea starts with __GRP__:)
+  const grpMap = new Map();
+  for (const item of projectItems) {
+    const ra = String(item.roomArea || "");
+    if (ra.startsWith("__GRP__:")) {
+      const gid = ra.substring(8);
+      if (!grpMap.has(gid)) {
+        grpMap.set(gid, {
+          groupId: gid,
+          name: item.tradeCategory || "Untitled Group",
+          items: [],
+        });
+      }
+      grpMap.get(gid).items.push(item);
+      processed.add(item.itemId);
+    }
+  }
+  groups.push(...grpMap.values());
+
+  // 2. Legacy template groups (scopeNotes starts with "From template: ")
+  const tmplMap = new Map();
+  for (const item of projectItems) {
+    if (processed.has(item.itemId)) continue;
+    const sn = String(item.scopeNotes || "");
+    const tmplMatch = sn.match(/^From template: ([^\n]+)/);
+    if (tmplMatch) {
+      const tmplName = tmplMatch[1].trim();
+      const key = "tmpl:" + tmplName;
+      if (!tmplMap.has(key)) {
+        tmplMap.set(key, {
+          groupId: key,
+          name: tmplName,
+          items: [],
+        });
+      }
+      tmplMap.get(key).items.push(item);
+      processed.add(item.itemId);
+    }
+  }
+  groups.push(...tmplMap.values());
+
+  // 3. Legacy headers (__HEADER__:) + following items
+  let currentHeaderGroup = null;
+  for (const item of projectItems) {
+    if (processed.has(item.itemId)) continue;
+    const sn = String(item.scopeNotes || "");
+    if (sn.startsWith("__HEADER__:")) {
+      if (currentHeaderGroup) groups.push(currentHeaderGroup);
+      currentHeaderGroup = {
+        groupId: "hdr-" + item.itemId,
+        name: sn.substring(11),
+        items: [item],
+      };
+      processed.add(item.itemId);
+    } else if (currentHeaderGroup) {
+      currentHeaderGroup.items.push(item);
+      processed.add(item.itemId);
+    }
+  }
+  if (currentHeaderGroup) groups.push(currentHeaderGroup);
+
+  // 4. Singletons
+  for (const item of projectItems) {
+    if (processed.has(item.itemId)) continue;
+    groups.push({
+      groupId: item.itemId,
+      name: item.tradeCategory || item.description || "Item",
+      items: [item],
+    });
+  }
+
+  return groups;
+}
+
+function toggleGroupSelection(groupId, checked) {
+  const cache = getCache();
+  const projectId = getCurrentProjectId();
+  (cache.takeoffs || [])
+    .filter((i) => {
+      if (i.projectId !== projectId) return false;
+      const ra = String(i.roomArea || "");
+      if (ra.startsWith("__GRP__:")) {
+        return ra.substring(8) === groupId;
+      }
+      return i.itemId === groupId;
+    })
+    .forEach((i) => {
+      if (checked) selectedTakeOffIds.add(i.itemId);
+      else selectedTakeOffIds.delete(i.itemId);
+    });
+  loadTakeOffListings();
+}
+
+function openTemplatesModal() {
+  const body = document.getElementById("modalBody");
+  const submit = document.getElementById("modalSubmit");
+  const title = document.getElementById("modalTitle");
+  const overlay = document.getElementById("modalOverlay");
+  title.innerText = "Templates";
+  overlay.style.display = "flex";
+  body.innerHTML = '<div id="modal-templates-list" style="max-height:60vh; overflow-y:auto;"></div>';
+  submit.style.display = "none";
+
+  // Temporarily redirect loadTemplatesSegment
+  const realContainer = document.getElementById("console-templates-list");
+  const modalContainer = document.getElementById("modal-templates-list");
+  if (realContainer) realContainer.id = "console-templates-list-backup";
+  modalContainer.id = "console-templates-list";
+
+  loadTemplatesSegment();
+
+  // Restore IDs
+  modalContainer.id = "modal-templates-list";
+  if (realContainer) realContainer.id = "console-templates-list";
+}
+
+function openTakeOffGroupModal(groupId) {
+  const cache = getCache();
+  const projectId = getCurrentProjectId();
+  const projectItems = (cache.takeoffs || []).filter((i) => i.projectId === projectId);
+  let group = null;
+
+  if (groupId) {
+    group = getTakeOffGroups(projectItems).find((g) => g.groupId === groupId);
+  }
+
+  if (group && group.items.length === 1 && !String(group.items[0].roomArea || "").startsWith("__GRP__:")) {
+    // Legacy singleton — wrap it
+    group = {
+      groupId: "TO-GRP-" + Date.now(),
+      name: group.items[0].tradeCategory || group.items[0].description || "Item",
+      items: group.items,
+      isLegacy: true,
+    };
+  }
+
+  openModal("takeoff_group", group);
 }
 
 async function loadProgressTimelineFeed(forceRefresh = false) {
@@ -456,3 +511,7 @@ async function loadPaymentsListings(forceRefresh = false) {
     .join("");
   container.innerHTML = totalsHtml + paymentsHtml;
 }
+window.toggleGroupSelection = toggleGroupSelection;
+window.getTakeOffGroups = getTakeOffGroups;
+window.openTakeOffGroupModal = openTakeOffGroupModal;
+window.openTemplatesModal = openTemplatesModal;

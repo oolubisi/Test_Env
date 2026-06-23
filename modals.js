@@ -326,6 +326,176 @@ async function openModal(type, editData = null) {
       loadTakeOffListings(true);
       if (errorCount > 0) alert(`${savedCount} saved, ${errorCount} failed.`);
     };
+  } else if (type === "takeoff_group") {
+    title.innerText = isEdit ? "Edit Take‑Off" : "New Take‑Off";
+    currentModalFiles = [];
+
+    let groupName = "";
+    let groupItems = [];
+    let groupId = "";
+    let isLegacy = false;
+
+    if (isEdit) {
+      if (editData && editData.items) {
+        groupName = editData.name || "";
+        groupItems = editData.items || [];
+        groupId = editData.groupId || "";
+        isLegacy = !!editData.isLegacy;
+      }
+    } else {
+      groupId = "TO-GRP-" + Date.now();
+      groupItems = [{ description: "", quantity: "", unit: "", scopeNotes: "" }];
+    }
+
+    const unitOptions = MASTER_UNITS.map(
+      (u) =>
+        `<option value="${escapeAttr(u.value)}" ${groupItems[0]?.unit === u.value ? "selected" : ""}>${escapeHtml(u.label)}</option>`,
+    ).join("");
+
+    const itemsHtml = groupItems
+      .map(
+        (item) =>
+          `<tr class="to-group-line" data-item-id="${escapeAttr(item.itemId || "")}">
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="${escapeAttr(item.description || "")}" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="to-line-qty" type="number" value="${escapeAttr(item.quantity != null ? item.quantity : "")}" placeholder="Qty" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><select class="to-line-unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><option value="" disabled ${!item.unit ? "selected" : ""}>Select unit</option>${unitOptions}</select></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-notes" value="${escapeAttr((item.scopeNotes || "").replace(/^__HEADER__:/, "").replace(/^__GROUP__:[^,]+,/, ""))}" placeholder="Notes" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+        <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>
+      </tr>`,
+      )
+      .join("");
+
+    body.innerHTML = `
+      <label ${labelStyle}>Group / Category Name</label>
+      <input id="to_group_name" value="${escapeAttr(groupName)}" placeholder="e.g. Electrical First Fix" ${largeInput}>
+      <label ${labelStyle} style="margin-top:16px;">Line Items</label>
+      <div style="overflow-x:auto;">
+      <table style="width:100%; font-size:13px; border-collapse:collapse; margin-bottom:10px;">
+        <thead>
+          <tr style="background:#000; color:#fff;">
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Description</th>
+            <th style="padding:6px; text-align:right; font-size:10px; text-transform:uppercase; width:60px;">Qty</th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase; width:90px;">U/M</th>
+            <th style="padding:6px; text-align:left; font-size:10px; text-transform:uppercase;">Notes</th>
+            <th style="width:30px;"></th>
+          </tr>
+        </thead>
+        <tbody id="to_group_items_body">${itemsHtml}</tbody>
+      </table>
+      </div>
+      <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.addTakeOffGroupLine()"><i class="fas fa-plus"></i> Add Line Item</button>
+      <div id="takeoffAttachmentsPreviews" class="modal-preview-grid" style="display:none; margin-top:12px;"></div>
+      <label class="icon-upload-label" style="margin-top:10px;"><i class="fas fa-paperclip"></i><input type="file" id="t_photo" accept="image/*" multiple style="display:none"></label>
+      ${isEdit ? `<button class="action-btn" id="t_delete_btn" style="background:var(--danger); margin-top:10px;">Delete Group</button>` : ""}`;
+
+    if (currentModalFiles.length)
+      populateModalInlineImageGalleryPreviews("takeoffAttachmentsPreviews");
+    document.getElementById("t_photo").onchange = (e) =>
+      processIncomingMultiAttachments(e.target.files, "takeoffAttachmentsPreviews");
+
+    if (isEdit) {
+      document.getElementById("t_delete_btn").onclick = () => {
+        if (confirm("Delete this entire group?")) {
+          const toDelete = groupItems.map((i) => i.itemId);
+          Promise.all(toDelete.map((id) => callApi("deleteTakeOffItem", { itemId: id }).catch(() => {})))
+            .then(() => {
+              closeModal();
+              loadTakeOffListings(true);
+            });
+        }
+      };
+    }
+
+    submit.onclick = async () => {
+      const newGroupName = document.getElementById("to_group_name").value.trim();
+      if (!newGroupName) {
+        alert("Enter a group name");
+        return;
+      }
+
+      const rows = document.querySelectorAll("#to_group_items_body tr.to-group-line");
+      const newItems = [];
+      const existingItemIds = new Set();
+
+      for (const row of Array.from(rows)) {
+        const desc = row.querySelector(".to-line-desc").value.trim();
+        if (!desc) continue;
+        const itemId = row.dataset.itemId || "TO-" + Date.now() + "-" + Math.random().toString(36).substr(2, 5);
+        const unit = row.querySelector(".to-line-unit").value;
+        if (!unit) {
+          alert("Select a unit for all line items");
+          return;
+        }
+        newItems.push({
+          itemId,
+          description: desc,
+          quantity: row.querySelector(".to-line-qty").value,
+          unit,
+          scopeNotes: row.querySelector(".to-line-notes").value,
+          existing: !!row.dataset.itemId,
+        });
+        if (row.dataset.itemId) existingItemIds.add(row.dataset.itemId);
+      }
+
+      if (!newItems.length) {
+        alert("Add at least one line item");
+        return;
+      }
+
+      const itemsToDelete = [];
+      if (isEdit && editData.items) {
+        for (const oldItem of editData.items) {
+          if (!existingItemIds.has(oldItem.itemId)) {
+            itemsToDelete.push(oldItem.itemId);
+          }
+        }
+      }
+
+      submit.disabled = true;
+      submit.innerText = "GPS…";
+      const gps = await getGPSLocation();
+      submit.innerText = "Saving…";
+      const photoUrl = normalizeAttachments(currentModalFiles);
+      const projectId = getCurrentProjectId();
+
+      for (const delId of itemsToDelete) {
+        try {
+          await callApi("deleteTakeOffItem", { itemId: delId });
+        } catch (e) {
+          console.warn("Failed to delete item", delId, e);
+        }
+      }
+
+      let saved = 0;
+      for (const item of newItems) {
+        const payload = {
+          itemId: item.itemId,
+          projectId,
+          roomArea: "__GRP__:" + groupId,
+          tradeCategory: newGroupName,
+          description: item.description,
+          quantity: item.quantity,
+          unit: item.unit,
+          beforePhotoUrl: photoUrl,
+          scopeNotes: item.scopeNotes + (gps !== "GPS Unavailable" ? "\n📍 " + gps : ""),
+        };
+        try {
+          await callApi(item.existing ? "updateTakeOffItem" : "saveTakeOffItem", payload);
+          saved++;
+        } catch (e) {
+          console.error("Failed to save item", e);
+        }
+      }
+
+      closeModal();
+      loadTakeOffListings(true);
+      showSyncToast(
+        itemsToDelete.length
+          ? `${saved} saved, ${itemsToDelete.length} deleted`
+          : `✅ ${saved} item${saved !== 1 ? "s" : ""} saved`,
+      );
+    };
+
   } else if (type === "progress_entry") {
     const uniqueId = "LOG-" + Date.now();
     title.innerText = "Log Progress";
@@ -828,3 +998,21 @@ ${projects.map((p) => `<option value="${escapeAttr(p.clientName)}" data-project-
     };
   }
 }
+
+
+function addTakeOffGroupLine() {
+  const tbody = document.getElementById("to_group_items_body");
+  if (!tbody) return;
+  const unitOptions = MASTER_UNITS.map(
+    (u) => `<option value="${escapeAttr(u.value)}">${escapeHtml(u.label)}</option>`,
+  ).join("");
+  const row = document.createElement("tr");
+  row.className = "to-group-line";
+  row.innerHTML = `<td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-desc" value="" placeholder="Description" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:60px;"><input class="to-line-qty" type="number" value="" placeholder="Qty" min="0" step="0.01" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px; text-align:right;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:90px;"><select class="to-line-unit" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"><option value="" disabled selected>Select unit</option>${unitOptions}</select></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border);"><input class="to-line-notes" value="" placeholder="Notes" style="width:100%; padding:8px; font-size:14px; border:1.5px solid var(--border); border-radius:8px;"></td>
+  <td style="padding:4px; border-bottom:1px solid var(--border); width:30px; text-align:center;"><button onclick="this.closest('tr').remove();" style="background:var(--danger); color:white; border:none; border-radius:6px; cursor:pointer; width:28px; height:28px; font-size:14px;">×</button></td>`;
+  tbody.appendChild(row);
+}
+window.addTakeOffGroupLine = addTakeOffGroupLine;
