@@ -321,20 +321,47 @@ function openTemplatesModal() {
   const overlay = document.getElementById("modalOverlay");
   title.innerText = "Templates";
   overlay.style.display = "flex";
-  body.innerHTML = '<div id="modal-templates-list" style="max-height:60vh; overflow-y:auto;"></div>';
   submit.style.display = "none";
 
-  // Temporarily redirect loadTemplatesSegment
-  const realContainer = document.getElementById("console-templates-list");
-  const modalContainer = document.getElementById("modal-templates-list");
-  if (realContainer) realContainer.id = "console-templates-list-backup";
-  modalContainer.id = "console-templates-list";
+  // Build templates HTML directly into the modal body
+  const all = getAllTemplates();
+  const customTemplates = getCustomTemplates();
+  const builtInTemplates = getBuiltInTemplates();
+  const hiddenIds = getHiddenBuiltInIds();
+  const visibleBuiltIns = builtInTemplates.filter((t) => !hiddenIds.has(t.id));
+  const allBuiltInsHidden = visibleBuiltIns.length === 0;
 
-  loadTemplatesSegment();
+  let html = '<div style="max-height:60vh; overflow-y:auto;">';
 
-  // Restore IDs
-  modalContainer.id = "modal-templates-list";
-  if (realContainer) realContainer.id = "console-templates-list";
+  // Custom templates
+  html += '<div style="margin-top:8px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Custom Templates</div>';
+  html += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;">';
+  html += '<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.refreshTemplatesFromSheet()"><i class="fas fa-sync-alt"></i> Refresh</button>';
+  html += '<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportAllTemplatesJSON()"><i class="fas fa-download"></i> Export All</button>';
+  html += '<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--primary);" onclick="window.openImportTemplatesModal()"><i class="fas fa-upload"></i> Import</button>';
+  html += '</div>';
+
+  if (customTemplates.length) {
+    html += customTemplates.map((t) => {
+      return `<div class="card" style="cursor: default; margin-bottom:8px;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><strong style="font-size:16px;">${escapeHtml(t.name)}</strong><span style="font-size:10px; background:var(--primary); color:#fff; padding:2px 6px; border-radius:4px; text-transform:uppercase;">Custom</span></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:#495057;" onclick="openEditTemplateModal('${escapeAttr(t.id)}')"><i class="fas fa-edit"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.exportSingleTemplateJSON('${escapeAttr(t.id)}')"><i class="fas fa-download"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
+    }).join("");
+  } else {
+    html += '<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">No custom templates.</p>';
+  }
+
+  // Built-in templates
+  html += '<div style="margin-top:16px; font-size:13px; font-weight:800; text-transform:uppercase; color:var(--muted);">Built-in Templates</div>';
+  if (allBuiltInsHidden) {
+    html += '<p style="text-align:center; padding:12px; color:var(--muted); font-size:13px;">All built-in templates are hidden.<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; margin-left:8px;" onclick="window.showAllBuiltInTemplates()"><i class="fas fa-eye"></i> Show All</button></p>';
+  } else {
+    html += `<div style="display:flex; justify-content:space-between; align-items:center; margin:8px 0;"><span style="font-size:12px; color:var(--muted);">${visibleBuiltIns.length} of ${builtInTemplates.length} shown</span><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.hideAllBuiltInTemplates()"><i class="fas fa-eye-slash"></i> Hide All</button></div>`;
+    html += visibleBuiltIns.map((t) => {
+      return `<div class="card" style="cursor: default; margin-bottom:8px;"><div style="display:flex; justify-content:space-between; align-items:start; gap:12px;"><div style="flex:1;"><div style="display:flex; align-items:center; gap:8px;"><div style="width:18px; flex-shrink:0;"></div><strong style="font-size:16px;">${escapeHtml(t.name)}</strong></div><div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(t.description)}</div><div style="font-size:11px; color:var(--muted); margin-top:4px;">${t.items.length} items</div></div><div style="display:flex; gap:6px; flex-shrink:0;"><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="previewTemplate('${escapeAttr(t.id)}')"><i class="fas fa-eye"></i></button><button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px;" onclick="applyTemplateToProject('${escapeAttr(t.id)}')"><i class="fas fa-check"></i> Apply</button></div></div></div>`;
+    }).join("");
+  }
+
+  html += '</div>';
+  body.innerHTML = html;
 }
 
 function openTakeOffGroupModal(groupId) {
