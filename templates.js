@@ -472,7 +472,7 @@ function openEditTemplateModal(id) {
       if (description)
         newItems.push({
           roomArea: inputs[0].value.trim(),
-          tradeCategory: inputs[1].value.trim(),
+          // tradeCategory: inputs[1].value.trim(),
           description: description,
           unit: inputs[3].value.trim() || "pcs",
           quantity: 0,
@@ -660,11 +660,13 @@ async function applyTemplateToProject(templateId) {
     submit.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saving…`;
 
     // Build line items in Take-Off format (description, qty, unit only)
-    const lineItems = selected.map((row) => ({
-      description: row.querySelector(".to-line-desc").value.trim(),
-      qty: Number(row.querySelector(".to-line-qty").value) || 0,
-      unit: row.querySelector(".to-line-unit").value,
-    })).filter((item) => item.description);
+    const lineItems = selected
+      .map((row) => ({
+        description: row.querySelector(".to-line-desc").value.trim(),
+        qty: Number(row.querySelector(".to-line-qty").value) || 0,
+        unit: row.querySelector(".to-line-unit").value,
+      }))
+      .filter((item) => item.description);
 
     if (!lineItems.length) {
       alert("No valid items to save");
@@ -691,7 +693,9 @@ async function applyTemplateToProject(templateId) {
       if (typeof loadTakeOff2Listings === "function") {
         await loadTakeOff2Listings(true);
       }
-      showSyncToast(`✅ ${lineItems.length} item${lineItems.length !== 1 ? "s" : ""} added to Take-Off from "${t.name}"`);
+      showSyncToast(
+        `✅ ${lineItems.length} item${lineItems.length !== 1 ? "s" : ""} added to Take-Off from "${t.name}"`,
+      );
     } catch (e) {
       submit.disabled = false;
       submit.innerText = "Add Selected Items";
