@@ -472,7 +472,7 @@ function openEditTemplateModal(id) {
       if (description)
         newItems.push({
           roomArea: inputs[0].value.trim(),
-          // tradeCategory: inputs[1].value.trim(),
+          tradeCategory: inputs[1].value.trim(),
           description: description,
           unit: inputs[3].value.trim() || "pcs",
           quantity: 0,
