@@ -1,3 +1,52 @@
+// ===== SAFETY NET: Ensure progress log functions are always defined =====
+if (typeof window.deleteProgressLog === "undefined") {
+  window.deleteProgressLog = async function (logId) {
+    console.warn("deleteProgressLog fallback called");
+    if (!confirm("Delete this progress log?")) return;
+    try {
+      await callApi("deleteProgressLog", { logId });
+      const cache = getCache();
+      cache.progressLogs = (cache.progressLogs || []).filter(
+        (l) => l.logId !== logId,
+      );
+      setCache(cache);
+      loadProgressTimelineFeed(true);
+      showSyncToast("✅ Progress log deleted");
+    } catch (e) {
+      alert("Failed to delete: " + (e.message || "Unknown error"));
+    }
+  };
+}
+
+if (typeof window.updateProgressLog === "undefined") {
+  window.updateProgressLog = async function (logId, data) {
+    console.warn("updateProgressLog fallback called");
+    try {
+      const payload = {
+        logId,
+        projectId: getCurrentProjectId(),
+        tradeCategory: data.tradeCategory,
+        completionPercentage: data.completionPercentage,
+        commentNarrative: data.commentNarrative,
+        progressPhotoUrl: data.progressPhotoUrl || "",
+      };
+      await callApi("updateProgressLog", payload);
+      const cache = getCache();
+      const idx = (cache.progressLogs || []).findIndex(
+        (l) => l.logId === logId,
+      );
+      if (idx !== -1) {
+        cache.progressLogs[idx] = { ...cache.progressLogs[idx], ...payload };
+        setCache(cache);
+      }
+      loadProgressTimelineFeed(true);
+      showSyncToast("✅ Progress log updated");
+    } catch (e) {
+      alert("Failed to update: " + (e.message || "Unknown error"));
+    }
+  };
+}
+
 // ===== app.js =====
 let appStarted = false;
 let suppressPageRefresh = false;

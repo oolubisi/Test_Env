@@ -1,4 +1,4 @@
-const CACHE_NAME = "fieldscan-pro-v15";
+const CACHE_NAME = "fieldscan-pro-v16";
 const urlsToCache = [
   "./",
   "./index.html",
@@ -36,10 +36,10 @@ self.addEventListener("install", (event) => {
         urlsToCache.map((url) =>
           cache.add(url).catch((err) => {
             console.warn("SW: failed to cache", url, err);
-          })
-        )
+          }),
+        ),
       );
-    })
+    }),
   );
   self.skipWaiting();
 });
