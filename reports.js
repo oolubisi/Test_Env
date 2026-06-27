@@ -1019,22 +1019,18 @@ async function compileFieldReport(btn) {
 }
 // ===== PCR REPORT =====
 function renderPcrReport(project, variations, payments) {
-  // Calculate financials
+  // ── Financials ───────────────────────────────────────────────────────────
   const subtotal = roundMoney(Number(project.contractSubtotal) || 0);
   const vat = calculateTax(subtotal, "VAT");
   const wht = calculateTax(subtotal, "WHT");
   const totalContract = roundMoney(subtotal + vat);
   const netReceivable = roundMoney(totalContract - wht);
 
-  // Get payment totals
   const groups = getAllPaymentGroups(project.projectId);
   let totalReceived = 0,
     totalOutgoing = 0,
     smallExpenses = 0,
     totalPending = 0;
-  let openSnags = 0,
-    closedSnags = 0;
-
   groups.forEach((g) => {
     if (g.direction === "Client Receipt") totalReceived += g.paymentsToDate;
     else if (g.direction === "Small Expense") smallExpenses += g.paymentsToDate;
@@ -1043,21 +1039,6 @@ function renderPcrReport(project, variations, payments) {
       totalPending += g.balance;
     }
   });
-
-  // Get snags for this project
-  const cache = getCache();
-  const projectSnags = (cache.snags || []).filter(
-    (s) => s.projectId === project.projectId,
-  );
-  openSnags = projectSnags.filter((s) => s.status !== "Completed").length;
-  closedSnags = projectSnags.filter((s) => s.status === "Completed").length;
-
-  // Get work orders for this project
-  const projectWorkOrders = (cache.workorders || []).filter(
-    (w) => w.projectId === project.projectId,
-  );
-  const workOrderCount = projectWorkOrders.length;
-
   totalReceived = roundMoney(totalReceived);
   totalOutgoing = roundMoney(totalOutgoing);
   smallExpenses = roundMoney(smallExpenses);
@@ -1067,7 +1048,20 @@ function renderPcrReport(project, variations, payments) {
     totalReceived - totalOutgoing - smallExpenses - totalPending,
   );
 
-  // Get PCR fields from project
+  // ── Snags & work orders ──────────────────────────────────────────────────
+  const cache = getCache();
+  const projectSnags = (cache.snags || []).filter(
+    (s) => s.projectId === project.projectId,
+  );
+  const openSnags = projectSnags.filter((s) => s.status !== "Completed").length;
+  const closedSnags = projectSnags.filter(
+    (s) => s.status === "Completed",
+  ).length;
+  const workOrderCount = (cache.workorders || []).filter(
+    (w) => w.projectId === project.projectId,
+  ).length;
+
+  // ── PCR narrative fields ─────────────────────────────────────────────────
   const pcrStatus =
     project.pcrStatus || project.projectStatus || "Substantially Complete";
   const pcrCompletion = project.pcrCompletion || "0%";
@@ -1077,165 +1071,204 @@ function renderPcrReport(project, variations, payments) {
   const pcrDeclaration =
     project.pcrDeclaration ||
     "This report confirms that the project works recorded for the above project have reached substantially complete status, subject to any open snags noted in FieldScan Pro.";
-
-  // Calculate completion percentage for display
   const completionPct = parseFloat(pcrCompletion) || 0;
 
-  // Get settings for logo and signature
-  const settings = cache.settings || {};
+  // ── Settings (logo / signature) ──────────────────────────────────────────
+  const settings =
+    cache.settings && cache.settings.data
+      ? cache.settings.data
+      : cache.settings || {};
   const logoUrl = settings.Logo ? getDirectImageUrl(settings.Logo) : "";
   const signImageUrl = settings.Sign_Signed
     ? getDirectImageUrl(settings.Sign_Signed)
     : "";
-  const signatoryName = settings.Name_Signed || "Kayode Olubisi";
+  const signatoryName = settings.Name_Signed || "";
 
-  // Check if WHT should be shown
+  // ── WHT toggle ───────────────────────────────────────────────────────────
   const showWht =
     document.getElementById("rep-pcr-show-wht")?.checked !== false;
 
-  // Build the report HTML
+  // ── Date ─────────────────────────────────────────────────────────────────
   const dateStr = new Date().toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
 
-  // Financial snapshot HTML
-  let financialHtml = `
-    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px;">
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Contract Value</div>
-        <div style="font-size: 18px; font-weight: 900;">₦${moneyValue(totalContract)}</div>
-      </div>
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Client Receipts</div>
-        <div style="font-size: 18px; font-weight: 900; color: var(--success, #28a745);">₦${moneyValue(totalReceived)}</div>
-      </div>
-      <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Balance Expected</div>
-        <div style="font-size: 18px; font-weight: 900; color: ${balanceExpected > 0 ? "var(--primary, #0056b3)" : "var(--success, #28a745)"};">₦${moneyValue(balanceExpected)}</div>
-      </div>
-    </div>
-  `;
+  // ── Financial table (mirrors PDF table style: label | value rows) ────────
+  // Core rows always shown
+  const finRows = [
+    { label: "Contract Value", value: moneyValue(totalContract), bold: false },
+    { label: "Client Receipts", value: moneyValue(totalReceived), bold: false },
+    {
+      label: "Balance Expected",
+      value: moneyValue(balanceExpected),
+      bold: true,
+    },
+  ];
+  // Optional WHT block appended as additional rows when toggled on
+  const whtRows = showWht
+    ? [
+        {
+          label: `VAT (${formatTaxRate(getTaxRate("VAT"))})`,
+          value: moneyValue(vat),
+          bold: false,
+        },
+        {
+          label: `WHT (${formatTaxRate(getTaxRate("WHT"))})`,
+          value: moneyValue(wht),
+          bold: false,
+        },
+        {
+          label: "Net Receivable (after WHT)",
+          value: moneyValue(netReceivable),
+          bold: true,
+        },
+        { label: "Net Profit", value: moneyValue(netProfit), bold: true },
+      ]
+    : [];
 
-  // Add WHT row if enabled
-  if (showWht) {
-    financialHtml += `
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px;">
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 8px 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">VAT</div>
-          <div style="font-size: 14px; font-weight: 700;">₦${moneyValue(vat)}</div>
-        </div>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 8px 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">WHT</div>
-          <div style="font-size: 14px; font-weight: 700;">₦${moneyValue(wht)}</div>
-        </div>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 8px 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Net Profit</div>
-          <div style="font-size: 14px; font-weight: 700; color: ${netProfit >= 0 ? "var(--success, #28a745)" : "var(--danger, #dc3545)"};">₦${moneyValue(netProfit)}</div>
-        </div>
-      </div>
-    `;
-  }
+  const allFinRows = [...finRows, ...whtRows];
 
+  const finTableRows = allFinRows
+    .map(
+      (r) => `
+    <tr>
+      <td style="
+        padding: 7px 10px;
+        font-size: 11px;
+        border-bottom: 1px solid #dee2e6;
+        font-weight: ${r.bold ? "900" : "600"};
+        ${r.bold ? "border-top: 1.5px solid #adb5bd;" : ""}
+      ">${escapeHtml(r.label)}</td>
+      <td style="
+        padding: 7px 10px;
+        font-size: 11px;
+        text-align: right;
+        border-bottom: 1px solid #dee2e6;
+        font-weight: ${r.bold ? "900" : "700"};
+        ${r.bold ? "border-top: 1.5px solid #adb5bd;" : ""}
+      ">₦${r.value}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const financialHtml = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 11px; border: 1px solid #dee2e6;">
+      <tbody>${finTableRows}</tbody>
+    </table>`;
+
+  // ── Metric card helper ───────────────────────────────────────────────────
+  const metricCard = (value, label, valueColor) => `
+    <div style="
+      border: 1px solid #dee2e6;
+      padding: 10px 8px;
+      text-align: center;
+      background: #fff;
+    ">
+      <div style="font-size: 26px; font-weight: 900; line-height: 1; ${valueColor ? "color:" + valueColor + ";" : ""}">${value}</div>
+      <div style="font-size: 9px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 4px; letter-spacing: 0.5px;">${label}</div>
+    </div>`;
+
+  // ── Render ───────────────────────────────────────────────────────────────
   return `
-    <div class="pcr-report" style="
+    <div class="report-page-wrapper pcr-report" style="
       position: relative;
       min-height: calc(297mm - 30mm);
       background: white;
-      font-family: 'Inter', 'Segoe UI', sans-serif;
-      font-size: 12pt;
+      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+      font-size: 11pt;
       color: #000;
-      padding: 15mm 15mm 20mm 15mm;
       box-sizing: border-box;
     ">
-      
-      <!-- HEADER: Logo and Title -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-        <div style="flex:1;">
-          <div style="font-size: 11px; color: #495057; font-weight: 600; margin-bottom: 4px;">${escapeHtml(dateStr)}</div>
-          <h1 style="font-size: 24px; font-weight: 900; margin: 0; letter-spacing: -0.5px; color: #000;">PROJECT COMPLETION REPORT</h1>
-          <div style="font-size: 14px; font-weight: 700; color: #495057; margin-top: 2px;">PCR/${escapeHtml(project.projectId)}</div>
+      <div class="report-content" style="padding-bottom: 24mm;">
+
+        <!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+          <div style="flex: 1;">
+            <div style="font-size: 10px; color: #495057; font-weight: 600; margin-bottom: 6px;">${escapeHtml(dateStr)}</div>
+            <h1 style="font-size: 22px; font-weight: 900; margin: 0 0 3px 0; letter-spacing: -0.3px; color: #000;">PROJECT COMPLETION REPORT</h1>
+            <div style="font-size: 12px; font-weight: 700; color: #495057;">PCR / ${escapeHtml(project.projectId)}</div>
+          </div>
+          ${logoUrl ? `<div style="flex-shrink: 0; margin-left: 20px; text-align: right;"><img src="${escapeAttr(logoUrl)}" style="max-height: 90px; max-width: 160px; object-fit: contain;" onerror="this.style.display='none'"></div>` : ""}
         </div>
-        ${logoUrl ? `<div style="flex-shrink:0; margin-left:16px;"><img src="${escapeAttr(logoUrl)}" style="max-height:120px; max-width:180px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
-      </div>
 
-      <!-- DIVIDER -->
-      <div style="border-top: 2.5px solid #000; margin: 8px 0 16px 0;"></div>
+        <!-- Thick divider -->
+        <div style="border-top: 2.5px solid #000; margin: 8px 0 14px 0;"></div>
 
-      <!-- PROJECT INFO -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px; font-size: 12px; line-height: 1.8; margin-bottom: 16px;">
-        <div><strong>Client:</strong> ${escapeHtml(project.clientName || "—")}</div>
-        <div><strong>Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div>
-        <div><strong>Site Location:</strong> ${escapeHtml(project.siteLocation || "—")}</div>
-        <div><strong>Project Status:</strong> ${escapeHtml(pcrStatus)}</div>
-      </div>
+        <!-- ══ PROJECT INFO (table style matching PDF) ══════════════════════ -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 14px;">
+          <tbody>
+            <tr>
+              <td style="padding: 5px 0; font-weight: 700; width: 30%;">Client</td>
+              <td style="padding: 5px 0;">${escapeHtml(project.clientName || "—")}</td>
+              <td style="padding: 5px 0; font-weight: 700; width: 30%;">Project ID</td>
+              <td style="padding: 5px 0;">${escapeHtml(project.projectId || "—")}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; font-weight: 700;">Site Location</td>
+              <td style="padding: 5px 0;">${escapeHtml(project.siteLocation || "—")}</td>
+              <td style="padding: 5px 0; font-weight: 700;">Client Phone</td>
+              <td style="padding: 5px 0;">${escapeHtml(project.clientPhone || "—")}</td>
+            </tr>
+            <tr>
+              <td style="padding: 5px 0; font-weight: 700;">Project Status</td>
+              <td style="padding: 5px 0;" colspan="3">${escapeHtml(pcrStatus)}</td>
+            </tr>
+          </tbody>
+        </table>
 
-      <!-- COMPLETION METRICS CARDS -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 28px; font-weight: 900;">${completionPct}%</div>
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">COMPLETION</div>
+        <!-- ══ METRIC CARDS ══════════════════════════════════════════════════ -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+          ${metricCard(completionPct + "%", "Completion")}
+          ${metricCard(openSnags, "Open Snags", openSnags > 0 ? "#dc3545" : null)}
+          ${metricCard(closedSnags, "Closed Snags", closedSnags > 0 ? "#28a745" : null)}
+          ${metricCard(pcrStatus, "Status")}
         </div>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 28px; font-weight: 900; color: var(--danger, #dc3545);">${openSnags}</div>
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">OPEN SNAGS</div>
+
+        <!-- ══ TWO-COLUMN BODY: Summary + Financials ════════════════════════ -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
+
+          <!-- Completion Summary -->
+          <div>
+            <h2 style="font-size: 12px; font-weight: 900; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1.5px solid #000; padding-bottom: 4px;">Completion Summary</h2>
+            <p style="font-size: 11px; line-height: 1.65; margin: 6px 0 0 0;">${escapeHtml(pcrSummary)}</p>
+          </div>
+
+          <!-- Financial Snapshot -->
+          <div>
+            <h2 style="font-size: 12px; font-weight: 900; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1.5px solid #000; padding-bottom: 4px;">Financial Snapshot</h2>
+            ${financialHtml}
+          </div>
+
         </div>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 28px; font-weight: 900; color: var(--success, #28a745);">${closedSnags}</div>
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">CLOSED SNAGS</div>
+
+        <!-- ══ COMPLETION DECLARATION ════════════════════════════════════════ -->
+        <div style="
+          border: 1px solid #dee2e6;
+          border-radius: 4px;
+          padding: 12px 14px;
+          margin-bottom: 20px;
+          background: #fff;
+        ">
+          <div style="font-size: 11px; font-weight: 900; margin-bottom: 6px;">Completion Declaration</div>
+          <p style="font-size: 11px; line-height: 1.65; margin: 0;">${escapeHtml(pcrDeclaration)}</p>
         </div>
-        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
-          <div style="font-size: 28px; font-weight: 900;">${workOrderCount}</div>
-          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">WORK ORDERS</div>
+
+        <!-- ══ SIGNATURE BLOCK ════════════════════════════════════════════════ -->
+        <div style="margin-top: 20px; page-break-inside: avoid;">
+          <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #495057; letter-spacing: 0.5px; margin-bottom: 10px;">Project Sign-Off</div>
+          <div style="display: inline-block; text-align: center;">
+            ${signImageUrl ? `<div style="margin-bottom: 2px;"><img src="${escapeAttr(signImageUrl)}" style="max-height: 48px; max-width: 160px; object-fit: contain;" onerror="this.style.display='none'"></div>` : `<div style="height: 40px;"></div>`}
+            <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 5px auto;"></div>
+            <div style="font-size: 11px; font-weight: 700;">${escapeHtml(signatoryName || "_________________________")}</div>
+          </div>
         </div>
-      </div>
 
-      <!-- COMPLETION SUMMARY -->
-      <div style="margin-bottom: 16px;">
-        <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1px solid #000; padding-bottom: 4px;">Completion Summary</h2>
-        <p style="font-size: 12px; line-height: 1.6; margin: 6px 0 0 0;">${escapeHtml(pcrSummary)}</p>
-      </div>
+      </div><!-- /report-content -->
 
-      <!-- FINANCIAL SNAPSHOT -->
-      <div style="margin-bottom: 16px;">
-        <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1px solid #000; padding-bottom: 4px;">Financial Snapshot</h2>
-        ${financialHtml}
-      </div>
-
-      <!-- COMPLETION DECLARATION -->
-      <div style="margin-bottom: 20px;">
-        <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 0 0 4px 0; border-bottom: 1px solid #000; padding-bottom: 4px;">Completion Declaration</h2>
-        <p style="font-size: 12px; line-height: 1.6; margin: 6px 0 0 0;">${escapeHtml(pcrDeclaration)}</p>
-      </div>
-
-      <!-- SIGNATURE BLOCK -->
-      <div style="margin-top: 24px; page-break-inside: avoid;">
-        <h2 style="font-size: 12px; font-weight: 900; text-transform: uppercase; margin: 0 0 8px 0; color: #495057;">Project Sign-Off</h2>
-        <div style="display: inline-block; text-align: center;">
-          ${signImageUrl ? `<div style="margin-bottom: 2px;"><img src="${escapeAttr(signImageUrl)}" style="max-height:50px; max-width:180px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
-          <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
-          <div style="font-size: 12px; font-weight: 700;">${escapeHtml(signatoryName)}</div>
-          <div style="font-size: 10px; color: #6c757d; margin-top: 2px;">Authorized Signatory</div>
-        </div>
-      </div>
-
-      <!-- FOOTER -->
-      <div style="
-        position: absolute;
-        bottom: 12mm;
-        left: 15mm;
-        right: 15mm;
-        border-top: 1px solid #adb5bd;
-        padding-top: 6px;
-        text-align: center;
-        font-size: 8pt;
-        color: #6c757d;
-        line-height: 1.6;
-      ">
-        <div style="font-weight: 600;">FieldScan Pro — Project Completion Report</div>
-        <div>Generated on ${escapeHtml(dateStr)}</div>
-      </div>
+      <!-- ══ FOOTER ══════════════════════════════════════════════════════════ -->
+      ${generateReportFooter()}
 
     </div>
   `;
