@@ -1188,7 +1188,7 @@ function renderPcrReport(project, variations, payments) {
             <h1 style="font-size: 22px; font-weight: 900; margin: 0 0 3px 0; letter-spacing: -0.3px; color: #000;">PROJECT COMPLETION REPORT</h1>
             <div style="font-size: 12px; font-weight: 700; color: #495057;">PCR / ${escapeHtml(project.projectId)}</div>
           </div>
-          ${logoUrl ? `<div style="flex-shrink: 0; margin-left: 20px; text-align: right;"><img src="${escapeAttr(logoUrl)}" style="max-height: 90px; max-width: 160px; object-fit: contain;" onerror="this.style.display='none'"></div>` : ""}
+          ${logoUrl ? '<div style="flex-shrink: 0; margin-left: 20px; text-align: right;"><img src="' + escapeAttr(logoUrl) + '" style="max-height: 90px; max-width: 160px; object-fit: contain;" onerror="this.style.display=\'none\'"></div>' : ""}
         </div>
 
         <!-- Thick divider -->
@@ -1257,7 +1257,7 @@ function renderPcrReport(project, variations, payments) {
         <div style="margin-top: 20px; page-break-inside: avoid;">
           <div style="font-size: 10px; font-weight: 900; text-transform: uppercase; color: #495057; letter-spacing: 0.5px; margin-bottom: 10px;">Project Sign-Off</div>
           <div style="display: inline-block; text-align: center;">
-            ${signImageUrl ? `<div style="margin-bottom: 2px;"><img src="${escapeAttr(signImageUrl)}" style="max-height: 48px; max-width: 160px; object-fit: contain;" onerror="this.style.display='none'"></div>` : `<div style="height: 40px;"></div>`}
+            ${signImageUrl ? '<div style="margin-bottom: 2px;"><img src="' + escapeAttr(signImageUrl) + '" style="max-height: 48px; max-width: 160px; object-fit: contain;" onerror="this.style.display=\'none\'"></div>' : '<div style="height: 40px;"></div>'}
             <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 5px auto;"></div>
             <div style="font-size: 11px; font-weight: 700;">${escapeHtml(signatoryName || "_________________________")}</div>
           </div>
