@@ -1,32 +1,828 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0056b3" />
-    <meta name="description" content="FieldScan Pro - Construction Management PWA" />
-    <!-- iOS PWA meta tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="FieldScan Pro" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/icon-192x192.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <!-- Inter font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet" />
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes"
+    />
     <title>FieldScan Pro</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <!-- Report generation libraries -->
+    <link rel="manifest" href="manifest.json" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <link rel="stylesheet" href="style.css?v=11" />
+    <base target="_blank" />
+    <base target="_blank" />
+  </head>
+  <body>
+    <div class="main">
+      <!-- Top Bar -->
+      <div class="page-header">
+        <div class="header-group">
+          <button class="home-btn" onclick="showPage('dashboard')">
+            <i class="fas fa-home"></i>
+          </button>
+          <h2>FieldScan<span style="font-weight: 400"> Pro</span></h2>
+        </div>
+        <div
+          id="sync-status"
+          style="
+            background: #000;
+            color: #fff;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 800;
+            display: none;
+          "
+        ></div>
+        <button
+          id="pwa-install-btn"
+          class="action-btn"
+          style="
+            width: auto;
+            padding: 8px 14px;
+            font-size: 12px;
+            border-radius: 20px;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: var(--primary);
+          "
+        >
+          <i class="fas fa-download"></i> Install App
+        </button>
+      </div>
+
+      <!-- Segment Bar -->
+      <div class="segment-bar">
+        <button class="segment-btn" onclick="showPage('dashboard')">
+          <i class="fas fa-chart-line"></i> Projects
+        </button>
+        <button class="segment-btn" onclick="showPage('vendors')">
+          <i class="fas fa-truck"></i> Vendors
+        </button>
+        <button class="segment-btn" onclick="showPage('accounts')">
+          <i class="fas fa-file-invoice-dollar"></i> Accounts
+        </button>
+        <button class="segment-btn" onclick="showPage('reports')">
+          <i class="fas fa-file-alt"></i> Reports
+        </button>
+        <button
+          id="sync-now-btn"
+          class="segment-btn sync-btn"
+          onclick="triggerManualSync()"
+        >
+          <i class="fas fa-sync-alt"></i> Sync Now
+          <span
+            id="sync-pending-badge"
+            class="sync-count-badge"
+            style="display: none"
+            >0</span
+          >
+        </button>
+        <button
+          id="refresh-data-btn"
+          class="segment-btn"
+          onclick="refreshAllData()"
+        >
+          <i class="fas fa-database"></i> Refresh
+        </button>
+        <button class="segment-btn" onclick="showPage('letterhead')">
+          <i class="fas fa-envelope"></i> Letterhead
+        </button>
+      </div>
+
+      <!-- Dashboard View (Projects) -->
+      <div id="view-dashboard" class="page-view active-view">
+        <div style="display: flex; gap: 10px; margin-bottom: 15px">
+          <input
+            type="text"
+            id="search-projects"
+            placeholder="Search client or project ID..."
+            style="flex: 1; font-size: 16px"
+          />
+          <button
+            class="action-btn"
+            style="width: auto; padding: 0 20px"
+            onclick="openModal('project', null)"
+          >
+            <i class="fas fa-plus"></i> New
+          </button>
+        </div>
+        <div id="project-master-list"></div>
+      </div>
+
+      <!-- Vendors View -->
+      <div id="view-vendors" class="page-view">
+        <div
+          style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap"
+        >
+          <input
+            type="text"
+            id="search-vendor"
+            placeholder="Search vendor..."
+            style="flex: 2; font-size: 16px"
+          />
+          <select
+            id="filter-vendor-trade"
+            style="flex: 1; font-size: 16px"
+          ></select>
+          <button
+            class="action-btn"
+            style="width: auto; padding: 0 20px"
+            onclick="openModal('vendor', null)"
+          >
+            <i class="fas fa-plus"></i> Add
+          </button>
+        </div>
+        <div id="vendor-master-list"></div>
+      </div>
+
+      <!-- Accounts View -->
+      <div id="view-accounts" class="page-view">
+        <div class="card">
+          <label>Select Project</label>
+          <select
+            id="accounts-project-sel"
+            onchange="updateAccountsSummary()"
+          ></select>
+        </div>
+        <div class="card" id="accounts-summary-card">
+          <div class="accounts-row">
+            <span>Contract Subtotal</span>
+            <span class="accounts-amount" id="acc-contract-subtotal"
+              >₦0.00</span
+            >
+          </div>
+          <div class="accounts-row">
+            <span>Total of Client Receipts</span>
+            <span
+              class="accounts-amount accounts-green"
+              id="acc-client-receipts"
+              >₦0.00</span
+            >
+          </div>
+          <div class="accounts-row">
+            <span>Total Outgoing</span>
+            <span class="accounts-amount accounts-red" id="acc-total-outgoing"
+              >₦0.00</span
+            >
+          </div>
+          <div class="accounts-row">
+            <span>Small Expenses</span>
+            <span class="accounts-amount" id="acc-small-expenses">₦0.00</span>
+          </div>
+          <div class="accounts-row">
+            <span>Pending Payments</span>
+            <span
+              class="accounts-amount accounts-orange"
+              id="acc-pending-payments"
+              >₦0.00</span
+            >
+          </div>
+          <div style="border-top: 1px solid var(--border); margin: 8px 0"></div>
+          <div class="accounts-row">
+            <span>Balance Expected</span>
+            <span class="accounts-amount" id="acc-balance-expected">₦0.00</span>
+          </div>
+          <div class="accounts-row">
+            <span>Net Profit</span>
+            <span class="accounts-amount" id="acc-net-profit">₦0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reports View -->
+      <div id="view-reports" class="page-view">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0; font-size:18px; font-weight:800;"><i class="fas fa-chart-bar"></i> Reports</h3>
+            <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.openPrintLayoutsPage()">
+              <i class="fas fa-paint-brush"></i> Layouts
+            </button>
+          </div>
+          <label>Report Type</label>
+          <select id="rep-type-sel" onchange="handleReportScopePopulation()">
+            <option value="">-- Select Report --</option>
+            <option value="financial_all">
+              Financial Summary (All Projects)
+            </option>
+            <option value="financial_project">
+              Financial Report (Project)
+            </option>
+            <option value="financial_client">Financial Report (Client)</option>
+            <option value="financial_vendor">Financial Report (Vendor)</option>
+            <option value="scope">Project Scope</option>
+            <option value="snags">Snags Report</option>
+            <option value="progress">Progress Report</option>
+            <option value="pcr">Project Completion Report (PCR)</option>
+            <option value="takeoff">Take-Off Report</option>
+            <option value="workorder_report">Work Orders</option>
+          </select>
+
+          <label>Scope</label>
+          <select id="rep-scope-sel" onchange="handleReportFilterPopulation()">
+            <option value="all">All Projects</option>
+            <option value="project">Specific Project</option>
+            <option value="client">Specific Client</option>
+            <option value="vendor">Specific Vendor</option>
+          </select>
+
+          <div id="rep-filter-wrap" style="margin-top: 10px; display: none">
+            <label id="rep-filter-label">Select</label>
+            <select id="rep-filter-sel"></select>
+          </div>
+          <div id="rep-workorder-wrap" style="margin-top: 10px; display: none">
+            <label>Select Work Order</label>
+            <select id="rep-workorder-sel"></select>
+          </div>
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-top: 12px;
+              font-weight: 800;
+            "
+          >
+            <input
+              type="checkbox"
+              id="rep-include-signature"
+              checked
+              style="width: auto"
+            />
+            Include signature block
+          </label>
+
+          <div
+            id="rep-orientation-wrap"
+            style="margin-top: 10px; display: none"
+          >
+            <label>Paper Orientation</label>
+            <select
+              id="rep-orientation-sel"
+              style="
+                width: 100%;
+                padding: 14px;
+                font-size: 16px;
+                border-radius: 12px;
+                border: 1.5px solid var(--border);
+              "
+            >
+              <option value="portrait">Portrait (A4)</option>
+              <option value="landscape">Landscape (A4)</option>
+            </select>
+          </div>
+          <button class="action-btn" onclick="compileFieldReport(this)">
+            <i class="fas fa-file-alt"></i> Generate Report
+          </button>
+        </div>
+        <div
+          id="report-onscreen-preview-card"
+          class="card"
+          style="display: none"
+        >
+          <div id="report-preview-viewport"></div>
+          <div
+            style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap"
+          >
+            <button
+              class="action-btn"
+              style="flex: 1; min-width: 120px"
+              onclick="saveReportPDF()"
+            >
+              <i class="fas fa-file-pdf"></i> Save PDF
+            </button>
+            <button class="action-btn" onclick="shareReport()">
+              <i class="fas fa-share-alt"></i> Share
+            </button>
+          </div>
+        </div>
+        <div id="report-print-container" style="display: none"></div>
+      </div>
+
+      <!-- Print Layouts View -->
+      <div id="view-print-layouts" class="page-view">
+        <div id="print-layouts-container" style="padding:0;"></div>
+      </div>
+
+      <!-- Letterhead View -->
+      <div id="view-letterhead" class="page-view">
+        <div class="card">
+          <h3 style="margin-bottom: 15px; font-size: 18px; font-weight: 800">
+            <i class="fas fa-envelope"></i> Letter Editor
+          </h3>
+          <label>Date</label>
+          <input type="text" id="letter-date" placeholder="e.g. 21 June 2026" />
+          <label>Client Name</label>
+          <input
+            type="text"
+            id="letter-client-name"
+            placeholder="Client name"
+          />
+          <label>Client Address</label>
+          <textarea
+            id="letter-client-address"
+            rows="2"
+            placeholder="Client address"
+          ></textarea>
+          <label>Salutation</label>
+          <input type="text" id="letter-salutation" value="Dear Sir/Madam," />
+          <label>Title</label>
+          <input
+            type="text"
+            id="letter-title"
+            placeholder="Letter title / subject"
+            style="font-size: 18px; font-weight: 700"
+          />
+          <label>Body</label>
+          <textarea
+            id="letter-body"
+            rows="8"
+            placeholder="Type the body of your letter here..."
+          ></textarea>
+          <label>Signatory Name</label>
+          <input
+            type="text"
+            id="letter-signatory"
+            placeholder="e.g. John Doe"
+          />
+          <label>Signatory Title</label>
+          <input
+            type="text"
+            id="letter-signatory-title"
+            placeholder="e.g. Managing Director"
+          />
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-top: 12px;
+              font-weight: 800;
+            "
+          >
+            <input
+              type="checkbox"
+              id="letter-include-signature"
+              checked
+              style="width: auto"
+            />
+            Include signature block
+          </label>
+          <button
+            class="action-btn"
+            style="margin-top: 15px"
+            onclick="printLetterhead()"
+          >
+            <i class="fas fa-print"></i> Print Letter
+          </button>
+        </div>
+        <div
+          id="letterhead-preview-card"
+          class="card"
+          style="display: none; background: white"
+        >
+          <div id="letterhead-preview"></div>
+          <div
+            style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap"
+          >
+            <button
+              class="action-btn"
+              style="flex: 1; min-width: 120px"
+              onclick="saveLetterheadPDF()"
+            >
+              <i class="fas fa-file-pdf"></i> Save PDF
+            </button>
+            <button class="action-btn" onclick="shareLetterheadPDF()">
+              <i class="fas fa-share-alt"></i> Share
+            </button>
+          </div>
+        </div>
+        <div id="letterhead-print-container" style="display: none"></div>
+      </div>
+
+      <!-- Project Console -->
+      <div id="view-project-console" class="page-view">
+        <div
+          class="page-header"
+          style="margin-bottom: 10px; padding-bottom: 10px"
+        >
+          <div>
+            <button
+              class="home-btn"
+              onclick="showPage('dashboard')"
+              style="width: 40px; height: 40px"
+            >
+              <i class="fas fa-arrow-left"></i>
+            </button>
+          </div>
+          <div style="text-align: right">
+            <div
+              id="console-title-text"
+              style="font-weight: 800; font-size: 20px"
+            ></div>
+            <button
+              style="background: none; border: none; font-size: 12px"
+              onclick="triggerEditProjectProfile()"
+            >
+              <i class="fas fa-edit"></i> Edit Project
+            </button>
+          </div>
+        </div>
+        <div class="segment-bar" style="margin-bottom: 10px">
+          <button
+            class="segment-btn"
+            id="seg-btn-profile"
+            onclick="switchConsoleSegment('profile')"
+          >
+            Profile
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-scope"
+            onclick="switchConsoleSegment('scope')"
+          >
+            Scope
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-takeoff"
+            onclick="switchConsoleSegment('takeoff')"
+          >
+            Take‑Off
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-progress"
+            onclick="switchConsoleSegment('progress')"
+          >
+            Progress
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-snags"
+            onclick="switchConsoleSegment('snags')"
+          >
+            Snags
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-workorders"
+            onclick="switchConsoleSegment('workorders')"
+          >
+            Work Orders
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-payments"
+            onclick="switchConsoleSegment('payments')"
+          >
+            Payments
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-variations"
+            onclick="switchConsoleSegment('variations')"
+          >
+            Variations
+          </button>
+          <button
+            class="segment-btn"
+            id="seg-btn-pcr"
+            onclick="switchConsoleSegment('pcr')"
+          >
+            PCR
+          </button>
+        </div>
+        <div id="console-seg-profile" class="console-tab-window page-view">
+          <div class="card">
+            <div><strong>Client:</strong> <span id="c-meta-name"></span></div>
+            <div><strong>Location:</strong> <span id="c-meta-loc"></span></div>
+            <div>
+              <strong>Phone:</strong> <a id="c-meta-phone" href="#"></a>
+            </div>
+            <div>
+              <strong>Notes:</strong>
+              <textarea
+                id="c-meta-notes"
+                rows="3"
+                readonly
+                style="background: #f5f5f5"
+              ></textarea>
+            </div>
+
+            <div
+              style="
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid var(--border);
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 4px;
+                "
+              >
+                <span>Contract Subtotal</span>
+                <strong id="c-meta-subtotal">₦0.00</strong>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  color: var(--muted);
+                  margin-bottom: 4px;
+                "
+              >
+                <span>VAT (<span id="c-meta-vat-rate">7.5%</span>)</span>
+                <span id="c-meta-vat">₦0.00</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  color: var(--muted);
+                  margin-bottom: 4px;
+                "
+              >
+                <span>WHT (<span id="c-meta-wht-rate">5%</span>)</span>
+                <span id="c-meta-wht">₦0.00</span>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-top: 6px;
+                  padding-top: 6px;
+                  border-top: 1px solid var(--border);
+                "
+              >
+                <strong>Total Contract Value</strong>
+                <strong id="c-meta-total">₦0.00</strong>
+              </div>
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  color: var(--muted);
+                  margin-top: 4px;
+                  font-size: 13px;
+                "
+              >
+                <span>Net Receivable (after WHT)</span>
+                <span id="c-meta-net">₦0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="console-seg-scope" class="console-tab-window page-view">
+          <div class="card">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <strong>Project Scope</strong>
+              <label
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  font-size: 13px;
+                  font-weight: 700;
+                  cursor: pointer;
+                "
+              >
+                <input
+                  type="checkbox"
+                  id="scope-edit-toggle"
+                  style="width: auto"
+                  onchange="toggleScopeEdit(this.checked)"
+                />
+                Edit
+              </label>
+            </div>
+            <textarea
+              id="c-meta-scope"
+              rows="8"
+              readonly
+              style="background: #f5f5f5; margin-top: 8px"
+            ></textarea>
+            <button
+              class="action-btn"
+              id="scope-save-btn"
+              style="margin-top: 10px; display: none"
+              onclick="saveProjectScope()"
+            >
+              Save Scope
+            </button>
+          </div>
+        </div>
+        <div id="console-seg-takeoff" class="console-tab-window page-view">
+          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+            <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--primary);" onclick="window.openTemplatesModal()">
+              <i class="fas fa-layer-group"></i> Templates
+            </button>
+            <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px;" onclick="window.openTakeOff2Modal(null)">
+              <i class="fas fa-plus"></i> New Take‑Off
+            </button>
+          </div>
+          <div id="console-takeoff-list"></div>
+        </div>
+
+        <div id="console-seg-progress" class="console-tab-window page-view">
+          <div id="console-progress-overall" style="text-align:center; margin-bottom:12px; font-size:24px; font-weight:900;"></div>
+          <div id="console-progress-feed"></div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openModal('progress_entry', null)"
+          >
+            + Log Progress
+          </button>
+        </div>
+        <div id="console-seg-snags" class="console-tab-window page-view">
+          <div id="console-snags-list"></div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openModal('snag', null)"
+          >
+            + New Snag
+          </button>
+        </div>
+        <div id="console-seg-workorders" class="console-tab-window page-view">
+          <div id="console-workorders-list"></div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openModal('workorder', null)"
+          >
+            + New Work Order
+          </button>
+        </div>
+        <div id="console-seg-payments" class="console-tab-window page-view">
+          <div id="console-payments-list"></div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openModal('payment', null)"
+          >
+            + Log Payment
+          </button>
+        </div>
+        <div id="console-seg-variations" class="console-tab-window page-view">
+          <div id="console-variations-list"></div>
+          <button
+            class="action-btn"
+            style="margin-top: 10px"
+            onclick="openVariationModal(null)"
+          >
+            + New Variation
+          </button>
+        </div>
+        <div id="console-seg-pcr" class="console-tab-window page-view">
+          <div class="card">
+            <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 800">
+              Project Completion Report
+            </h3>
+            <label style="display: block; font-weight: 800; margin-top: 10px"
+              >Completion %</label
+            >
+            <input
+              id="pcr-completion"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              style="width: 100%; padding: 12px; font-size: 16px"
+            />
+            <label style="display: block; font-weight: 800; margin-top: 10px"
+              >Project Status</label
+            >
+            <select
+              id="pcr-status"
+              style="width: 100%; padding: 12px; font-size: 16px"
+            >
+              <option value="Complete">Complete</option>
+              <option value="Substantially Complete">
+                Substantially Complete
+              </option>
+              <option value="Practical Completion">Practical Completion</option>
+              <option value="Pending Snag Resolution">
+                Pending Snag Resolution
+              </option>
+              <option value="Handed Over">Handed Over</option>
+            </select>
+            <label
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 12px;
+                font-weight: 800;
+              "
+            >
+              <input type="checkbox" id="pcr-show-wht" style="width: auto" />
+              Show WHT in financial snapshot
+            </label>
+            <label style="display: block; font-weight: 800; margin-top: 10px"
+              >Completion Summary</label
+            >
+            <textarea
+              id="pcr-summary"
+              rows="4"
+              style="width: 100%; padding: 12px; font-size: 16px"
+            ></textarea>
+            <label style="display: block; font-weight: 800; margin-top: 10px"
+              >Completion Declaration</label
+            >
+            <textarea
+              id="pcr-declaration"
+              rows="3"
+              style="width: 100%; padding: 12px; font-size: 16px"
+            ></textarea>
+            <button
+              class="action-btn"
+              style="margin-top: 12px"
+              onclick="saveProjectPcrFields()"
+            >
+              Save PCR Fields
+            </button>
+            <div
+              style="
+                margin-top: 16px;
+                border-top: 1px solid var(--border);
+                padding-top: 12px;
+              "
+            >
+              <strong
+                style="
+                  font-size: 14px;
+                  text-transform: uppercase;
+                  display: block;
+                  margin-bottom: 8px;
+                "
+                >Approved Variations</strong
+              >
+              <div id="pcr-variations-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Overlay -->
+      <div id="modalOverlay" class="modal-overlay">
+        <div id="modalContent" class="modal">
+          <div style="display: flex; justify-content: space-between">
+            <h3 id="modalTitle">Modal</h3>
+            <span
+              onclick="closeModal()"
+              style="font-size: 28px; cursor: pointer"
+              >&times;</span
+            >
+          </div>
+          <div id="modalBody"></div>
+          <div id="modalFoot" style="margin-top: 20px;">
+            <button id="modalSubmit" class="action-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="config.js?v=11"></script>
+    <script src="utils.js?v=11"></script>
+    <script src="branding.js?v=11"></script>
+    <script src="db.js?v=11"></script>
+    <script src="backup.js?v=11"></script>
+    <script src="templates.js?v=11"></script>
+    <script src="api.js?v=11"></script>
+    <script src="payment-helpers.js?v=11"></script>
+    <script src="workorder-helpers.js?v=11"></script>
+    <script src="reports.js?v=11"></script>
+    <script src="layouts.js?v=11"></script>
+    <script src="accounts.js?v=11"></script>
+    <script src="modals.js?v=11"></script>
+    <script src="dashboard.js?v=11"></script>
+    <script src="console.js?v=11"></script>
+    <script src="letterhead.js?v=11"></script>
+    <script src="variations.js?v=11"></script>
+    <script src="app.js?v=11"></script>
   </body>
 </html>
