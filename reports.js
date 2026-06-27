@@ -1071,7 +1071,11 @@ function renderPcrReport(project, variations, payments) {
   const pcrDeclaration =
     project.pcrDeclaration ||
     "This report confirms that the project works recorded for the above project have reached substantially complete status, subject to any open snags noted in FieldScan Pro.";
-  const completionPct = parseFloat(pcrCompletion) || 0;
+  // Display the stored value directly (e.g. "100.0%"); strip trailing % then re-add
+  // to avoid double-% if the value already contains one.
+  const completionDisplay = pcrCompletion.trim().endsWith("%")
+    ? pcrCompletion.trim()
+    : pcrCompletion.trim() + "%";
 
   // ── Settings (logo / signature) ──────────────────────────────────────────
   const settings =
@@ -1110,11 +1114,6 @@ function renderPcrReport(project, variations, payments) {
   const whtRows = showWht
     ? [
         {
-          label: `VAT (${formatTaxRate(getTaxRate("VAT"))})`,
-          value: moneyValue(vat),
-          bold: false,
-        },
-        {
           label: `WHT (${formatTaxRate(getTaxRate("WHT"))})`,
           value: moneyValue(wht),
           bold: false,
@@ -1124,7 +1123,6 @@ function renderPcrReport(project, variations, payments) {
           value: moneyValue(netReceivable),
           bold: true,
         },
-        { label: "Net Profit", value: moneyValue(netProfit), bold: true },
       ]
     : [];
 
@@ -1220,7 +1218,7 @@ function renderPcrReport(project, variations, payments) {
 
         <!-- ══ METRIC CARDS ══════════════════════════════════════════════════ -->
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
-          ${metricCard(completionPct + "%", "Completion")}
+          ${metricCard(completionDisplay, "Completion")}
           ${metricCard(openSnags, "Open Snags", openSnags > 0 ? "#dc3545" : null)}
           ${metricCard(closedSnags, "Closed Snags", closedSnags > 0 ? "#28a745" : null)}
           ${metricCard(pcrStatus, "Status")}
@@ -1268,7 +1266,10 @@ function renderPcrReport(project, variations, payments) {
       </div><!-- /report-content -->
 
       <!-- ══ FOOTER ══════════════════════════════════════════════════════════ -->
-      ${generateReportFooter()}
+      <div class="report-footer">
+        <div style="font-weight: 700; margin-bottom: 4px;">Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State</div>
+        <div>+234 809 260 8103&nbsp;&nbsp;&nbsp;+234 708 260 8103&nbsp;&nbsp;&nbsp;pi.projects20@gmail.com</div>
+      </div>
 
     </div>
   `;
