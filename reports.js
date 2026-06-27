@@ -1157,7 +1157,7 @@ function renderPcrReport(project, variations, payments) {
           <h1 style="font-size: 24px; font-weight: 900; margin: 0; letter-spacing: -0.5px; color: #000;">PROJECT COMPLETION REPORT</h1>
           <div style="font-size: 14px; font-weight: 700; color: #495057; margin-top: 2px;">PCR/${escapeHtml(project.projectId)}</div>
         </div>
-        ${logoUrl ? `<div style="flex-shrink:0; margin-left:16px;"><img src="${escapeAttr(logoUrl)}" style="max-height:60px; max-width:180px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
+        ${logoUrl ? `<div style="flex-shrink:0; margin-left:16px;"><img src="${escapeAttr(logoUrl)}" style="max-height:120px; max-width:180px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
       </div>
 
       <!-- DIVIDER -->
