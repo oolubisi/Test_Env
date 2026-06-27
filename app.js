@@ -41,6 +41,7 @@ async function deleteProgressLog(logId) {
     alert("Failed to delete: " + (e.message || "Unknown error"));
   }
 }
+window.deleteProgressLog = deleteProgressLog;
 
 // ===== PROGRESS LOG UPDATE =====
 async function updateProgressLog(logId, data) {
@@ -66,7 +67,65 @@ async function updateProgressLog(logId, data) {
     alert("Failed to update: " + (e.message || "Unknown error"));
   }
 }
+window.updateProgressLog = updateProgressLog;
 
+// ===== PCR AUTO-UPDATE =====
+function updatePcrFields() {
+  const overallEl = document.getElementById("console-progress-overall");
+  const pcrCompletion = document.getElementById("pcr-completion");
+  const pcrStatus = document.getElementById("pcr-status");
+
+  if (!overallEl || !pcrCompletion || !pcrStatus) return;
+
+  const overallText = overallEl.innerText || "";
+  const match = overallText.match(/([\d.]+)%/);
+  let pct = match ? parseFloat(match[1]) : 0;
+
+  pcrCompletion.value = pct.toFixed(1) + "%";
+
+  if (pct < 95) {
+    pcrStatus.value = "Partial Completion";
+    pcrStatus.disabled = true;
+  } else {
+    pcrStatus.disabled = false;
+    if (pcrStatus.value === "Partial Completion") {
+      pcrStatus.value = "Substantially Complete";
+    }
+  }
+}
+window.updatePcrFields = updatePcrFields;
+
+// ===== SAVE PCR FIELDS =====
+async function saveProjectPcrFields() {
+  const projectId = getCurrentProjectId();
+  const pcrStatus = document.getElementById("pcr-status");
+  const pcrCompletion = document.getElementById("pcr-completion");
+  const pcrSummary = document.getElementById("pcr-summary");
+  const pcrDeclaration = document.getElementById("pcr-declaration");
+
+  if (!projectId) {
+    alert("No project selected");
+    return;
+  }
+
+  const payload = {
+    projectId: projectId,
+    pcrStatus: pcrStatus.value,
+    pcrCompletion: pcrCompletion.value,
+    pcrSummary: pcrSummary.value,
+    pcrDeclaration: pcrDeclaration.value,
+  };
+
+  try {
+    await callApi("updateProjectPcrFields", payload);
+    showSyncToast("✅ PCR fields saved");
+  } catch (e) {
+    alert("Failed to save: " + (e.message || "Unknown error"));
+  }
+}
+window.saveProjectPcrFields = saveProjectPcrFields;
+
+// ===== WINDOW EXPORTS =====
 window.showPage = showPage;
 window.loadLetterheadView = loadLetterheadView;
 window.printLetterhead = printLetterhead;
@@ -125,11 +184,12 @@ window.importTemplatesFromJSON = importTemplatesFromJSON;
 window.openImportTemplatesModal = openImportTemplatesModal;
 window.syncTemplatesToSheet = syncTemplatesToSheet;
 window.loadTemplatesFromSheet = loadTemplatesFromSheet;
-window.deleteProgressLog = deleteProgressLog; // ← ADD THIS
-window.updateProgressLog = updateProgressLog; // ← ADD THIS
-window.updatePcrFields = updatePcrFields; // ← ADD THIS
-window.saveProjectPcrFields = saveProjectPcrFields; // ← ADD THIS
+window.deleteProgressLog = deleteProgressLog;
+window.updateProgressLog = updateProgressLog;
+window.updatePcrFields = updatePcrFields;
+window.saveProjectPcrFields = saveProjectPcrFields;
 
+// ===== REFRESH TEMPLATES =====
 async function refreshTemplatesFromSheet() {
   const btn = document.querySelector(
     'button[onclick="window.refreshTemplatesFromSheet()"]',
@@ -154,6 +214,7 @@ async function refreshTemplatesFromSheet() {
 }
 window.refreshTemplatesFromSheet = refreshTemplatesFromSheet;
 
+// ===== SERVICE WORKER =====
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () =>
     navigator.serviceWorker
@@ -164,6 +225,7 @@ if ("serviceWorker" in navigator) {
 window.addEventListener("online", syncQueuedRequests);
 window.addEventListener("offline", updateSyncStatus);
 
+// ===== PWA INSTALL =====
 let installPromptEvent = null;
 window.addEventListener("beforeinstallprompt", (e) => {
   e.preventDefault();
@@ -230,6 +292,7 @@ function showInstallFallback() {
   submit.onclick = closeModal;
 }
 
+// ===== LOAD EVENT =====
 window.addEventListener("load", () => {
   if (appStarted) return;
   appStarted = true;

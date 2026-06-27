@@ -542,12 +542,7 @@ async function openModal(type, editData = null) {
     if (isEdit) {
       document.getElementById("l_delete_btn").onclick = () => {
         if (confirm("Delete this progress log?")) {
-          callApi("deleteProgressLog", { logId: uniqueId })
-            .then(() => {
-              closeModal();
-              loadProgressTimelineFeed(true);
-            })
-            .catch(() => {});
+          window.deleteProgressLog(uniqueId); // Use window.deleteProgressLog
         }
       };
     }
