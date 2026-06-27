@@ -202,6 +202,7 @@ function handleReportScopePopulation() {
     type === "scope" ||
     type === "snags" ||
     type === "progress" ||
+    type === "pcr" ||
     type === "takeoff"
   )
     validScopes = ["project"];
@@ -912,6 +913,25 @@ async function compileFieldReport(btn) {
         }
       }
       html = renderScopeReport(project, cache.settings || {});
+    }
+    // ✅ ADD PCR CASE
+    else if (type === "pcr") {
+      const project = (cache.projects || []).find(
+        (p) => p.projectId === filter,
+      );
+      if (!project) {
+        alert("Project not found");
+        return;
+      }
+      // Get project variations (approved)
+      const variations = (cache.variations || []).filter(
+        (v) => v.projectId === filter && v.status === "Approved",
+      );
+      // Get project payments for financial snapshot
+      const payments = (cache.payments || []).filter(
+        (p) => p.projectId === filter,
+      );
+      html = renderPcrReport(project, variations, payments);
     } else if (type === "snags") {
       const project = (cache.projects || []).find(
         (p) => p.projectId === filter,
@@ -987,4 +1007,140 @@ async function compileFieldReport(btn) {
         '<i class="fas fa-file-alt"></i> Generate Report';
     }
   }
+}
+// ===== PCR REPORT =====
+function renderPcrReport(project, variations, payments) {
+  // Calculate financials
+  const subtotal = roundMoney(Number(project.contractSubtotal) || 0);
+  const vat = calculateTax(subtotal, "VAT");
+  const wht = calculateTax(subtotal, "WHT");
+  const totalContract = roundMoney(subtotal + vat);
+  const netReceivable = roundMoney(totalContract - wht);
+
+  // Get payment totals
+  const groups = getAllPaymentGroups(project.projectId);
+  let totalReceived = 0,
+    totalOutgoing = 0,
+    smallExpenses = 0,
+    totalPending = 0;
+  groups.forEach((g) => {
+    if (g.direction === "Client Receipt") totalReceived += g.paymentsToDate;
+    else if (g.direction === "Small Expense") smallExpenses += g.paymentsToDate;
+    else {
+      totalOutgoing += g.paymentsToDate;
+      totalPending += g.balance;
+    }
+  });
+  totalReceived = roundMoney(totalReceived);
+  totalOutgoing = roundMoney(totalOutgoing);
+  smallExpenses = roundMoney(smallExpenses);
+  totalPending = roundMoney(totalPending);
+  const balanceExpected = roundMoney(totalContract - totalReceived);
+  const netProfit = roundMoney(
+    totalReceived - totalOutgoing - smallExpenses - totalPending,
+  );
+
+  // Build variation rows
+  let variationRows = "";
+  let totalVariations = 0;
+  if (variations && variations.length) {
+    variationRows = variations
+      .map((v) => {
+        totalVariations += Number(v.total) || 0;
+        return `<tr>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(v.variationNumber || v.variationId)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(v.title)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right;">${escapeHtml(v.date)}</td>
+        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; font-weight:700;">₦${moneyValue(v.total)}</td>
+      </tr>`;
+      })
+      .join("");
+    variationRows += `<tr style="background:#e9ecef; font-weight:900;">
+      <td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;"><strong>Total Variations</strong></td>
+      <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalVariations)}</td>
+    </tr>`;
+  } else {
+    variationRows = `<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No approved variations</td></tr>`;
+  }
+
+  // Build the report HTML
+  const header = generateReportHeader("Project Completion Report", project);
+
+  // Get PCR fields from project
+  const pcrStatus = project.pcrStatus || "Not Set";
+  const pcrCompletion = project.pcrCompletion || "0%";
+  const pcrSummary = project.pcrSummary || "";
+  const pcrDeclaration = project.pcrDeclaration || "";
+  const pcrCompletionDate = project.pcrCompletionDate || "";
+  const pcrHandoverDate = project.pcrHandoverDate || "";
+  const pcrDefectsPeriod = project.pcrDefectsPeriod || "6";
+
+  let financialSnapshot = `
+    <div style="margin-top: 24px; margin-bottom: 16px;">
+      <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px;">Financial Snapshot</h3>
+      <div style="max-width: 420px; margin: 0 auto;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span style="font-weight:600;">Contract Subtotal</span><span>₦${moneyValue(subtotal)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#495057;">VAT (${formatTaxRate(getTaxRate("VAT"))})<span>₦${moneyValue(vat)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#495057;">WHT (${formatTaxRate(getTaxRate("WHT"))})<span>₦${moneyValue(wht)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-weight:700; border-top:1px solid #000; padding-top:4px;">Total Contract Value<span>₦${moneyValue(totalContract)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#495057;">Net Receivable (after WHT)<span>₦${moneyValue(netReceivable)}</span></div>
+        <div style="height: 8px;"></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:var(--success);">Client Receipts (Cleared)<span>₦${moneyValue(totalReceived)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:var(--danger);">Total Outgoing (Cleared)<span>₦${moneyValue(totalOutgoing)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">Small Expenses (Cleared)<span>₦${moneyValue(smallExpenses)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#fd7e14;">Pending Payments<span>₦${moneyValue(totalPending)}</span></div>
+        <div style="height: 8px;"></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-weight:700; border-top:1px solid #000; padding-top:4px;">Balance Expected<span>₦${moneyValue(balanceExpected)}</span></div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-weight:700; color:${netProfit >= 0 ? "var(--success)" : "var(--danger)"};">Net Profit<span>₦${moneyValue(netProfit)}</span></div>
+      </div>
+    </div>
+  `;
+
+  // Build the complete report
+  return `
+    <div class="report-page-wrapper">
+      <div class="report-content">
+        ${header}
+        
+        <!-- PCR Summary -->
+        <div style="margin-bottom: 16px;">
+          <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px;">Completion Summary</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 12px; line-height: 1.8;">
+            <div><strong>Completion %:</strong> ${escapeHtml(pcrCompletion)}</div>
+            <div><strong>Status:</strong> <span style="color: ${pcrStatus === "Complete" ? "var(--success)" : pcrStatus === "Partial Completion" ? "#fd7e14" : "var(--muted)"};">${escapeHtml(pcrStatus)}</span></div>
+            ${pcrCompletionDate ? `<div><strong>Completion Date:</strong> ${escapeHtml(pcrCompletionDate)}</div>` : ""}
+            ${pcrHandoverDate ? `<div><strong>Handover Date:</strong> ${escapeHtml(pcrHandoverDate)}</div>` : ""}
+            ${pcrDefectsPeriod ? `<div><strong>Defects Liability:</strong> ${escapeHtml(pcrDefectsPeriod)} months</div>` : ""}
+          </div>
+        </div>
+
+        <!-- Summary Text -->
+        ${pcrSummary ? `<div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #adb5bd;"><strong style="font-size: 12px; text-transform: uppercase;">Completion Summary</strong><p style="font-size: 12px; margin-top: 4px; line-height: 1.5;">${escapeHtml(pcrSummary)}</p></div>` : ""}
+
+        <!-- Approved Variations -->
+        <div style="margin-bottom: 16px;">
+          <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px;">Approved Variations</h3>
+          <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;">
+            <thead>
+              <tr>
+                <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Variation No</th>
+                <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Title</th>
+                <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Date</th>
+                <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>${variationRows}</tbody>
+          </table>
+        </div>
+
+        ${financialSnapshot}
+
+        <!-- Declaration -->
+        ${pcrDeclaration ? `<div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #adb5bd;"><strong style="font-size: 12px; text-transform: uppercase;">Declaration</strong><p style="font-size: 12px; margin-top: 4px; line-height: 1.5;">${escapeHtml(pcrDeclaration)}</p></div>` : ""}
+
+        ${generateSignatureBlock()}
+      </div>
+      ${generateReportFooter()}
+    </div>
+  `;
 }
