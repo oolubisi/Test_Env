@@ -1073,9 +1073,8 @@ function renderPcrReport(project, variations, payments) {
     "This report confirms that the project works recorded for the above project have reached substantially complete status, subject to any open snags noted in FieldScan Pro.";
   // Display the stored value directly (e.g. "100.0%"); strip trailing % then re-add
   // to avoid double-% if the value already contains one.
-  const completionDisplay = pcrCompletion.trim().endsWith("%")
-    ? pcrCompletion.trim()
-    : pcrCompletion.trim() + "%";
+  const _pcrPct = String(pcrCompletion).trim();
+  const completionDisplay = _pcrPct.endsWith("%") ? _pcrPct : _pcrPct + "%";
 
   // ── Settings (logo / signature) ──────────────────────────────────────────
   const settings =
