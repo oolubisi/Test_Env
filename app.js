@@ -90,6 +90,7 @@ async function deleteProgressLog(logId) {
     alert("Failed to delete: " + (e.message || "Unknown error"));
   }
 }
+console.log("deleteProgressLog defined");
 window.deleteProgressLog = deleteProgressLog;
 
 // ===== PROGRESS LOG UPDATE =====
