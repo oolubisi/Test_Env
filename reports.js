@@ -189,6 +189,8 @@ function handleReportScopePopulation() {
   const scopeSel = document.getElementById("rep-scope-sel");
   const filterWrap = document.getElementById("rep-filter-wrap");
   const subTypeWrap = document.getElementById("rep-subtype-wrap");
+  const pcrWhtWrap = document.getElementById("rep-pcr-wht-wrap");
+
   if (!typeSel || !scopeSel) return;
   scopeSel.style.display = "none";
   const scopeLabel = scopeSel.previousElementSibling;
@@ -196,20 +198,27 @@ function handleReportScopePopulation() {
     scopeLabel.style.display = "none";
   const type = typeSel.value;
   let validScopes = [];
+
+  // Show WHT toggle only for PCR reports
+  if (pcrWhtWrap) {
+    pcrWhtWrap.style.display = type === "pcr" ? "block" : "none";
+  }
+
   if (type === "financial_all") validScopes = ["all"];
   else if (
     type === "financial_project" ||
     type === "scope" ||
     type === "snags" ||
     type === "progress" ||
-    type === "pcr" ||
-    type === "takeoff"
+    type === "takeoff" ||
+    type === "pcr" // ← ADD PCR
   )
     validScopes = ["project"];
   else if (type === "workorder_report") validScopes = ["project"];
   else if (type === "financial_client") validScopes = ["client"];
   else if (type === "financial_vendor") validScopes = ["vendor"];
   else validScopes = ["all", "project", "client", "vendor"];
+
   const allOptions = [
     { value: "all", text: "All Projects" },
     { value: "project", text: "Specific Project" },
@@ -230,7 +239,6 @@ function handleReportScopePopulation() {
   if (filterWrap)
     filterWrap.style.display =
       type === "financial_all" || !type ? "none" : "block";
-  // Hide sub-type selector (removed) and workorder wrap
   if (subTypeWrap) subTypeWrap.style.display = "none";
   const woWrap = document.getElementById("rep-workorder-wrap");
   if (woWrap) woWrap.style.display = "none";
@@ -857,6 +865,7 @@ async function compileFieldReport(btn) {
     await ensure("snags", "getSnags");
     await ensure("progressLogs", "getProgressLogs");
     await ensure("takeoffs", "getTakeOffItems");
+    await ensure("variations", "getVariations");
     if (type === "financial_all") {
       const selectedFields = getSelectedFinancialFields();
       if (!selectedFields.length) {
@@ -1023,6 +1032,9 @@ function renderPcrReport(project, variations, payments) {
     totalOutgoing = 0,
     smallExpenses = 0,
     totalPending = 0;
+  let openSnags = 0,
+    closedSnags = 0;
+
   groups.forEach((g) => {
     if (g.direction === "Client Receipt") totalReceived += g.paymentsToDate;
     else if (g.direction === "Small Expense") smallExpenses += g.paymentsToDate;
@@ -1031,6 +1043,21 @@ function renderPcrReport(project, variations, payments) {
       totalPending += g.balance;
     }
   });
+
+  // Get snags for this project
+  const cache = getCache();
+  const projectSnags = (cache.snags || []).filter(
+    (s) => s.projectId === project.projectId,
+  );
+  openSnags = projectSnags.filter((s) => s.status !== "Completed").length;
+  closedSnags = projectSnags.filter((s) => s.status === "Completed").length;
+
+  // Get work orders for this project
+  const projectWorkOrders = (cache.workorders || []).filter(
+    (w) => w.projectId === project.projectId,
+  );
+  const workOrderCount = projectWorkOrders.length;
+
   totalReceived = roundMoney(totalReceived);
   totalOutgoing = roundMoney(totalOutgoing);
   smallExpenses = roundMoney(smallExpenses);
@@ -1040,107 +1067,176 @@ function renderPcrReport(project, variations, payments) {
     totalReceived - totalOutgoing - smallExpenses - totalPending,
   );
 
-  // Build variation rows
-  let variationRows = "";
-  let totalVariations = 0;
-  if (variations && variations.length) {
-    variationRows = variations
-      .map((v) => {
-        totalVariations += Number(v.total) || 0;
-        return `<tr>
-        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(v.variationNumber || v.variationId)}</td>
-        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px;">${escapeHtml(v.title)}</td>
-        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right;">${escapeHtml(v.date)}</td>
-        <td style="border-bottom:1px solid #adb5bd; padding:8px; font-size:12px; text-align:right; font-weight:700;">₦${moneyValue(v.total)}</td>
-      </tr>`;
-      })
-      .join("");
-    variationRows += `<tr style="background:#e9ecef; font-weight:900;">
-      <td colspan="3" style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;"><strong>Total Variations</strong></td>
-      <td style="border-bottom:2px solid #000; padding:8px; font-size:12px; text-align:right;">₦${moneyValue(totalVariations)}</td>
-    </tr>`;
-  } else {
-    variationRows = `<tr><td colspan="4" style="padding:20px; text-align:center; color:#495057;">No approved variations</td></tr>`;
-  }
+  // Get PCR fields from project
+  const pcrStatus =
+    project.pcrStatus || project.projectStatus || "Substantially Complete";
+  const pcrCompletion = project.pcrCompletion || "0%";
+  const pcrSummary =
+    project.pcrSummary ||
+    "Works completed in line with recorded project scope and site updates.";
+  const pcrDeclaration =
+    project.pcrDeclaration ||
+    "This report confirms that the project works recorded for the above project have reached substantially complete status, subject to any open snags noted in FieldScan Pro.";
+
+  // Calculate completion percentage for display
+  const completionPct = parseFloat(pcrCompletion) || 0;
+
+  // Get settings for logo and signature
+  const settings = cache.settings || {};
+  const logoUrl = settings.Logo ? getDirectImageUrl(settings.Logo) : "";
+  const signImageUrl = settings.Sign_Signed
+    ? getDirectImageUrl(settings.Sign_Signed)
+    : "";
+  const signatoryName = settings.Name_Signed || "Kayode Olubisi";
+
+  // Check if WHT should be shown
+  const showWht =
+    document.getElementById("rep-pcr-show-wht")?.checked !== false;
 
   // Build the report HTML
-  const header = generateReportHeader("Project Completion Report", project);
+  const dateStr = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
-  // Get PCR fields from project
-  const pcrStatus = project.pcrStatus || "Not Set";
-  const pcrCompletion = project.pcrCompletion || "0%";
-  const pcrSummary = project.pcrSummary || "";
-  const pcrDeclaration = project.pcrDeclaration || "";
-  const pcrCompletionDate = project.pcrCompletionDate || "";
-  const pcrHandoverDate = project.pcrHandoverDate || "";
-  const pcrDefectsPeriod = project.pcrDefectsPeriod || "6";
-
-  let financialSnapshot = `
-    <div style="margin-top: 24px; margin-bottom: 16px;">
-      <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px;">Financial Snapshot</h3>
-      <div style="max-width: 420px; margin: 0 auto;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span style="font-weight:600;">Contract Subtotal</span><span>₦${moneyValue(subtotal)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#495057;">VAT (${formatTaxRate(getTaxRate("VAT"))})<span>₦${moneyValue(vat)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#495057;">WHT (${formatTaxRate(getTaxRate("WHT"))})<span>₦${moneyValue(wht)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-weight:700; border-top:1px solid #000; padding-top:4px;">Total Contract Value<span>₦${moneyValue(totalContract)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#495057;">Net Receivable (after WHT)<span>₦${moneyValue(netReceivable)}</span></div>
-        <div style="height: 8px;"></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:var(--success);">Client Receipts (Cleared)<span>₦${moneyValue(totalReceived)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:var(--danger);">Total Outgoing (Cleared)<span>₦${moneyValue(totalOutgoing)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">Small Expenses (Cleared)<span>₦${moneyValue(smallExpenses)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; color:#fd7e14;">Pending Payments<span>₦${moneyValue(totalPending)}</span></div>
-        <div style="height: 8px;"></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-weight:700; border-top:1px solid #000; padding-top:4px;">Balance Expected<span>₦${moneyValue(balanceExpected)}</span></div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-weight:700; color:${netProfit >= 0 ? "var(--success)" : "var(--danger)"};">Net Profit<span>₦${moneyValue(netProfit)}</span></div>
+  // Financial snapshot HTML
+  let financialHtml = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px;">
+      <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Contract Value</div>
+        <div style="font-size: 18px; font-weight: 900;">₦${moneyValue(totalContract)}</div>
+      </div>
+      <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Client Receipts</div>
+        <div style="font-size: 18px; font-weight: 900; color: var(--success, #28a745);">₦${moneyValue(totalReceived)}</div>
+      </div>
+      <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Balance Expected</div>
+        <div style="font-size: 18px; font-weight: 900; color: ${balanceExpected > 0 ? "var(--primary, #0056b3)" : "var(--success, #28a745)"};">₦${moneyValue(balanceExpected)}</div>
       </div>
     </div>
   `;
 
-  // Build the complete report
-  return `
-    <div class="report-page-wrapper">
-      <div class="report-content">
-        ${header}
-        
-        <!-- PCR Summary -->
-        <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px;">Completion Summary</h3>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; font-size: 12px; line-height: 1.8;">
-            <div><strong>Completion %:</strong> ${escapeHtml(pcrCompletion)}</div>
-            <div><strong>Status:</strong> <span style="color: ${pcrStatus === "Complete" ? "var(--success)" : pcrStatus === "Partial Completion" ? "#fd7e14" : "var(--muted)"};">${escapeHtml(pcrStatus)}</span></div>
-            ${pcrCompletionDate ? `<div><strong>Completion Date:</strong> ${escapeHtml(pcrCompletionDate)}</div>` : ""}
-            ${pcrHandoverDate ? `<div><strong>Handover Date:</strong> ${escapeHtml(pcrHandoverDate)}</div>` : ""}
-            ${pcrDefectsPeriod ? `<div><strong>Defects Liability:</strong> ${escapeHtml(pcrDefectsPeriod)} months</div>` : ""}
-          </div>
+  // Add WHT row if enabled
+  if (showWht) {
+    financialHtml += `
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px;">
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 8px 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">VAT</div>
+          <div style="font-size: 14px; font-weight: 700;">₦${moneyValue(vat)}</div>
         </div>
-
-        <!-- Summary Text -->
-        ${pcrSummary ? `<div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #adb5bd;"><strong style="font-size: 12px; text-transform: uppercase;">Completion Summary</strong><p style="font-size: 12px; margin-top: 4px; line-height: 1.5;">${escapeHtml(pcrSummary)}</p></div>` : ""}
-
-        <!-- Approved Variations -->
-        <div style="margin-bottom: 16px;">
-          <h3 style="font-size: 14px; font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 4px;">Approved Variations</h3>
-          <table class="report-table" style="width:100%; border-collapse: collapse; font-size:12px;">
-            <thead>
-              <tr>
-                <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Variation No</th>
-                <th style="background:#000; color:#fff; text-align:left; padding:8px; font-size:10px; text-transform:uppercase;">Title</th>
-                <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Date</th>
-                <th style="background:#000; color:#fff; text-align:right; padding:8px; font-size:10px; text-transform:uppercase;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>${variationRows}</tbody>
-          </table>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 8px 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">WHT</div>
+          <div style="font-size: 14px; font-weight: 700;">₦${moneyValue(wht)}</div>
         </div>
-
-        ${financialSnapshot}
-
-        <!-- Declaration -->
-        ${pcrDeclaration ? `<div style="margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 1px solid #adb5bd;"><strong style="font-size: 12px; text-transform: uppercase;">Declaration</strong><p style="font-size: 12px; margin-top: 4px; line-height: 1.5;">${escapeHtml(pcrDeclaration)}</p></div>` : ""}
-
-        ${generateSignatureBlock()}
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 8px 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d;">Net Profit</div>
+          <div style="font-size: 14px; font-weight: 700; color: ${netProfit >= 0 ? "var(--success, #28a745)" : "var(--danger, #dc3545)"};">₦${moneyValue(netProfit)}</div>
+        </div>
       </div>
-      ${generateReportFooter()}
+    `;
+  }
+
+  return `
+    <div class="pcr-report" style="
+      position: relative;
+      min-height: calc(297mm - 30mm);
+      background: white;
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      font-size: 12pt;
+      color: #000;
+      padding: 15mm 15mm 20mm 15mm;
+      box-sizing: border-box;
+    ">
+      
+      <!-- HEADER: Logo and Title -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+        <div style="flex:1;">
+          <div style="font-size: 11px; color: #495057; font-weight: 600; margin-bottom: 4px;">${escapeHtml(dateStr)}</div>
+          <h1 style="font-size: 24px; font-weight: 900; margin: 0; letter-spacing: -0.5px; color: #000;">PROJECT COMPLETION REPORT</h1>
+          <div style="font-size: 14px; font-weight: 700; color: #495057; margin-top: 2px;">PCR/${escapeHtml(project.projectId)}</div>
+        </div>
+        ${logoUrl ? `<div style="flex-shrink:0; margin-left:16px;"><img src="${escapeAttr(logoUrl)}" style="max-height:60px; max-width:180px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
+      </div>
+
+      <!-- DIVIDER -->
+      <div style="border-top: 2.5px solid #000; margin: 8px 0 16px 0;"></div>
+
+      <!-- PROJECT INFO -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 20px; font-size: 12px; line-height: 1.8; margin-bottom: 16px;">
+        <div><strong>Client:</strong> ${escapeHtml(project.clientName || "—")}</div>
+        <div><strong>Project ID:</strong> ${escapeHtml(project.projectId || "—")}</div>
+        <div><strong>Site Location:</strong> ${escapeHtml(project.siteLocation || "—")}</div>
+        <div><strong>Project Status:</strong> ${escapeHtml(pcrStatus)}</div>
+      </div>
+
+      <!-- COMPLETION METRICS CARDS -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 28px; font-weight: 900;">${completionPct}%</div>
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">COMPLETION</div>
+        </div>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 28px; font-weight: 900; color: var(--danger, #dc3545);">${openSnags}</div>
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">OPEN SNAGS</div>
+        </div>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 28px; font-weight: 900; color: var(--success, #28a745);">${closedSnags}</div>
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">CLOSED SNAGS</div>
+        </div>
+        <div style="background: #f8f9fa; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #dee2e6;">
+          <div style="font-size: 28px; font-weight: 900;">${workOrderCount}</div>
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c757d; margin-top: 2px;">WORK ORDERS</div>
+        </div>
+      </div>
+
+      <!-- COMPLETION SUMMARY -->
+      <div style="margin-bottom: 16px;">
+        <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1px solid #000; padding-bottom: 4px;">Completion Summary</h2>
+        <p style="font-size: 12px; line-height: 1.6; margin: 6px 0 0 0;">${escapeHtml(pcrSummary)}</p>
+      </div>
+
+      <!-- FINANCIAL SNAPSHOT -->
+      <div style="margin-bottom: 16px;">
+        <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 0 0 6px 0; border-bottom: 1px solid #000; padding-bottom: 4px;">Financial Snapshot</h2>
+        ${financialHtml}
+      </div>
+
+      <!-- COMPLETION DECLARATION -->
+      <div style="margin-bottom: 20px;">
+        <h2 style="font-size: 14px; font-weight: 900; text-transform: uppercase; margin: 0 0 4px 0; border-bottom: 1px solid #000; padding-bottom: 4px;">Completion Declaration</h2>
+        <p style="font-size: 12px; line-height: 1.6; margin: 6px 0 0 0;">${escapeHtml(pcrDeclaration)}</p>
+      </div>
+
+      <!-- SIGNATURE BLOCK -->
+      <div style="margin-top: 24px; page-break-inside: avoid;">
+        <h2 style="font-size: 12px; font-weight: 900; text-transform: uppercase; margin: 0 0 8px 0; color: #495057;">Project Sign-Off</h2>
+        <div style="display: inline-block; text-align: center;">
+          ${signImageUrl ? `<div style="margin-bottom: 2px;"><img src="${escapeAttr(signImageUrl)}" style="max-height:50px; max-width:180px; object-fit:contain;" onerror="this.style.display='none'"></div>` : ""}
+          <div style="border-bottom: 1.5px solid #000; width: 200px; margin: 0 auto 4px auto;"></div>
+          <div style="font-size: 12px; font-weight: 700;">${escapeHtml(signatoryName)}</div>
+          <div style="font-size: 10px; color: #6c757d; margin-top: 2px;">Authorized Signatory</div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="
+        position: absolute;
+        bottom: 12mm;
+        left: 15mm;
+        right: 15mm;
+        border-top: 1px solid #adb5bd;
+        padding-top: 6px;
+        text-align: center;
+        font-size: 8pt;
+        color: #6c757d;
+        line-height: 1.6;
+      ">
+        <div style="font-weight: 600;">FieldScan Pro — Project Completion Report</div>
+        <div>Generated on ${escapeHtml(dateStr)}</div>
+      </div>
+
     </div>
   `;
 }
