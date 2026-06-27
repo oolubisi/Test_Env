@@ -206,9 +206,28 @@
       <!-- Reports View -->
       <div id="view-reports" class="page-view">
         <div class="card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="margin:0; font-size:18px; font-weight:800;"><i class="fas fa-chart-bar"></i> Reports</h3>
-            <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.openPrintLayoutsPage()">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 10px;
+            "
+          >
+            <h3 style="margin: 0; font-size: 18px; font-weight: 800">
+              <i class="fas fa-chart-bar"></i> Reports
+            </h3>
+            <button
+              class="action-btn"
+              style="
+                width: auto;
+                padding: 6px 12px;
+                font-size: 12px;
+                background: var(--card-light);
+                color: var(--text);
+              "
+              onclick="window.openPrintLayoutsPage()"
+            >
               <i class="fas fa-paint-brush"></i> Layouts
             </button>
           </div>
@@ -314,7 +333,7 @@
 
       <!-- Print Layouts View -->
       <div id="view-print-layouts" class="page-view">
-        <div id="print-layouts-container" style="padding:0;"></div>
+        <div id="print-layouts-container" style="padding: 0"></div>
       </div>
 
       <!-- Letterhead View -->
@@ -635,11 +654,31 @@
           </div>
         </div>
         <div id="console-seg-takeoff" class="console-tab-window page-view">
-          <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-            <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px; background:var(--primary);" onclick="window.openTemplatesModal()">
+          <div
+            style="
+              display: flex;
+              gap: 8px;
+              margin-bottom: 12px;
+              flex-wrap: wrap;
+            "
+          >
+            <button
+              class="action-btn"
+              style="
+                width: auto;
+                padding: 8px 16px;
+                font-size: 13px;
+                background: var(--primary);
+              "
+              onclick="window.openTemplatesModal()"
+            >
               <i class="fas fa-layer-group"></i> Templates
             </button>
-            <button class="action-btn" style="width:auto; padding:8px 16px; font-size:13px;" onclick="window.openTakeOff2Modal(null)">
+            <button
+              class="action-btn"
+              style="width: auto; padding: 8px 16px; font-size: 13px"
+              onclick="window.openTakeOff2Modal(null)"
+            >
               <i class="fas fa-plus"></i> New Take‑Off
             </button>
           </div>
@@ -647,55 +686,99 @@
         </div>
 
         <div id="console-seg-progress" class="console-tab-window page-view">
-          <div id="console-progress-overall" style="text-align:center; margin-bottom:12px; font-size:24px; font-weight:900;"></div>
-          <div id="console-progress-feed"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('progress_entry', null)"
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12px;
+            "
           >
-            + Log Progress
-          </button>
+            <button
+              class="action-btn"
+              style="width: auto; padding: 8px 16px; font-size: 13px"
+              onclick="openModal('progress_entry', null)"
+            >
+              <i class="fas fa-plus"></i> Log Progress
+            </button>
+            <div
+              id="console-progress-overall"
+              style="font-size: 24px; font-weight: 900"
+            ></div>
+          </div>
+          <div id="console-progress-feed"></div>
         </div>
         <div id="console-seg-snags" class="console-tab-window page-view">
-          <div id="console-snags-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('snag', null)"
+          <div
+            style="
+              display: flex;
+              justify-content: flex-start;
+              margin-bottom: 12px;
+            "
           >
-            + New Snag
-          </button>
+            <button
+              class="action-btn"
+              style="width: auto; padding: 8px 16px; font-size: 13px"
+              onclick="openModal('snag', null)"
+            >
+              <i class="fas fa-plus"></i> New Snag
+            </button>
+          </div>
+          <div id="console-snags-list"></div>
         </div>
         <div id="console-seg-workorders" class="console-tab-window page-view">
-          <div id="console-workorders-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('workorder', null)"
+          <div
+            style="
+              display: flex;
+              justify-content: flex-start;
+              margin-bottom: 12px;
+            "
           >
-            + New Work Order
-          </button>
+            <button
+              class="action-btn"
+              style="width: auto; padding: 8px 16px; font-size: 13px"
+              onclick="openModal('workorder', null)"
+            >
+              <i class="fas fa-plus"></i> New Work Order
+            </button>
+          </div>
+          <div id="console-workorders-list"></div>
         </div>
         <div id="console-seg-payments" class="console-tab-window page-view">
-          <div id="console-payments-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openModal('payment', null)"
+          <div
+            style="
+              display: flex;
+              justify-content: flex-start;
+              margin-bottom: 12px;
+            "
           >
-            + Log Payment
-          </button>
+            <button
+              class="action-btn"
+              style="width: auto; padding: 8px 16px; font-size: 13px"
+              onclick="openModal('payment', null)"
+            >
+              <i class="fas fa-plus"></i> Log Payment
+            </button>
+          </div>
+          <div id="console-payments-list"></div>
         </div>
         <div id="console-seg-variations" class="console-tab-window page-view">
-          <div id="console-variations-list"></div>
-          <button
-            class="action-btn"
-            style="margin-top: 10px"
-            onclick="openVariationModal(null)"
+          <div
+            style="
+              display: flex;
+              justify-content: flex-start;
+              margin-bottom: 12px;
+            "
           >
-            + New Variation
-          </button>
+            <button
+              class="action-btn"
+              style="width: auto; padding: 8px 16px; font-size: 13px"
+              onclick="openVariationModal(null)"
+            >
+              <i class="fas fa-plus"></i> New Variation
+            </button>
+          </div>
+          <div id="console-variations-list"></div>
         </div>
         <div id="console-seg-pcr" class="console-tab-window page-view">
           <div class="card">
@@ -707,11 +790,14 @@
             >
             <input
               id="pcr-completion"
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              style="width: 100%; padding: 12px; font-size: 16px"
+              type="text"
+              readonly
+              style="
+                width: 100%;
+                padding: 12px;
+                font-size: 16px;
+                background: #f0f0f0;
+              "
             />
             <label style="display: block; font-weight: 800; margin-top: 10px"
               >Project Status</label
@@ -720,7 +806,7 @@
               id="pcr-status"
               style="width: 100%; padding: 12px; font-size: 16px"
             >
-              <option value="Complete">Complete</option>
+              <option value="Partial Completion">Partial Completion</option>
               <option value="Substantially Complete">
                 Substantially Complete
               </option>
@@ -728,6 +814,7 @@
               <option value="Pending Snag Resolution">
                 Pending Snag Resolution
               </option>
+              <option value="Complete">Complete</option>
               <option value="Handed Over">Handed Over</option>
             </select>
             <label
@@ -799,7 +886,7 @@
             >
           </div>
           <div id="modalBody"></div>
-          <div id="modalFoot" style="margin-top: 20px;">
+          <div id="modalFoot" style="margin-top: 20px">
             <button id="modalSubmit" class="action-btn">Save</button>
           </div>
         </div>

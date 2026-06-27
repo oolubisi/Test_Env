@@ -25,6 +25,25 @@ function showPageWithoutRefresh(pageId) {
   suppressPageRefresh = false;
 }
 
+// ===== PROGRESS LOG DELETE =====
+async function deleteProgressLog(logId) {
+  if (!confirm("Delete this progress log?")) return;
+  try {
+    await callApi("deleteProgressLog", { logId });
+    const cache = getCache();
+    cache.progressLogs = (cache.progressLogs || []).filter(
+      (l) => l.logId !== logId,
+    );
+    setCache(cache);
+    loadProgressTimelineFeed(true);
+    showSyncToast("✅ Progress log deleted");
+  } catch (e) {
+    alert("Failed to delete: " + (e.message || "Unknown error"));
+  }
+}
+
+window.updateProgressLog = updateProgressLog;
+window.deleteProgressLog = deleteProgressLog;
 window.showPage = showPage;
 window.loadLetterheadView = loadLetterheadView;
 window.printLetterhead = printLetterhead;
@@ -83,7 +102,8 @@ window.importTemplatesFromJSON = importTemplatesFromJSON;
 window.openImportTemplatesModal = openImportTemplatesModal;
 window.syncTemplatesToSheet = syncTemplatesToSheet;
 window.loadTemplatesFromSheet = loadTemplatesFromSheet;
-window.deleteProgressLog = deleteProgressLog;
+window.updatePcrFields = updatePcrFields;
+window.saveProjectPcrFields = saveProjectPcrFields;
 
 async function refreshTemplatesFromSheet() {
   const btn = document.querySelector(

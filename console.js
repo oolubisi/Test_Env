@@ -439,6 +439,8 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
   if (!projectLogs.length) {
     container.innerHTML = `<p style="text-align:center;padding:20px;">No progress logs.</p>`;
     if (overallEl) overallEl.innerHTML = "";
+    // Still update PCR even if no logs
+    updatePcrFields();
     return;
   }
   // Calculate overall average percentage to 1 decimal place
@@ -482,7 +484,44 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
       })
       .join("") +
     `</div>`;
+
+  // Update PCR fields with latest progress data
+  updatePcrFields();
 }
+
+// ===== PCR AUTO-UPDATE =====
+// ===== PCR AUTO-UPDATE =====
+function updatePcrFields() {
+  // Get overall progress percentage
+  const overallEl = document.getElementById("console-progress-overall");
+  const pcrCompletion = document.getElementById("pcr-completion");
+  const pcrStatus = document.getElementById("pcr-status");
+
+  if (!overallEl || !pcrCompletion || !pcrStatus) return;
+
+  // Extract percentage from overall display
+  const overallText = overallEl.innerText || "";
+  const match = overallText.match(/([\d.]+)%/);
+  let pct = match ? parseFloat(match[1]) : 0;
+
+  // Update PCR completion field
+  pcrCompletion.value = pct.toFixed(1) + "%";
+
+  // Auto-set status based on percentage
+  if (pct < 95) {
+    // Force status to "Partial Completion" if below 95%
+    pcrStatus.value = "Partial Completion";
+    pcrStatus.disabled = true;
+  } else {
+    // Enable dropdown when >= 95%
+    pcrStatus.disabled = false;
+    // Only change if it was previously set to Partial Completion
+    if (pcrStatus.value === "Partial Completion") {
+      pcrStatus.value = "Substantially Complete";
+    }
+  }
+}
+window.updatePcrFields = updatePcrFields;
 
 // Add delete function for progress logs
 async function deleteProgressLog(logId) {
@@ -629,6 +668,35 @@ async function loadPaymentsListings(forceRefresh = false) {
     .join("");
   container.innerHTML = totalsHtml + paymentsHtml;
 }
+
+async function saveProjectPcrFields() {
+  const projectId = getCurrentProjectId();
+  const pcrStatus = document.getElementById("pcr-status");
+  const pcrCompletion = document.getElementById("pcr-completion");
+  const pcrSummary = document.getElementById("pcr-summary");
+  const pcrDeclaration = document.getElementById("pcr-declaration");
+
+  if (!projectId) {
+    alert("No project selected");
+    return;
+  }
+
+  const payload = {
+    projectId: projectId,
+    pcrStatus: pcrStatus.value,
+    pcrCompletion: pcrCompletion.value,
+    pcrSummary: pcrSummary.value,
+    pcrDeclaration: pcrDeclaration.value,
+  };
+
+  try {
+    await callApi("updateProjectPcrFields", payload);
+    showSyncToast("✅ PCR fields saved");
+  } catch (e) {
+    alert("Failed to save: " + (e.message || "Unknown error"));
+  }
+}
+window.saveProjectPcrFields = saveProjectPcrFields;
 window.toggleGroupSelection = toggleGroupSelection;
 window.getTakeOffGroups = getTakeOffGroups;
 window.openTakeOffGroupModal = openTakeOffGroupModal;
