@@ -781,98 +781,72 @@
           <div id="console-variations-list"></div>
         </div>
         <div id="console-seg-pcr" class="console-tab-window page-view">
-          <div class="card">
-            <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 800">
-              Project Completion Report
-            </h3>
-            <label style="display: block; font-weight: 800; margin-top: 10px"
-              >Completion %</label
-            >
-            <input
-              id="pcr-completion"
-              type="text"
-              readonly
-              style="
-                width: 100%;
-                padding: 12px;
-                font-size: 16px;
-                background: #f0f0f0;
-              "
-            />
-            <label style="display: block; font-weight: 800; margin-top: 10px"
-              >Project Status</label
-            >
-            <select
-              id="pcr-status"
-              style="width: 100%; padding: 12px; font-size: 16px"
-            >
-              <option value="Partial Completion">Partial Completion</option>
-              <option value="Substantially Complete">
-                Substantially Complete
-              </option>
-              <option value="Practical Completion">Practical Completion</option>
-              <option value="Pending Snag Resolution">
-                Pending Snag Resolution
-              </option>
-              <option value="Complete">Complete</option>
-              <option value="Handed Over">Handed Over</option>
-            </select>
-            <label
-              style="
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                margin-top: 12px;
-                font-weight: 800;
-              "
-            >
-              <input type="checkbox" id="pcr-show-wht" style="width: auto" />
-              Show WHT in financial snapshot
-            </label>
-            <label style="display: block; font-weight: 800; margin-top: 10px"
-              >Completion Summary</label
-            >
-            <textarea
-              id="pcr-summary"
-              rows="4"
-              style="width: 100%; padding: 12px; font-size: 16px"
-            ></textarea>
-            <label style="display: block; font-weight: 800; margin-top: 10px"
-              >Completion Declaration</label
-            >
-            <textarea
-              id="pcr-declaration"
-              rows="3"
-              style="width: 100%; padding: 12px; font-size: 16px"
-            ></textarea>
-            <button
-              class="action-btn"
-              style="margin-top: 12px"
-              onclick="saveProjectPcrFields()"
-            >
-              Save PCR Fields
-            </button>
-            <div
-              style="
-                margin-top: 16px;
-                border-top: 1px solid var(--border);
-                padding-top: 12px;
-              "
-            >
-              <strong
-                style="
-                  font-size: 14px;
-                  text-transform: uppercase;
-                  display: block;
-                  margin-bottom: 8px;
-                "
-                >Approved Variations</strong
-              >
-              <div id="pcr-variations-list"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+  <div class="card">
+    <h3 style="margin-bottom: 12px; font-size: 18px; font-weight: 800">
+      <i class="fas fa-file-check"></i> Project Completion Report
+    </h3>
+
+    <!-- Completion % - Read Only from Overall Progress -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Completion %</label>
+    <input id="pcr-completion" type="text" readonly style="width: 100%; padding: 12px; font-size: 16px; background: #f0f0f0;" />
+
+    <!-- Project Status - Auto-set when < 95% -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Project Status</label>
+    <select id="pcr-status" style="width: 100%; padding: 12px; font-size: 16px">
+      <option value="Partial Completion">Partial Completion</option>
+      <option value="Substantially Complete">Substantially Complete</option>
+      <option value="Practical Completion">Practical Completion</option>
+      <option value="Pending Snag Resolution">Pending Snag Resolution</option>
+      <option value="Complete">Complete</option>
+      <option value="Handed Over">Handed Over</option>
+    </select>
+
+    <!-- Show WHT checkbox -->
+    <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-weight: 800;">
+      <input type="checkbox" id="pcr-show-wht" style="width: auto" />
+      Show WHT in financial snapshot
+    </label>
+
+    <!-- NEW: Completion Date -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Completion Date</label>
+    <input id="pcr-completion-date" type="date" style="width: 100%; padding: 12px; font-size: 16px;" />
+
+    <!-- NEW: Handover Date -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Handover Date</label>
+    <input id="pcr-handover-date" type="date" style="width: 100%; padding: 12px; font-size: 16px;" />
+
+    <!-- NEW: Defects Liability Period (months) -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Defects Liability Period (months)</label>
+    <select id="pcr-defects-period" style="width: 100%; padding: 12px; font-size: 16px">
+      <option value="3">3 months</option>
+      <option value="6" selected>6 months</option>
+      <option value="12">12 months</option>
+      <option value="24">24 months</option>
+      <option value="other">Other</option>
+    </select>
+
+    <!-- Completion Summary -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Completion Summary</label>
+    <textarea id="pcr-summary" rows="4" style="width: 100%; padding: 12px; font-size: 16px"></textarea>
+
+    <!-- Completion Declaration -->
+    <label style="display: block; font-weight: 800; margin-top: 10px">Completion Declaration</label>
+    <textarea id="pcr-declaration" rows="3" style="width: 100%; padding: 12px; font-size: 16px"></textarea>
+
+    <!-- Save Button -->
+    <button class="action-btn" style="margin-top: 12px" onclick="saveProjectPcrFields()">
+      <i class="fas fa-save"></i> Save PCR Fields
+    </button>
+
+    <!-- Approved Variations -->
+    <div style="margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+      <strong style="font-size: 14px; text-transform: uppercase; display: block; margin-bottom: 8px;">
+        <i class="fas fa-check-circle"></i> Approved Variations
+      </strong>
+      <div id="pcr-variations-list"></div>
+    </div>
+  </div>
+</div>
 
       <!-- Modal Overlay -->
       <div id="modalOverlay" class="modal-overlay">

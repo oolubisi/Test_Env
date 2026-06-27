@@ -44,6 +44,23 @@ async function loadProjectConsoleHub(projectId) {
   if (scopeSaveBtn) scopeSaveBtn.style.display = "none";
   showPage("project-console");
   switchConsoleSegment("profile");
+  // Add this after the existing code in loadProjectConsoleHub
+  // Load PCR fields if they exist
+  const pcrStatus = document.getElementById("pcr-status");
+  const pcrCompletion = document.getElementById("pcr-completion");
+  const pcrSummary = document.getElementById("pcr-summary");
+  const pcrDeclaration = document.getElementById("pcr-declaration");
+  const pcrCompletionDate = document.getElementById("pcr-completion-date");
+  const pcrHandoverDate = document.getElementById("pcr-handover-date");
+  const pcrDefectsPeriod = document.getElementById("pcr-defects-period");
+
+  if (proj.pcrStatus) pcrStatus.value = proj.pcrStatus;
+  if (proj.pcrCompletion) pcrCompletion.value = proj.pcrCompletion;
+  if (proj.pcrSummary) pcrSummary.value = proj.pcrSummary;
+  if (proj.pcrDeclaration) pcrDeclaration.value = proj.pcrDeclaration;
+  if (proj.pcrCompletionDate) pcrCompletionDate.value = proj.pcrCompletionDate;
+  if (proj.pcrHandoverDate) pcrHandoverDate.value = proj.pcrHandoverDate;
+  if (proj.pcrDefectsPeriod) pcrDefectsPeriod.value = proj.pcrDefectsPeriod;
 }
 
 function toggleScopeEdit(isEditing) {
@@ -669,12 +686,16 @@ async function loadPaymentsListings(forceRefresh = false) {
   container.innerHTML = totalsHtml + paymentsHtml;
 }
 
+// ===== SAVE PCR FIELDS =====
 async function saveProjectPcrFields() {
   const projectId = getCurrentProjectId();
   const pcrStatus = document.getElementById("pcr-status");
   const pcrCompletion = document.getElementById("pcr-completion");
   const pcrSummary = document.getElementById("pcr-summary");
   const pcrDeclaration = document.getElementById("pcr-declaration");
+  const pcrCompletionDate = document.getElementById("pcr-completion-date");
+  const pcrHandoverDate = document.getElementById("pcr-handover-date");
+  const pcrDefectsPeriod = document.getElementById("pcr-defects-period");
 
   if (!projectId) {
     alert("No project selected");
@@ -687,11 +708,16 @@ async function saveProjectPcrFields() {
     pcrCompletion: pcrCompletion.value,
     pcrSummary: pcrSummary.value,
     pcrDeclaration: pcrDeclaration.value,
+    pcrCompletionDate: pcrCompletionDate.value || "",
+    pcrHandoverDate: pcrHandoverDate.value || "",
+    pcrDefectsPeriod: pcrDefectsPeriod.value || "6",
   };
 
   try {
     await callApi("updateProjectPcrFields", payload);
     showSyncToast("✅ PCR fields saved");
+    // Reload the project to show updated fields
+    loadProjectConsoleHub(projectId);
   } catch (e) {
     alert("Failed to save: " + (e.message || "Unknown error"));
   }

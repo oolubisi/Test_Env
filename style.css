@@ -433,3 +433,22 @@ input[type="checkbox"] {
     page-break-inside: avoid;
   }
 }
+/* PCR Status Colors */
+#pcr-status option[value="Partial Completion"] {
+  color: #fd7e14;
+}
+#pcr-status option[value="Substantially Complete"] {
+  color: #0dcaf0;
+}
+#pcr-status option[value="Practical Completion"] {
+  color: #0d6efd;
+}
+#pcr-status option[value="Complete"] {
+  color: var(--success);
+}
+#pcr-status option[value="Handed Over"] {
+  color: #6f42c1;
+}
+#pcr-status option[value="Pending Snag Resolution"] {
+  color: var(--danger);
+}
