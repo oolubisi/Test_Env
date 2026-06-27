@@ -578,7 +578,8 @@ async function openModal(type, editData = null) {
             : ""),
         progressPhotoUrl: normalizeAttachments(currentModalFiles),
       };
-      callApi(isEdit ? "updateProgressLog" : "saveProgressLog", payload)
+      const apiAction = isEdit ? "updateProgressLog" : "saveProgressLog";
+      callApi(apiAction, payload)
         .then(() => {
           closeModal();
           loadProgressTimelineFeed(true);

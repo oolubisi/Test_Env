@@ -42,8 +42,31 @@ async function deleteProgressLog(logId) {
   }
 }
 
-window.updateProgressLog = updateProgressLog;
-window.deleteProgressLog = deleteProgressLog;
+// ===== PROGRESS LOG UPDATE =====
+async function updateProgressLog(logId, data) {
+  try {
+    const payload = {
+      logId: logId,
+      projectId: getCurrentProjectId(),
+      tradeCategory: data.tradeCategory,
+      completionPercentage: data.completionPercentage,
+      commentNarrative: data.commentNarrative,
+      progressPhotoUrl: data.progressPhotoUrl || "",
+    };
+    await callApi("updateProgressLog", payload);
+    const cache = getCache();
+    const idx = (cache.progressLogs || []).findIndex((l) => l.logId === logId);
+    if (idx !== -1) {
+      cache.progressLogs[idx] = { ...cache.progressLogs[idx], ...payload };
+      setCache(cache);
+    }
+    loadProgressTimelineFeed(true);
+    showSyncToast("✅ Progress log updated");
+  } catch (e) {
+    alert("Failed to update: " + (e.message || "Unknown error"));
+  }
+}
+
 window.showPage = showPage;
 window.loadLetterheadView = loadLetterheadView;
 window.printLetterhead = printLetterhead;
@@ -102,8 +125,10 @@ window.importTemplatesFromJSON = importTemplatesFromJSON;
 window.openImportTemplatesModal = openImportTemplatesModal;
 window.syncTemplatesToSheet = syncTemplatesToSheet;
 window.loadTemplatesFromSheet = loadTemplatesFromSheet;
-window.updatePcrFields = updatePcrFields;
-window.saveProjectPcrFields = saveProjectPcrFields;
+window.deleteProgressLog = deleteProgressLog; // ← ADD THIS
+window.updateProgressLog = updateProgressLog; // ← ADD THIS
+window.updatePcrFields = updatePcrFields; // ← ADD THIS
+window.saveProjectPcrFields = saveProjectPcrFields; // ← ADD THIS
 
 async function refreshTemplatesFromSheet() {
   const btn = document.querySelector(
