@@ -283,7 +283,7 @@ function generateLayoutHeader(title, project, layout) {
           ? getDirectImageUrl(logoId)
           : "";
       if (logoUrl) {
-        logoHtml = `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${logoUrl}" style="max-height:80px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
+        logoHtml = `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${logoUrl}" style="max-height:120px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
       }
     }
   }
