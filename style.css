@@ -280,8 +280,8 @@ input[type="checkbox"] {
   min-height: calc(297mm - 30mm);
 }
 .report-page-wrapper > .report-content {
-  /* content flows naturally */
   display: block;
+  padding-bottom: 22mm; /* reserves space for the absolute-positioned footer */
 }
 .report-footer {
   position: absolute;
@@ -368,8 +368,8 @@ input[type="checkbox"] {
     page-break-inside: avoid;
   }
   .report-page-wrapper > .report-content {
-    /* content flows naturally */
     display: block;
+    padding-bottom: 22mm;
   }
   .report-footer {
     position: absolute;

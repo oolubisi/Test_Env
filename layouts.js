@@ -666,7 +666,7 @@ function buildLayoutPreview(cfg) {
           ? getDirectImageUrl(logoId)
           : "";
       if (logoUrl) {
-        logoHtml = `<div style="flex-shrink:0; margin-left:10px;"><img src="${logoUrl}" style="max-height:120px; max-width:120px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
+        logoHtml = `<div style="flex-shrink:0; margin-left:10px;"><img src="${logoUrl}" style="max-height:48px; max-width:90px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
       }
     }
   }
@@ -752,6 +752,18 @@ function openLayoutFullPreview() {
       padding: 18mm 15mm 22mm 15mm;
       box-shadow: 0 4px 24px rgba(0,0,0,0.15);
       position: relative;
+    }
+    .report-footer {
+      position: absolute;
+      bottom: 8px;
+      left: 15mm;
+      right: 15mm;
+      padding-top: 12px;
+      border-top: 1px solid #adb5bd;
+      font-size: 10px;
+      color: #495057;
+      line-height: 1.5;
+      text-align: center;
     }
     .preview-badge {
       position: fixed;
