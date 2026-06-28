@@ -456,8 +456,8 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
   if (!projectLogs.length) {
     container.innerHTML = `<p style="text-align:center;padding:20px;">No progress logs.</p>`;
     if (overallEl) overallEl.innerHTML = "";
-    // Still update PCR even if no logs
-    updatePcrFields();
+    // Still update PCR even if no logs (0%)
+    _updateAndSavePcr(0);
     return;
   }
   // Calculate overall average percentage to 1 decimal place
@@ -502,11 +502,61 @@ async function loadProgressTimelineFeed(forceRefresh = false) {
       .join("") +
     `</div>`;
 
-  // Update PCR fields with latest progress data
-  updatePcrFields();
+  // Update PCR fields and auto-save to sheet
+  _updateAndSavePcr(Number(avgPct));
 }
 
-// ===== PCR AUTO-UPDATE =====
+// ===== PCR AUTO-SAVE HELPER =====
+// Called by loadProgressTimelineFeed whenever progress renders.
+// Updates the UI fields and silently saves pcrCompletion + pcrStatus to the sheet.
+let _pcrAutoSaveTimer = null;
+let _pcrLastSavedPct = null;
+
+function _updateAndSavePcr(pct) {
+  // 1. Update the UI input fields
+  updatePcrFields();
+
+  // 2. Skip API call if the value hasn't changed since last save
+  if (pct === _pcrLastSavedPct) return;
+
+  // 3. Debounce 800ms so rapid re-renders only trigger one save
+  clearTimeout(_pcrAutoSaveTimer);
+  _pcrAutoSaveTimer = setTimeout(async () => {
+    const projectId =
+      typeof getCurrentProjectId === "function" ? getCurrentProjectId() : null;
+    if (!projectId) return;
+
+    const pcrStatusEl = document.getElementById("pcr-status");
+    const pcrSummaryEl = document.getElementById("pcr-summary");
+    const pcrDeclarationEl = document.getElementById("pcr-declaration");
+
+    const payload = {
+      projectId,
+      pcrCompletion: Number(pct.toFixed ? pct.toFixed(1) : pct),
+      pcrStatus: pcrStatusEl ? pcrStatusEl.value : "",
+      pcrSummary: pcrSummaryEl ? pcrSummaryEl.value : "",
+      pcrDeclaration: pcrDeclarationEl ? pcrDeclarationEl.value : "",
+    };
+
+    try {
+      await callApi("updateProjectPcrFields", payload);
+      _pcrLastSavedPct = pct;
+      // Keep cache in sync so reports read the new value immediately
+      const cache = getCache();
+      const proj = (cache.projects || []).find(
+        (p) => p.projectId === projectId,
+      );
+      if (proj) {
+        proj.pcrCompletion = payload.pcrCompletion;
+        proj.pcrStatus = payload.pcrStatus;
+        setCache(cache);
+      }
+    } catch (e) {
+      console.warn("PCR auto-save failed:", e);
+    }
+  }, 800);
+}
+
 // ===== PCR AUTO-UPDATE =====
 function updatePcrFields() {
   // Get overall progress percentage
