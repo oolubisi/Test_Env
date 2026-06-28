@@ -7,7 +7,8 @@ const DEFAULT_LAYOUTS = [
   {
     layoutId: "layout-letterhead-default",
     name: "Standard Letterhead",
-    description: "Full letterhead with logo, company info, signature block and footer. Default for most reports.",
+    description:
+      "Full letterhead with logo, company info, signature block and footer. Default for most reports.",
     config: {
       showLogo: true,
       showDate: true,
@@ -20,8 +21,9 @@ const DEFAULT_LAYOUTS = [
       primaryColor: "#000000",
       secondaryColor: "#495057",
       accentColor: "#adb5bd",
-      companyName: "Projects International",
-      companyAddress: "Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State",
+      companyName: "PI Projects",
+      companyAddress:
+        "Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State",
       companyPhones: "+234 809 260 8103    +234 708 260 8103",
       companyEmail: "pi.projects20@gmail.com",
       footerText: "",
@@ -35,7 +37,8 @@ const DEFAULT_LAYOUTS = [
   {
     layoutId: "layout-minimal-default",
     name: "Minimal",
-    description: "Clean and minimal. No letterhead, no signature. Just title, data table, and subtle footer.",
+    description:
+      "Clean and minimal. No letterhead, no signature. Just title, data table, and subtle footer.",
     config: {
       showLogo: false,
       showDate: true,
@@ -63,7 +66,8 @@ const DEFAULT_LAYOUTS = [
   {
     layoutId: "layout-detailed-default",
     name: "Detailed",
-    description: "Comprehensive layout with all sections. Full letterhead, client info, project info, signature, and footer with page numbers.",
+    description:
+      "Comprehensive layout with all sections. Full letterhead, client info, project info, signature, and footer with page numbers.",
     config: {
       showLogo: true,
       showDate: true,
@@ -77,7 +81,8 @@ const DEFAULT_LAYOUTS = [
       secondaryColor: "#495057",
       accentColor: "#e9ecef",
       companyName: "Projects International",
-      companyAddress: "Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State",
+      companyAddress:
+        "Road 1 House 5B, Isheri-Brooks Estate, Isheri-Olofin, Ogun State",
       companyPhones: "+234 809 260 8103    +234 708 260 8103",
       companyEmail: "pi.projects20@gmail.com",
       footerText: "",
@@ -147,7 +152,11 @@ function getLayoutForReport(reportType) {
   const assignments = getAssignments();
   const layoutId = assignments[reportType] || assignments["financial_all"];
   const layouts = getLayouts();
-  return layouts.find((l) => l.layoutId === layoutId) || layouts[0] || DEFAULT_LAYOUTS[0];
+  return (
+    layouts.find((l) => l.layoutId === layoutId) ||
+    layouts[0] ||
+    DEFAULT_LAYOUTS[0]
+  );
 }
 
 // ===== CRUD =====
@@ -156,7 +165,9 @@ function createLayout(name, description, baseLayoutId) {
   let config;
   if (baseLayoutId) {
     const base = layouts.find((l) => l.layoutId === baseLayoutId);
-    config = base ? JSON.parse(JSON.stringify(base.config)) : JSON.parse(JSON.stringify(DEFAULT_LAYOUTS[0].config));
+    config = base
+      ? JSON.parse(JSON.stringify(base.config))
+      : JSON.parse(JSON.stringify(DEFAULT_LAYOUTS[0].config));
   } else {
     config = JSON.parse(JSON.stringify(DEFAULT_LAYOUTS[0].config));
   }
@@ -233,30 +244,58 @@ function setDefaultLayout(layoutId) {
 function generateLayoutHeader(title, project, layout) {
   if (!layout) layout = DEFAULT_LAYOUTS[0];
   const cfg = layout.config;
-  const dateStr = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const dateStr = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   if (cfg.headerStyle === "none") {
     let html = "";
-    if (cfg.showDate) html += `<div style="font-size:11px; color:#495057; margin-bottom:4px;">${escapeHtml(dateStr)}</div>`;
+    if (cfg.showDate)
+      html += `<div style="font-size:11px; color:#495057; margin-bottom:4px;">${escapeHtml(dateStr)}</div>`;
     html += `<div style="font-size:18px; font-weight:700; text-transform:uppercase; margin-bottom:12px; color:#000;">${escapeHtml(title)}</div>`;
     return html;
   }
 
   if (cfg.headerStyle === "simple") {
     let html = `<div style="border-bottom:1.5px solid ${cfg.primaryColor}; padding-bottom:8px; margin-bottom:16px;">`;
-    if (cfg.showDate) html += `<div style="font-size:11px; color:#495057; margin-bottom:2px;">${escapeHtml(dateStr)}</div>`;
+    if (cfg.showDate)
+      html += `<div style="font-size:11px; color:#495057; margin-bottom:2px;">${escapeHtml(dateStr)}</div>`;
     html += `<div style="font-size:16px; font-weight:700; text-transform:uppercase; color:#000; line-height:1.2;">${escapeHtml(title)}</div>`;
     html += `</div>`;
     return html;
   }
 
   // Banner style (full letterhead)
+  // Resolve logo from settings cache when showLogo is enabled
+  let logoHtml = "";
+  if (cfg.showLogo) {
+    const cache = typeof getCache === "function" ? getCache() : {};
+    const settingsData =
+      cache.settings && cache.settings.data
+        ? cache.settings.data
+        : cache.settings || {};
+    const logoId = settingsData.Logo || "";
+    if (logoId) {
+      const logoUrl =
+        typeof getDirectImageUrl === "function"
+          ? getDirectImageUrl(logoId)
+          : "";
+      if (logoUrl) {
+        logoHtml = `<div style="flex-shrink:0; margin-left:16px; text-align:right;"><img src="${logoUrl}" style="max-height:80px; max-width:150px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
+      }
+    }
+  }
+
   let html = `<div style="border-bottom:2.5px solid ${cfg.primaryColor}; padding-bottom:8px; margin-bottom:18px;">`;
   html += `<div style="display:flex; justify-content:space-between; align-items:flex-end;">`;
   html += `<div style="flex:1;">`;
-  if (cfg.showDate) html += `<div style="font-size:11px; color:#495057; font-weight:600; margin-bottom:2px;">${escapeHtml(dateStr)}</div>`;
+  if (cfg.showDate)
+    html += `<div style="font-size:11px; color:#495057; font-weight:600; margin-bottom:2px;">${escapeHtml(dateStr)}</div>`;
   html += `<div style="font-size:16px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#495057; line-height:1.1;">${escapeHtml(title)}</div>`;
   html += `</div>`;
+  html += logoHtml;
   html += `</div>`;
 
   if (cfg.showClientInfo || cfg.showProjectInfo) {
@@ -280,11 +319,16 @@ function generateLayoutFooter(layout) {
   const cfg = layout.config;
   if (!cfg.showFooter) return "";
 
-  const companyLine = cfg.companyName ? `<div style="font-weight:700; margin-bottom:4px;">${escapeHtml(cfg.companyName)}</div>` : "";
-  const addressLine = cfg.companyAddress ? `<div>${escapeHtml(cfg.companyAddress)}</div>` : "";
-  const contactLine = (cfg.companyPhones || cfg.companyEmail)
-    ? `<div>${escapeHtml(cfg.companyPhones || "")}${cfg.companyPhones && cfg.companyEmail ? "&nbsp;&nbsp;&nbsp;" : ""}${escapeHtml(cfg.companyEmail || "")}</div>`
+  const companyLine = cfg.companyName
+    ? `<div style="font-weight:700; margin-bottom:4px;">${escapeHtml(cfg.companyName)}</div>`
     : "";
+  const addressLine = cfg.companyAddress
+    ? `<div>${escapeHtml(cfg.companyAddress)}</div>`
+    : "";
+  const contactLine =
+    cfg.companyPhones || cfg.companyEmail
+      ? `<div>${escapeHtml(cfg.companyPhones || "")}${cfg.companyPhones && cfg.companyEmail ? "&nbsp;&nbsp;&nbsp;" : ""}${escapeHtml(cfg.companyEmail || "")}</div>`
+      : "";
 
   if (cfg.footerText) {
     return `<div class="report-footer"><div>${escapeHtml(cfg.footerText)}</div></div>`;
@@ -351,8 +395,12 @@ function renderPrintLayoutsPage() {
   // Layout cards
   html += `<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:12px;">`;
   layouts.forEach((layout) => {
-    const assignedTo = REPORT_TYPES.filter((rt) => assignments[rt.key] === layout.layoutId).map((rt) => rt.label);
-    const badgeStyle = layout.isDefault ? "background:var(--success);" : "background:var(--primary);";
+    const assignedTo = REPORT_TYPES.filter(
+      (rt) => assignments[rt.key] === layout.layoutId,
+    ).map((rt) => rt.label);
+    const badgeStyle = layout.isDefault
+      ? "background:var(--success);"
+      : "background:var(--primary);";
     const badgeText = layout.isDefault ? "Default" : "Custom";
     html += `<div class="card" style="display:flex; flex-direction:column;">
       <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:8px;">
@@ -368,9 +416,13 @@ function renderPrintLayoutsPage() {
         <button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--card-light); color:var(--text);" onclick="window.cloneLayoutAndRefresh('${escapeAttr(layout.layoutId)}')">
           <i class="fas fa-clone"></i> Clone
         </button>
-        ${!layout.isDefault ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.deleteLayoutAndRefresh('${escapeAttr(layout.layoutId)}')">
+        ${
+          !layout.isDefault
+            ? `<button class="action-btn" style="width:auto; padding:6px 12px; font-size:12px; background:var(--danger);" onclick="window.deleteLayoutAndRefresh('${escapeAttr(layout.layoutId)}')">
           <i class="fas fa-trash"></i>
-        </button>` : ""}
+        </button>`
+            : ""
+        }
       </div>
     </div>`;
   });
@@ -397,7 +449,9 @@ function renderPrintLayoutsPage() {
 // ===== LAYOUT EDITOR =====
 function openLayoutEditor(layoutId) {
   const isEdit = !!layoutId;
-  const layout = isEdit ? getLayouts().find((l) => l.layoutId === layoutId) : null;
+  const layout = isEdit
+    ? getLayouts().find((l) => l.layoutId === layoutId)
+    : null;
 
   const body = document.getElementById("modalBody");
   const submit = document.getElementById("modalSubmit");
@@ -408,10 +462,14 @@ function openLayoutEditor(layoutId) {
   submit.style.display = "none";
   title.innerText = isEdit ? `Edit Layout: ${layout.name}` : "New Print Layout";
 
-  const cfg = isEdit ? JSON.parse(JSON.stringify(layout.config)) : JSON.parse(JSON.stringify(DEFAULT_LAYOUTS[0].config));
+  const cfg = isEdit
+    ? JSON.parse(JSON.stringify(layout.config))
+    : JSON.parse(JSON.stringify(DEFAULT_LAYOUTS[0].config));
 
-  const labelStyle = 'style="display:block; font-weight:800; margin-top:10px; margin-bottom:3px; font-size:12px;"';
-  const inputStyle = 'style="width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:6px;"';
+  const labelStyle =
+    'style="display:block; font-weight:800; margin-top:10px; margin-bottom:3px; font-size:12px;"';
+  const inputStyle =
+    'style="width:100%; padding:8px; font-size:14px; border:1px solid var(--border); border-radius:6px;"';
   const checkboxStyle = 'style="width:auto; margin-right:6px; cursor:pointer;"';
 
   body.innerHTML = `
@@ -436,6 +494,7 @@ function openLayoutEditor(layoutId) {
         </select>
 
         <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:8px;">
+          <label style="display:flex; align-items:center; font-size:13px; cursor:pointer;"><input id="le_showLogo" type="checkbox" ${checkboxStyle} ${cfg.showLogo !== false ? "checked" : ""}> Show Logo</label>
           <label style="display:flex; align-items:center; font-size:13px; cursor:pointer;"><input id="le_showDate" type="checkbox" ${checkboxStyle} ${cfg.showDate ? "checked" : ""}> Show Date</label>
           <label style="display:flex; align-items:center; font-size:13px; cursor:pointer;"><input id="le_showClientInfo" type="checkbox" ${checkboxStyle} ${cfg.showClientInfo ? "checked" : ""}> Show Client Info</label>
           <label style="display:flex; align-items:center; font-size:13px; cursor:pointer;"><input id="le_showProjectInfo" type="checkbox" ${checkboxStyle} ${cfg.showProjectInfo ? "checked" : ""}> Show Project Info</label>
@@ -493,12 +552,18 @@ function openLayoutEditor(layoutId) {
     <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:16px;">
       ${isEdit && !layout.isDefault ? `<button class="action-btn" id="le_delete" style="background:var(--danger);"><i class="fas fa-trash"></i> Delete</button>` : ""}
       ${isEdit ? `<button class="action-btn" id="le_clone" style="background:var(--card-light); color:var(--text);"><i class="fas fa-clone"></i> Clone</button>` : ""}
+      <button class="action-btn" id="le_preview_btn" style="background:var(--card-light); color:var(--text);"><i class="fas fa-eye"></i> Preview</button>
       <button class="action-btn" id="le_save"><i class="fas fa-save"></i> Save</button>
     </div>
   `;
 
   // Bind save
-  document.getElementById("le_save").onclick = () => saveLayoutFromEditor(isEdit, layoutId);
+  document.getElementById("le_save").onclick = () =>
+    saveLayoutFromEditor(isEdit, layoutId);
+
+  // Bind preview
+  document.getElementById("le_preview_btn").onclick = () =>
+    openLayoutFullPreview();
 
   // Bind delete
   if (isEdit && !layout.isDefault) {
@@ -522,15 +587,32 @@ function openLayoutEditor(layoutId) {
 
   // Live preview update
   const previewFields = [
-    "le_name", "le_headerStyle", "le_showDate", "le_showClientInfo", "le_showProjectInfo",
-    "le_companyName", "le_companyAddress", "le_companyPhones", "le_companyEmail",
-    "le_showFooter", "le_showSignature", "le_footerText", "le_signatureLabel",
-    "le_tableStyle", "le_primaryColor", "le_secondaryColor", "le_accentColor",
+    "le_name",
+    "le_showLogo",
+    "le_headerStyle",
+    "le_showDate",
+    "le_showClientInfo",
+    "le_showProjectInfo",
+    "le_companyName",
+    "le_companyAddress",
+    "le_companyPhones",
+    "le_companyEmail",
+    "le_showFooter",
+    "le_showSignature",
+    "le_footerText",
+    "le_signatureLabel",
+    "le_tableStyle",
+    "le_primaryColor",
+    "le_secondaryColor",
+    "le_accentColor",
   ];
   previewFields.forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
-      el.addEventListener(el.type === "checkbox" ? "change" : "input", updateLayoutPreview);
+      el.addEventListener(
+        el.type === "checkbox" ? "change" : "input",
+        updateLayoutPreview,
+      );
     }
   });
 }
@@ -548,6 +630,7 @@ function readLayoutConfigFromEditor() {
     return el.type === "checkbox" ? el.checked : el.value;
   };
   return {
+    showLogo: getVal("le_showLogo"),
     headerStyle: getVal("le_headerStyle"),
     showDate: getVal("le_showDate"),
     showClientInfo: getVal("le_showClientInfo"),
@@ -568,8 +651,61 @@ function readLayoutConfigFromEditor() {
 }
 
 function buildLayoutPreview(cfg) {
+  // Resolve logo from settings cache
+  let logoHtml = "";
+  if (cfg.showLogo) {
+    const cache = typeof getCache === "function" ? getCache() : {};
+    const settingsData =
+      cache.settings && cache.settings.data
+        ? cache.settings.data
+        : cache.settings || {};
+    const logoId = settingsData.Logo || "";
+    if (logoId) {
+      const logoUrl =
+        typeof getDirectImageUrl === "function"
+          ? getDirectImageUrl(logoId)
+          : "";
+      if (logoUrl) {
+        logoHtml = `<div style="flex-shrink:0; margin-left:10px;"><img src="${logoUrl}" style="max-height:48px; max-width:90px; object-fit:contain;" onerror="this.style.display='none'"></div>`;
+      }
+    }
+  }
+
   const layout = { config: cfg };
-  const header = generateLayoutHeader("Sample Report", { clientName: "John Doe", projectId: "PRJ/25/001", siteLocation: "Lagos" }, layout);
+  const dateStr = new Date().toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
+  let header = "";
+  if (cfg.headerStyle === "banner") {
+    header = `<div style="border-bottom:2px solid ${cfg.primaryColor}; padding-bottom:6px; margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+        <div style="flex:1;">
+          ${cfg.showDate ? `<div style="font-size:8px; color:#495057; margin-bottom:2px;">${escapeHtml(dateStr)}</div>` : ""}
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#495057;">Sample Report</div>
+        </div>
+        ${logoHtml}
+      </div>
+      ${
+        cfg.showClientInfo || cfg.showProjectInfo
+          ? `<div style="margin-top:6px; font-size:8px; line-height:1.6; display:grid; grid-template-columns:1fr 1fr; gap:2px 10px;">
+        ${cfg.showClientInfo ? "<div><strong>Client:</strong> John Doe</div>" : ""}
+        ${cfg.showProjectInfo ? "<div><strong>Project ID:</strong> PRJ/25/001</div><div><strong>Location:</strong> Lagos</div>" : ""}
+      </div>`
+          : ""
+      }
+    </div>`;
+  } else if (cfg.headerStyle === "simple") {
+    header = `<div style="border-bottom:1.5px solid ${cfg.primaryColor}; padding-bottom:5px; margin-bottom:10px;">
+      ${cfg.showDate ? `<div style="font-size:8px; color:#495057; margin-bottom:2px;">${escapeHtml(dateStr)}</div>` : ""}
+      <div style="font-size:11px; font-weight:700; text-transform:uppercase;">Sample Report</div>
+    </div>`;
+  } else {
+    header = `<div style="font-size:11px; font-weight:700; text-transform:uppercase; margin-bottom:10px;">Sample Report</div>`;
+  }
+
   const sampleTable = `<table style="width:100%; font-size:9px; border-collapse:collapse; margin-top:8px;">
     <thead><tr style="background:${cfg.primaryColor}; color:#fff;"><th style="padding:4px; text-align:left;">Item</th><th style="padding:4px; text-align:right;">Qty</th></tr></thead>
     <tbody>
@@ -577,14 +713,83 @@ function buildLayoutPreview(cfg) {
       <tr><td style="border-bottom:1px solid ${cfg.accentColor}; padding:4px;">Wall paint</td><td style="border-bottom:1px solid ${cfg.accentColor}; padding:4px; text-align:right;">18</td></tr>
     </tbody>
   </table>`;
-  const signature = cfg.showSignatureBlock ? `<div style="margin-top:16px; font-size:9px;"><div style="font-weight:700; text-transform:uppercase; color:#495057; margin-bottom:4px;">${escapeHtml(cfg.signatureLabel || "Authorized Signatory")}</div><div style="border-bottom:1px solid #000; width:100px;"></div></div>` : "";
-  const footer = cfg.showFooter ? `<div style="margin-top:12px; border-top:1px solid ${cfg.accentColor}; padding-top:4px; font-size:8px; color:#495057;">${escapeHtml(cfg.companyName || cfg.footerText || "Footer")}</div>` : "";
+  const signature = cfg.showSignatureBlock
+    ? `<div style="margin-top:16px; font-size:9px;"><div style="font-weight:700; text-transform:uppercase; color:#495057; margin-bottom:4px;">${escapeHtml(cfg.signatureLabel || "Authorized Signatory")}</div><div style="border-bottom:1px solid #000; width:100px;"></div></div>`
+    : "";
+  const footer = cfg.showFooter
+    ? `<div style="margin-top:12px; border-top:1px solid ${cfg.accentColor}; padding-top:4px; font-size:8px; color:#495057;">${escapeHtml(cfg.companyName || cfg.footerText || "Footer")}</div>`
+    : "";
   return header + sampleTable + signature + footer;
+}
+
+function openLayoutFullPreview() {
+  const cfg = readLayoutConfigFromEditor();
+  const previewHtml = buildLayoutPreview(cfg);
+
+  const win = window.open("", "_blank", "width=860,height=700,scrollbars=yes");
+  if (!win) {
+    alert("Preview blocked by browser. Please allow popups for this site.");
+    return;
+  }
+
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Layout Preview — ${escapeHtml(document.getElementById("le_name")?.value || "Layout")}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #e9ecef;
+      font-family: ${cfg.fontFamily || "Inter, sans-serif"};
+      padding: 24px;
+    }
+    .page {
+      background: #fff;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 18mm 15mm 22mm 15mm;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+      position: relative;
+    }
+    .preview-badge {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      background: #000;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .page { box-shadow: none; padding: 18mm 15mm; }
+      .preview-badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-badge">Preview</div>
+  <div class="page">
+    ${previewHtml}
+  </div>
+</body>
+</html>`);
+  win.document.close();
 }
 
 function saveLayoutFromEditor(isEdit, layoutId) {
   const name = document.getElementById("le_name").value.trim();
-  if (!name) { alert("Enter a layout name"); return; }
+  if (!name) {
+    alert("Enter a layout name");
+    return;
+  }
   const cfg = readLayoutConfigFromEditor();
   const updates = {
     name,
@@ -616,7 +821,9 @@ function cloneLayoutAndRefresh(layoutId) {
 }
 
 function deleteLayoutAndRefresh(layoutId) {
-  if (confirm("Delete this layout? Any report types using it will be reassigned.")) {
+  if (
+    confirm("Delete this layout? Any report types using it will be reassigned.")
+  ) {
     deleteLayout(layoutId);
     renderPrintLayoutsPage();
   }

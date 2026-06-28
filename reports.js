@@ -178,6 +178,8 @@ async function initReportsConsoleEngine() {
     }
   }
   const typeSel = document.getElementById("rep-type-sel");
+  const orientSel = document.getElementById("rep-orientation-sel");
+  if (orientSel) orientSel.value = "portrait";
   if (typeSel) {
     typeSel.value = "";
     handleReportScopePopulation();
@@ -243,6 +245,8 @@ function handleReportScopePopulation() {
   const woWrap = document.getElementById("rep-workorder-wrap");
   if (woWrap) woWrap.style.display = "none";
   const orientWrap = document.getElementById("rep-orientation-wrap");
+  const orientSel = document.getElementById("rep-orientation-sel");
+  if (orientSel) orientSel.value = "portrait"; // always reset on report type change
   if (orientWrap)
     orientWrap.style.display = type === "financial_all" ? "block" : "none";
   handleReportFilterPopulation();
