@@ -1073,7 +1073,22 @@ function renderPcrReport(project, variations, payments) {
     "This report confirms that the project works recorded for the above project have reached substantially complete status, subject to any open snags noted in FieldScan Pro.";
   // Display the stored value directly (e.g. "100.0%"); strip trailing % then re-add
   // to avoid double-% if the value already contains one.
-  const _pcrPct = String(pcrCompletion).trim();
+  // Google Sheets stores "100.0%" as the decimal 1.0, "50%" as 0.5, etc.
+  // If the raw value is a number (or numeric string) <= 1 with no % sign,
+  // multiply by 100 to recover the real percentage.
+  let _pcrRaw = pcrCompletion;
+  if (
+    typeof _pcrRaw === "number" ||
+    (typeof _pcrRaw === "string" && !String(_pcrRaw).includes("%"))
+  ) {
+    const _num = parseFloat(_pcrRaw);
+    if (!isNaN(_num) && _num > 0 && _num <= 1) {
+      _pcrRaw = (_num * 100).toFixed(1);
+    } else if (!isNaN(_num)) {
+      _pcrRaw = _num.toFixed(1);
+    }
+  }
+  const _pcrPct = String(_pcrRaw).trim();
   const completionDisplay = _pcrPct.endsWith("%") ? _pcrPct : _pcrPct + "%";
 
   // ── Settings (logo / signature) ──────────────────────────────────────────

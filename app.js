@@ -161,7 +161,7 @@ async function saveProjectPcrFields() {
   const payload = {
     projectId: projectId,
     pcrStatus: pcrStatus.value,
-    pcrCompletion: pcrCompletion.value,
+    pcrCompletion: parseFloat(pcrCompletion.value) || 0,
     pcrSummary: pcrSummary.value,
     pcrDeclaration: pcrDeclaration.value,
   };
