@@ -1,10 +1,16 @@
-const CACHE_NAME = "facility-pro-v8";
+const CACHE_NAME = "facility-pro-v9";
 
 const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./app.js",
+  "./js/core.js",
+  "./js/init.js",
+  "./js/records.js",
+  "./js/modals-core.js",
+  "./js/modals-forms.js",
+  "./js/pdf.js",
+  "./js/reports.js",
   "./manifest.json",
   "./logo.png",
 ];

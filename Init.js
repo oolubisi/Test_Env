@@ -1,0 +1,484 @@
+// =========================================================
+// INIT.JS — App Initialization · Dashboard & Alerts
+//           Navigation · Keyboard/A11y · Pull-to-Refresh
+// Load order: 2nd
+// Depends on: core.js (cache, appSettings, callApi, showToast, setGlobalLoading)
+// =========================================================
+
+// ─────────────────────────────────────────────
+// § APP INITIALIZATION
+// ─────────────────────────────────────────────
+window.onload = async () => {
+  if ("serviceWorker" in navigator)
+    navigator.serviceWorker.register("./sw.js").catch(console.error);
+  window.addEventListener("online", processSyncQueue);
+  if (navigator.onLine) processSyncQueue();
+  await loadApplicationSettingsData();
+  await bootstrapDataRegistriesPipeline();
+  setupKeyboardHandlers();
+  setupPullToRefresh();
+};
+
+function generateNextId(prefix, list, idKey) {
+  let maxId = 0;
+  const safeList = Array.isArray(list) ? list : [];
+  safeList.forEach((item) => {
+    if (!item) return;
+    const idVal =
+      item[idKey] ||
+      item[idKey.charAt(0).toUpperCase() + idKey.slice(1)] ||
+      item[idKey.toUpperCase()];
+    if (idVal && typeof idVal === "string" && idVal.startsWith(prefix)) {
+      const parts = idVal.split("-");
+      if (parts.length > 1) {
+        const n = parseInt(parts[1], 10);
+        if (!isNaN(n) && n > maxId) maxId = n;
+      }
+    }
+  });
+  return `${prefix}-${String(maxId + 1).padStart(4, "0")}`;
+}
+
+async function loadApplicationSettingsData() {
+  const stored = localStorage.getItem("facility_pro_config_meta");
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed === "object")
+        appSettings = { ...appSettings, ...parsed };
+    } catch (e) {
+      console.error("Settings parse error:", e);
+    }
+  }
+  applySettingsToUIHeaders();
+  try {
+    const cloudSettings = await callApi("getSettings", {});
+    if (
+      cloudSettings &&
+      typeof cloudSettings === "object" &&
+      (cloudSettings.estateName || cloudSettings.fmName)
+    ) {
+      appSettings = { ...appSettings, ...cloudSettings };
+      localStorage.setItem(
+        "facility_pro_config_meta",
+        JSON.stringify(appSettings),
+      );
+      applySettingsToUIHeaders();
+      syncSettingsInputsToUIFields();
+    }
+  } catch (e) {
+    console.error("Cloud settings load failed:", e);
+  }
+}
+
+function applySettingsToUIHeaders() {
+  const logoEl = document.getElementById("app-header-logo");
+  if (logoEl) {
+    logoEl.src = appSettings.logoUrl || "";
+    logoEl.style.display = appSettings.logoUrl ? "block" : "none";
+  }
+  const titleEl = document.getElementById("app-header-title");
+  if (titleEl) titleEl.innerText = appSettings.estateName || "Facility Pro";
+}
+
+async function commitApplicationSettingsData() {
+  appSettings.estateName = sanitizeInput(
+    document.getElementById("cfg-estate-name").value,
+  );
+  appSettings.estateAddress = sanitizeInput(
+    document.getElementById("cfg-estate-address").value,
+  );
+  appSettings.fmName = sanitizeInput(
+    document.getElementById("cfg-fm-name").value,
+  );
+  appSettings.fmAddress = sanitizeInput(
+    document.getElementById("cfg-fm-address").value,
+  );
+  appSettings.logoUrl = sanitizeInput(
+    document.getElementById("cfg-logo-url").value,
+  );
+  localStorage.setItem("facility_pro_config_meta", JSON.stringify(appSettings));
+  applySettingsToUIHeaders();
+  try {
+    await callApi("saveSettings", appSettings);
+    showToast("Settings saved and synced!", "success");
+  } catch (err) {
+    showToast("Saved locally. Cloud sync offline.", "warning");
+  }
+  showPage("dashboard");
+}
+
+function syncSettingsInputsToUIFields() {
+  const map = [
+    ["cfg-estate-name", "estateName"],
+    ["cfg-estate-address", "estateAddress"],
+    ["cfg-fm-name", "fmName"],
+    ["cfg-fm-address", "fmAddress"],
+    ["cfg-logo-url", "logoUrl"],
+  ];
+  map.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = appSettings[key] || "";
+  });
+}
+
+async function bootstrapDataRegistriesPipeline() {
+  setGlobalLoading(true, "Loading data...");
+  const actions = [
+    "getApartments",
+    "getAssets",
+    "getMaintenance",
+    "getStaff",
+    "getVendors",
+    "getUtilities",
+    "getWorkOrders",
+    "getInventory",
+    "getPayments",
+    "getExpenseRequests",
+    "getCashExpenses",
+  ];
+  const keys = [
+    "apts",
+    "assets",
+    "tickets",
+    "staff",
+    "vendors",
+    "utilities",
+    "workorders",
+    "inventory",
+    "payments",
+    "expenseRequests",
+    "cashExpenses",
+  ];
+  try {
+    const results = await Promise.all(
+      actions.map(async (act) => {
+        try {
+          return await callApi(act, {});
+        } catch (e) {
+          return [];
+        }
+      }),
+    );
+    results.forEach((res, i) => {
+      if (res && res.status !== "queued" && Array.isArray(res))
+        cache[keys[i]] = res;
+    });
+    if (cache.utilities)
+      cache.utilities.forEach((u, i) => {
+        if (u && !u.rowId && !u.id) u._tempId = "UTIL-" + i;
+      });
+    if (cache.apts) sortApartmentsCacheList();
+    updateDashboardCounters();
+    evalPreventiveMaintenanceAlerts();
+    prepopulateStaticFilterSelectors();
+    showToast("Data loaded successfully", "success", 2000);
+  } catch (e) {
+    console.error("Pipeline error:", e);
+    showToast("Some data could not be loaded", "warning");
+  } finally {
+    setGlobalLoading(false);
+  }
+}
+
+function sortApartmentsCacheList() {
+  if (!Array.isArray(cache.apts)) return;
+  cache.apts.sort((a, b) => {
+    const aNum = String(getUnitNumber(a)).replace(/[^0-9]/g, "");
+    const bNum = String(getUnitNumber(b)).replace(/[^0-9]/g, "");
+    return (parseInt(aNum, 10) || 0) - (parseInt(bNum, 10) || 0);
+  });
+}
+
+function prepopulateStaticFilterSelectors() {
+  const uFilter = document.getElementById("asset-unit-filter");
+  if (uFilter && cache.apts?.length > 0) {
+    uFilter.innerHTML = '<option value="ALL">-- ALL ASSETS --</option>';
+    cache.apts.forEach((a) => {
+      const uNum = getUnitNumber(a);
+      if (uNum !== undefined && uNum !== "") {
+        const o = document.createElement("option");
+        o.value = uNum;
+        o.textContent = `Unit ${uNum}`;
+        uFilter.appendChild(o);
+      }
+    });
+  }
+}
+
+function populateUnitDropdown(selectElementId, currentlySelectedValue) {
+  const sel = document.getElementById(selectElementId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Choose Unit Reference --</option>';
+
+  const renderOptions = () => {
+    (cache.apts || []).forEach((u) => {
+      const uNum = getUnitNumber(u);
+      if (!uNum && uNum !== 0) return;
+      if (String(u.type || u.Type || "").toLowerCase() === "services") return;
+      const opt = document.createElement("option");
+      opt.value = uNum;
+      opt.textContent = "Unit " + uNum;
+      if (
+        currentlySelectedValue &&
+        String(uNum) === String(currentlySelectedValue)
+      )
+        opt.selected = true;
+      sel.appendChild(opt);
+    });
+  };
+
+  if (!cache.apts || cache.apts.length === 0) {
+    callApi("getApartments", {}).then((res) => {
+      if (res && Array.isArray(res)) {
+        cache.apts = res;
+        sortApartmentsCacheList();
+        renderOptions();
+      }
+    });
+  } else {
+    renderOptions();
+  }
+}
+
+// ─────────────────────────────────────────────
+// § DASHBOARD & ALERTS
+// ─────────────────────────────────────────────
+function evalPreventiveMaintenanceAlerts() {
+  if (!Array.isArray(cache.assets)) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const overdueCount = cache.assets.filter((a) => {
+    if (!a) return false;
+    if (String(a.status || a.Status || "").toLowerCase() === "archived")
+      return false;
+    if (String(a.archived || a.Archived || "").toLowerCase() === "yes")
+      return false;
+    const nextServiceDate = parseToLocalDateObject(
+      a.nextService || a.NextService || "",
+    );
+    return nextServiceDate && nextServiceDate <= today;
+  }).length;
+
+  const banner = document.getElementById("pms-alert-banner");
+  const text = document.getElementById("pms-alert-text");
+  if (overdueCount > 0 && banner && text) {
+    text.textContent = `${overdueCount} Heavy Asset${overdueCount > 1 ? "s Are" : " Is"} Overdue for Scheduled PM Check`;
+    banner.style.display = "flex";
+  } else if (banner) {
+    banner.style.display = "none";
+  }
+}
+
+function renderGeneratorEfficiencyLogs() {
+  const card = document.getElementById("generator-efficiency-card");
+  if (!card) return;
+  const plantLogs = (cache.utilities || [])
+    .filter(
+      (u) =>
+        u &&
+        u.type === "Plant Check" &&
+        String(getUnitNumber(u)).includes("GENERATOR"),
+    )
+    .sort((a, b) => parseFloat(b.reading || 0) - parseFloat(a.reading || 0));
+  if (plantLogs.length < 2) {
+    card.style.display = "none";
+    return;
+  }
+  const current = plantLogs[0],
+    previous = plantLogs[1];
+  const deltaHours =
+    parseFloat(current.reading || 0) - parseFloat(previous.reading || 0);
+  const litersAdded = parseFloat(current.amount || current.Amount || 0);
+  if (deltaHours > 0 && litersAdded > 0) {
+    const rate = (litersAdded / deltaHours).toFixed(2);
+    card.innerHTML = `<h4><i class="fas fa-chart-line"></i> Generator Burn Analytics</h4>
+      <p style="font-size:14px; font-weight:600; margin-top:4px;">Last run logged <strong>${escapeHtml(deltaHours)} Hours</strong> with <strong>${escapeHtml(litersAdded)}L</strong> addition.</p>
+      <div style="font-size:22px; font-weight:900; color:var(--primary); margin-top:5px;">${escapeHtml(rate)} L / Hr <span style="font-size:12px; color:var(--muted);">Consumption Rate</span></div>`;
+    card.style.display = "block";
+  } else {
+    card.style.display = "none";
+  }
+}
+
+function renderTotalBalance() {
+  const balEl = document.getElementById("s-ledger-balance");
+  if (!balEl) return;
+  let totalInflow = 0,
+    totalOutflow = 0;
+  (cache.payments || []).forEach((p) => {
+    if (!p) return;
+    const amt = parseFloat(p.amount || p.Amount || 0);
+    const isCleared =
+      String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+    if (!isCleared) return;
+    if (p.direction === "OUTFLOW") totalOutflow += amt;
+    else totalInflow += amt;
+  });
+  (cache.cashExpenses || []).forEach((c) => {
+    if (!c) return;
+    const amt = parseFloat(c.amount || c.Amount || 0);
+    const isCleared =
+      String(c.isPaid).toUpperCase() === "TRUE" || c.isPaid === true;
+    if (isCleared) totalOutflow += amt;
+  });
+  const netBalance = totalInflow - totalOutflow;
+  balEl.textContent = `${netBalance >= 0 ? "+" : "-"}₦${formatMoney(Math.abs(netBalance))}`;
+  balEl.style.color = netBalance >= 0 ? "var(--success)" : "var(--danger)";
+}
+
+function updateDashboardCounters() {
+  const tenancyCount = (cache.apts || []).filter(
+    (a) => a && String(a.type || a.Type || "").toLowerCase() !== "services",
+  ).length;
+  const assetCount = (cache.assets || []).filter(
+    (a) =>
+      a &&
+      String(a.status || a.Status || "") !== "Archived" &&
+      String(a.archived || a.Archived || "") !== "Yes",
+  ).length;
+  const invCount = (cache.inventory || []).filter(
+    (i) => i && String(i.archived || i.Archived || "") !== "Yes",
+  ).length;
+  const maintCount = (cache.tickets || []).filter(
+    (t) => t && String(t.status || t.Status || "") !== "Resolved",
+  ).length;
+  const woCount = (cache.workorders || []).filter(
+    (w) => w && String(w.status || w.Status || "") === "Pending Approval",
+  ).length;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const fourteenDaysLimit = new Date();
+  fourteenDaysLimit.setDate(today.getDate() + 14);
+  fourteenDaysLimit.setHours(23, 59, 59, 999);
+  let pmCombinedSum = 0;
+  (cache.assets || []).forEach((a) => {
+    if (
+      !a ||
+      String(a.status || a.Status || "").toLowerCase() === "archived" ||
+      String(a.archived || a.Archived || "").toLowerCase() === "yes"
+    )
+      return;
+    const nextServiceDate = parseToLocalDateObject(
+      a.nextService || a.NextService || "",
+    );
+    if (nextServiceDate && nextServiceDate <= fourteenDaysLimit)
+      pmCombinedSum++;
+  });
+
+  const idVals = [
+    ["s-tenancy", tenancyCount],
+    ["s-asset", assetCount],
+    ["s-inv", invCount],
+    ["count-maint", maintCount],
+    ["s-wo", woCount],
+    ["s-pm-due", pmCombinedSum],
+  ];
+  idVals.forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val || "0";
+  });
+}
+
+// ─────────────────────────────────────────────
+// § NAVIGATION
+// ─────────────────────────────────────────────
+function showPage(p) {
+  document
+    .querySelectorAll(".page-view")
+    .forEach((v) => v.classList.remove("active-view"));
+  const printContainer = document.getElementById("report-print-container");
+  if (printContainer) printContainer.innerHTML = "";
+
+  const target = document.getElementById("view-" + p);
+  if (target) {
+    target.classList.add("active-view");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const moreChildren = [
+    "serviceunits",
+    "utilities",
+    "expenserequests",
+    "cashexpenses",
+    "payments",
+    "staff",
+    "vendors",
+    "archived",
+    "reports",
+    "settings",
+  ];
+  const homeBtn = document.querySelector(".active-view .home-btn");
+  if (homeBtn)
+    homeBtn.onclick = () =>
+      showPage(moreChildren.includes(p) ? "more" : "dashboard");
+
+  if (p === "dashboard") {
+    updateDashboardCounters();
+    evalPreventiveMaintenanceAlerts();
+  } else if (p === "reports") initReportsEngine();
+  else if (p === "settings") syncSettingsInputsToUIFields();
+  else if (p === "utilities") {
+    refreshData("utilities");
+    setTimeout(renderGeneratorEfficiencyLogs, 500);
+  } else if (p === "payments") refreshData("payments");
+  else if (p !== "more") refreshData(p);
+}
+
+// ─────────────────────────────────────────────
+// § KEYBOARD & ACCESSIBILITY
+// ─────────────────────────────────────────────
+function setupKeyboardHandlers() {
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const overlay = document.getElementById("modalOverlay");
+      if (overlay && overlay.style.display === "flex") closeModal();
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// § PULL-TO-REFRESH
+// ─────────────────────────────────────────────
+function setupPullToRefresh() {
+  let startY = 0,
+    isPulling = false;
+  const indicator = document.getElementById("pull-indicator");
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+        isPulling = true;
+      }
+    },
+    { passive: true },
+  );
+  document.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!isPulling || !indicator) return;
+      const diff = e.touches[0].clientY - startY;
+      if (diff > 60 && diff < 200 && window.scrollY === 0) {
+        indicator.style.display = "flex";
+        indicator.style.transform = `translateY(${Math.min(diff - 60, 0)}px)`;
+      }
+    },
+    { passive: true },
+  );
+  document.addEventListener("touchend", () => {
+    if (!isPulling || !indicator) return;
+    isPulling = false;
+    indicator.style.transform = "translateY(-60px)";
+    setTimeout(() => {
+      indicator.style.display = "none";
+      if (window.scrollY === 0) {
+        showToast("Refreshing data...", "info");
+        bootstrapDataRegistriesPipeline();
+      }
+    }, 200);
+  });
+}
+
+// ─────────────────────────────────────────────
