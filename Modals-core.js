@@ -128,17 +128,39 @@ function initPaymentStages(existingStagesJson) {
   ];
 }
 
+function computeStageWarnings(totalJobValue) {
+  const stageTotal = paymentStages.reduce(
+    (sum, s) => sum + (parseFloat(s.amount) || 0),
+    0,
+  );
+  const unallocated = totalJobValue - stageTotal;
+
+  // Specific rule: Mobilisation + Final Payment combined must not exceed Total Contract Value
+  const mobilisation = paymentStages.find(
+    (s) => String(s.label).trim().toLowerCase() === "mobilisation",
+  );
+  const finalPayment = paymentStages.find(
+    (s) => String(s.label).trim().toLowerCase() === "final payment",
+  );
+  const mobAmount = parseFloat(mobilisation?.amount) || 0;
+  const finalAmount = parseFloat(finalPayment?.amount) || 0;
+  const mobFinalTotal = mobAmount + finalAmount;
+  const mobFinalExceeds = totalJobValue > 0 && mobFinalTotal > totalJobValue;
+
+  return { stageTotal, unallocated, mobFinalTotal, mobFinalExceeds };
+}
+
+// Full structural re-render: rebuilds all row DOM. Only call this when rows are
+// added/removed or on initial render — NOT on every keystroke, since rebuilding
+// the inputs mid-typing steals focus from whichever field the user is in.
 function renderPaymentStagesTable() {
   const container = document.getElementById("stages-table-container");
   if (!container) return;
 
   const totalJobValue =
     parseFloat(document.getElementById("p_total_job")?.value || 0) || 0;
-  const stageTotal = paymentStages.reduce(
-    (sum, s) => sum + (parseFloat(s.amount) || 0),
-    0,
-  );
-  const unallocated = totalJobValue - stageTotal;
+  const { stageTotal, unallocated, mobFinalTotal, mobFinalExceeds } =
+    computeStageWarnings(totalJobValue);
 
   container.innerHTML = `
     <div style="background:#f8f9fa; border:2px solid var(--border); border-radius:12px; padding:12px; margin:10px 0;">
@@ -152,11 +174,11 @@ function renderPaymentStagesTable() {
           .map(
             (stage, idx) => `
           <div style="display:grid; grid-template-columns:1fr 90px 80px 32px; gap:6px; align-items:center; margin-bottom:6px;">
-            <input list="stage-presets" value="${escapeHtml(stage.label)}" placeholder="Stage label" oninput="updateStageField(${idx}, 'label', this.value)"
+            <input list="stage-presets" value="${escapeHtml(stage.label)}" placeholder="Stage label" oninput="updateStageField(${idx}, 'label', this.value, false)"
               style="padding:8px 10px; border:2px solid var(--border); border-radius:8px; font-size:15px; font-weight:600; background:white; color:black;">
-            <input type="number" value="${escapeHtml(stage.amount)}" placeholder="Amount" oninput="updateStageField(${idx}, 'amount', this.value)"
+            <input type="number" value="${escapeHtml(stage.amount)}" placeholder="Amount" oninput="updateStageField(${idx}, 'amount', this.value, false)"
               style="padding:8px 8px; border:2px solid var(--border); border-radius:8px; font-size:15px; font-weight:600; background:white; color:black;">
-            <select onchange="updateStageField(${idx}, 'status', this.value)"
+            <select onchange="updateStageField(${idx}, 'status', this.value, true)"
               style="padding:8px 4px; border:2px solid ${stage.status === "Paid" ? "var(--success)" : stage.status === "Partial" ? "var(--warning)" : "var(--border)"}; border-radius:8px; font-size:13px; font-weight:700; background:${stage.status === "Paid" ? "#e8f5e9" : stage.status === "Partial" ? "#fff8e1" : "white"}; color:black;">
               <option value="Pending" ${stage.status === "Pending" ? "selected" : ""}>Pending</option>
               <option value="Partial" ${stage.status === "Partial" ? "selected" : ""}>Partial</option>
@@ -173,31 +195,107 @@ function renderPaymentStagesTable() {
         ${STAGE_PRESETS.map((p) => `<option value="${escapeHtml(p)}">`).join("")}
       </datalist>
 
-      <div style="border-top:2px solid var(--border); margin-top:8px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-        <div style="text-align:center; background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px;">
-          <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Stage Total</div>
-          <div style="font-size:18px; font-weight:900; color:var(--primary);">₦${formatMoney(stageTotal)}</div>
-        </div>
-        <div style="text-align:center; background:${unallocated < 0 ? "#fdecea" : "#fff"}; border:1px solid ${unallocated < 0 ? "var(--danger)" : "var(--border)"}; border-radius:8px; padding:8px;">
-          <div style="font-size:11px; font-weight:700; color:${unallocated < 0 ? "var(--danger)" : "var(--muted)"}; text-transform:uppercase;">Unallocated</div>
-          <div style="font-size:18px; font-weight:900; color:${unallocated < 0 ? "var(--danger)" : "var(--success)"};">₦${formatMoney(Math.abs(unallocated))}</div>
-        </div>
-      </div>
+      <div id="stages-summary-block">${renderStagesSummaryHtml(stageTotal, unallocated, mobFinalTotal, mobFinalExceeds, totalJobValue)}</div>
 
-      <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+      <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;" id="stages-status-chips">
         ${paymentStages.map((s) => `<span style="padding:3px 8px; border-radius:12px; font-size:11px; font-weight:800; background:${s.status === "Paid" ? "var(--success)" : s.status === "Partial" ? "var(--warning)" : "#e9ecef"}; color:${s.status === "Paid" ? "#fff" : s.status === "Partial" ? "#333" : "#666"};">${escapeHtml(s.label)}: ${s.status}</span>`).join("")}
       </div>
     </div>
   `;
 }
 
-function updateStageField(idx, field, value) {
-  if (paymentStages[idx]) {
-    paymentStages[idx][field] = value;
+function renderStagesSummaryHtml(
+  stageTotal,
+  unallocated,
+  mobFinalTotal,
+  mobFinalExceeds,
+  totalJobValue,
+) {
+  return `
+    <div style="border-top:2px solid var(--border); margin-top:8px; padding-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div style="text-align:center; background:#fff; border:1px solid var(--border); border-radius:8px; padding:8px;">
+        <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Stage Total</div>
+        <div style="font-size:18px; font-weight:900; color:var(--primary);">₦${formatMoney(stageTotal)}</div>
+      </div>
+      <div style="text-align:center; background:${unallocated < 0 ? "#fdecea" : "#fff"}; border:1px solid ${unallocated < 0 ? "var(--danger)" : "var(--border)"}; border-radius:8px; padding:8px;">
+        <div style="font-size:11px; font-weight:700; color:${unallocated < 0 ? "var(--danger)" : "var(--muted)"}; text-transform:uppercase;">Unallocated</div>
+        <div style="font-size:18px; font-weight:900; color:${unallocated < 0 ? "var(--danger)" : "var(--success)"};">₦${formatMoney(Math.abs(unallocated))}</div>
+      </div>
+    </div>
+    ${
+      mobFinalExceeds
+        ? `
+      <div style="margin-top:8px; background:#fdecea; border:2px solid var(--danger); border-radius:8px; padding:8px 10px; display:flex; align-items:center; gap:8px;">
+        <i class="fas fa-exclamation-triangle" style="color:var(--danger); font-size:16px;"></i>
+        <div style="font-size:12px; font-weight:700; color:#842029;">Mobilisation + Final Payment (₦${formatMoney(mobFinalTotal)}) exceeds Total Contract Value (₦${formatMoney(totalJobValue)}). Adjust amounts before saving.</div>
+      </div>
+    `
+        : ""
+    }
+  `;
+}
+
+// Lightweight update: patches in-memory state and refreshes only the summary
+// numbers/warnings via targeted DOM updates, WITHOUT touching the input
+// elements themselves. This is what runs on every keystroke so focus is
+// never lost. `structural` (true for status changes) triggers a full
+// re-render instead, since status drives border/background colors that are
+// only set at render time — that's an intentional, infrequent re-render
+// (user selecting from a dropdown, not typing).
+function updateStageField(idx, field, value, structural) {
+  if (!paymentStages[idx]) return;
+  paymentStages[idx][field] = value;
+
+  if (structural) {
     renderPaymentStagesTable();
-    // Auto-update the Amount to Pay field with sum of Paid stages
     recalcPaymentFromStages();
+    return;
   }
+
+  const totalJobValue =
+    parseFloat(document.getElementById("p_total_job")?.value || 0) || 0;
+  const { stageTotal, unallocated, mobFinalTotal, mobFinalExceeds } =
+    computeStageWarnings(totalJobValue);
+
+  const summaryBlock = document.getElementById("stages-summary-block");
+  if (summaryBlock)
+    summaryBlock.innerHTML = renderStagesSummaryHtml(
+      stageTotal,
+      unallocated,
+      mobFinalTotal,
+      mobFinalExceeds,
+      totalJobValue,
+    );
+
+  const chipsBlock = document.getElementById("stages-status-chips");
+  if (chipsBlock) {
+    chipsBlock.innerHTML = paymentStages
+      .map(
+        (s) =>
+          `<span style="padding:3px 8px; border-radius:12px; font-size:11px; font-weight:800; background:${s.status === "Paid" ? "var(--success)" : s.status === "Partial" ? "var(--warning)" : "#e9ecef"}; color:${s.status === "Paid" ? "#fff" : s.status === "Partial" ? "#333" : "#666"};">${escapeHtml(s.label)}: ${s.status}</span>`,
+      )
+      .join("");
+  }
+
+  recalcPaymentFromStages();
+}
+
+// Called when the Total Contract Value field itself changes (oninput on p_total_job).
+// Updates only the summary numbers — the row inputs aren't touched.
+function refreshStagesSummaryOnly() {
+  const totalJobValue =
+    parseFloat(document.getElementById("p_total_job")?.value || 0) || 0;
+  const { stageTotal, unallocated, mobFinalTotal, mobFinalExceeds } =
+    computeStageWarnings(totalJobValue);
+  const summaryBlock = document.getElementById("stages-summary-block");
+  if (summaryBlock)
+    summaryBlock.innerHTML = renderStagesSummaryHtml(
+      stageTotal,
+      unallocated,
+      mobFinalTotal,
+      mobFinalExceeds,
+      totalJobValue,
+    );
 }
 
 function addPaymentStageRow() {
@@ -208,6 +306,23 @@ function addPaymentStageRow() {
 function removeStageRow(idx) {
   paymentStages.splice(idx, 1);
   renderPaymentStagesTable();
+}
+
+// Returns true if the schedule is valid, false (and shows a toast) if not.
+// Call this before allowing the payment record to be saved.
+function validatePaymentStages() {
+  const totalJobValue =
+    parseFloat(document.getElementById("p_total_job")?.value || 0) || 0;
+  const { mobFinalTotal, mobFinalExceeds } =
+    computeStageWarnings(totalJobValue);
+  if (mobFinalExceeds) {
+    showToast(
+      `Mobilisation + Final Payment (₦${formatMoney(mobFinalTotal)}) cannot exceed Total Contract Value (₦${formatMoney(totalJobValue)}).`,
+      "error",
+    );
+    return false;
+  }
+  return true;
 }
 
 function recalcPaymentFromStages() {

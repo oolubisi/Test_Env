@@ -603,7 +603,7 @@ function openModal(type, editData = null) {
           <i class="fas fa-layer-group"></i> Contract Payment Schedule
         </div>
         <label ${lbl} style="margin-top:4px;">Total Contract Value (₦)</label>
-        <input id="p_total_job" type="number" value="${isEdit ? escapeHtml(editData.totalJobValue || editData.TotalJobValue || "") : ""}" placeholder="Full contract value" ${ls} ${dis} oninput="renderPaymentStagesTable()">
+        <input id="p_total_job" type="number" value="${isEdit ? escapeHtml(editData.totalJobValue || editData.TotalJobValue || "") : ""}" placeholder="Full contract value" ${ls} ${dis} oninput="refreshStagesSummaryOnly()">
 
         <div id="stages-table-container"></div>
 
@@ -696,6 +696,7 @@ function openModal(type, editData = null) {
         showToast("Account Number must be exactly 10 digits.", "error");
         return;
       }
+      if (!validatePaymentStages()) return;
       submit.disabled = true;
       submit.classList.add("loading");
       callApi(isEdit ? "updatePayment" : "savePayment", {
