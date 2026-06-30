@@ -460,8 +460,7 @@ function printSinglePaymentDirect(paymentId) {
   }
 
   let finalLayoutHtml = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
-    <div style="display:flex; justify-content:space-between; align-items:baseline; border-bottom:3px solid #000; padding-bottom:8px; margin-bottom:15px;">
-      <h3 style="text-transform:uppercase; margin:0; font-size:16px; font-weight:900;">${escapeHtml(documentTitle)} - ${escapeHtml(orderItem.paymentId || orderItem.PaymentId)}</h3>
+    <div style="display:flex; justify-content:flex-end; align-items:baseline; border-bottom:3px solid #000; padding-bottom:8px; margin-bottom:15px;">
       <div style="font-size:13px; font-weight:700;">Date <span style="font-weight:900;">${formatDateForDisplay(orderItem.date || orderItem.Date)}</span></div>
     </div>
     <table style="width:100%; border-collapse:collapse; margin-bottom:10px; font-size:14px;">
