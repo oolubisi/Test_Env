@@ -493,12 +493,14 @@ function printSinglePaymentDirect(paymentId) {
   }
 
   let finalLayoutHtml = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
-    <h3 style="text-transform:uppercase; margin-bottom:15px; font-size:16px; font-weight:900;">${escapeHtml(documentTitle)}</h3>
+    <div style="display:flex; justify-content:space-between; align-items:baseline; border-bottom:3px solid #000; padding-bottom:8px; margin-bottom:15px;">
+      <h3 style="text-transform:uppercase; margin:0; font-size:16px; font-weight:900;">${escapeHtml(documentTitle)} - ${escapeHtml(orderItem.paymentId || orderItem.PaymentId)}</h3>
+      <div style="font-size:13px; font-weight:700;">Date <span style="font-weight:900;">${formatDateForDisplay(orderItem.date || orderItem.Date)}</span></div>
+    </div>
+    <h4 style="text-transform:uppercase; margin:0 0 8px 0; font-size:14px; font-weight:900;">${escapeHtml(documentTitle)}</h4>
     <table style="width:100%; border-collapse:collapse; margin-bottom:10px; font-size:14px;">
-      <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Transaction Ref</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.paymentId || orderItem.PaymentId)}</strong></td></tr>
-      <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Date</th><td style="padding:10px; border:1px solid #000;">${formatDateForDisplay(orderItem.date || orderItem.Date)}</td></tr>
-      ${orderItem.reference || orderItem.Reference ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Linked Record</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.reference || orderItem.Reference)}</strong></td></tr>` : ""}
-      <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Reason</th><td style="padding:10px; border:1px solid #000;">${escapeHtml(orderItem.reason || orderItem.Reason || "")}</td></tr>
+      ${orderItem.reference || orderItem.Reference ? `<tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Linked Record</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.reference || orderItem.Reference)}</strong></td></tr>` : ""}
+      <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Reason</th><td style="padding:10px; border:1px solid #000;">${escapeHtml(orderItem.reason || orderItem.Reason || "")}</td></tr>
       ${orderItem.totalJobValue || orderItem.TotalJobValue ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Total Contract Value</th><td style="padding:10px; border:1px solid #000; font-size:16px;"><strong>₦${formatMoney(orderItem.totalJobValue || orderItem.TotalJobValue)}</strong></td></tr>` : ""}
       ${orderItem.paymentRequest || orderItem.PaymentRequest ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Payment Request</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.paymentRequest || orderItem.PaymentRequest)}</strong></td></tr>` : ""}
       <tr><th style="padding:10px; border:1px solid #000; background:#e8f4fd;">Amount to Pay</th><td style="padding:10px; border:1px solid #000; background:#e8f4fd; font-size:18px;"><strong>₦${formatMoney(orderItem.amount || orderItem.Amount)}</strong></td></tr>
@@ -506,7 +508,10 @@ function printSinglePaymentDirect(paymentId) {
     </table>
     ${stagesHtml}
     <div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">
-      <h4 style="margin-top:0; margin-bottom:15px; text-transform:uppercase; font-size:14px; color:#444; border-bottom:1px solid #ccc; padding-bottom:5px;">Disbursement Details</h4>
+      <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
+        <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details</h4>
+        ${orderItem.paymentRequest || orderItem.PaymentRequest ? `<div style="font-size:13px; font-weight:700;">Stage <span style="font-weight:900; font-size:15px;">${escapeHtml(orderItem.paymentRequest || orderItem.PaymentRequest)}</span></div>` : ""}
+      </div>
       <div style="display:flex; justify-content:space-between; font-size:16px; align-items:flex-end;">
         <div style="width:35%;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase;">${escapeHtml(partyLabel)}</small><strong>${escapeHtml(orderItem.party || orderItem.Party || "N/A")}</strong></div>
         <div style="width:30%;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase;">Bank Account</small><strong>${orderItem.account || orderItem.Account ? String(orderItem.account || orderItem.Account).padStart(10, "0") : "N/A"}</strong><br><span style="font-size:14px; color:#555;">${escapeHtml(orderItem.bank || orderItem.Bank || "")}</span></div>

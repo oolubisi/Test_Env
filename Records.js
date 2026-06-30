@@ -385,14 +385,27 @@ function renderListCard(p, item, isMaintPage) {
     const paidStatus =
       String(item.isPaid || "").toUpperCase() === "TRUE" ||
       item.isPaid === true;
+    const totalContract =
+      parseFloat(item.totalJobValue || item.TotalJobValue || 0) || 0;
 
-    // Parse stages for summary badge
+    // Parse stages once: drives both the stage-count badge and the unpaid balance
     let stagesBadge = "";
+    let unpaidBalanceHtml = "";
     if (item.stages) {
       try {
         const stages = JSON.parse(item.stages);
         const paidCount = stages.filter((s) => s.status === "Paid").length;
         stagesBadge = `<span style="background:#e8f4fd; color:#0D6EFD; padding:2px 6px; border:1px solid #b6d4fe; border-radius:4px; font-size:10px; margin-left:6px;"><i class="fas fa-layer-group"></i> ${paidCount}/${stages.length} stages</span>`;
+
+        if (totalContract > 0) {
+          const paidStagesTotal = stages.reduce(
+            (sum, s) =>
+              sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
+            0,
+          );
+          const unpaidBalance = totalContract - paidStagesTotal;
+          unpaidBalanceHtml = `<div style="font-size:13px; font-weight:800; color:${unpaidBalance > 0 ? "var(--danger)" : "var(--success)"}; margin-top:4px;">Unpaid Balance: ₦${formatMoney(Math.max(unpaidBalance, 0))}</div>`;
+        }
       } catch (e) {}
     }
 
@@ -401,6 +414,7 @@ function renderListCard(p, item, isMaintPage) {
         <div>
           <strong style="font-size:18px;">${escapeHtml(item.party || "No Party Listed")}</strong><br>
           <small style="color:var(--muted); font-weight:700;">ID: ${escapeHtml(item.paymentId || item.PaymentId || "")} | ${item.bank ? escapeHtml(item.bank) + ": " : "Acc: "}${item.account ? String(item.account).padStart(10, "0") : "N/A"}</small>
+          ${totalContract > 0 ? `<div style="font-size:12px; font-weight:700; color:var(--muted); margin-top:2px;">Total Contract: ₦${formatMoney(totalContract)}</div>` : ""}
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
           <div style="text-align:right;">
@@ -411,6 +425,7 @@ function renderListCard(p, item, isMaintPage) {
         </div>
       </div>
       <div style="font-size:15px; font-weight:800; color:${color};">${escapeHtml(item.direction || "INFLOW")} &bull; ${escapeHtml(item.type || "General Record")} ${stagesBadge}${paidStatus ? ' <span style="background:var(--success); color:#fff; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:4px;">PAID</span>' : ""}</div>
+      ${unpaidBalanceHtml}
       ${item.reason ? `<div style="font-size:13px; color:var(--muted); margin-top:2px;">${escapeHtml(item.reason)}</div>` : ""}
     </div>`;
   }
