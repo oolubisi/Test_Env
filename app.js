@@ -3499,6 +3499,7 @@ function compileReportPreview() {
   window.currentReportAttachmentManifest = [];
   window.currentReportTitle = layout;
   window.currentReportRef = ref;
+  window.currentReportRawContent = out; // unwrapped content only, for PDF download (avoids double header/footer)
   const previewCard = document.getElementById("report-onscreen-preview-card");
   if (previewCard) previewCard.style.display = "block";
 }
@@ -3509,8 +3510,12 @@ function downloadCurrentReportPDF() {
     showToast("Please generate a report first.", "warning");
     return;
   }
+  // Use the raw (unwrapped) content here — the viewport's innerHTML is already wrapped with
+  // header/footer for on-screen preview, and compileAndDownloadUnifiedPDF wraps again internally.
+  // Passing the wrapped HTML would duplicate the header and footer in the final PDF.
+  const rawContent = window.currentReportRawContent || source.innerHTML;
   compileAndDownloadUnifiedPDF(
-    source,
+    rawContent,
     window.currentReportAttachmentManifest || [],
     window.currentReportFilename || "Facility_Report",
     window.currentReportTitle || "Report",
@@ -3578,6 +3583,7 @@ function generateApartmentManifestReport() {
   if (printContainer) printContainer.innerHTML = wrapped;
   window.currentReportTitle = "Apartments Manifest";
   window.currentReportRef = ref;
+  window.currentReportRawContent = html;
   document.getElementById("report-onscreen-preview-card").style.display =
     "block";
 }
@@ -3642,6 +3648,7 @@ function generateApartmentDossierReport(targetUnitId) {
   if (printContainer) printContainer.innerHTML = wrapped;
   window.currentReportTitle = `Apartment Dossier - Unit ${targetUnitId}`;
   window.currentReportRef = ref;
+  window.currentReportRawContent = html;
   document.getElementById("report-onscreen-preview-card").style.display =
     "block";
 }
