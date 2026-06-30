@@ -423,11 +423,12 @@ function printSinglePaymentDirect(paymentId) {
 
   // Build staged payment schedule table for print if available
   let stagesHtml = "";
+  let parsedStages = [];
   if (orderItem.stages || orderItem.Stages) {
     try {
-      const stages = JSON.parse(orderItem.stages || orderItem.Stages);
-      if (Array.isArray(stages) && stages.length > 0) {
-        const stageTotalPaid = stages
+      parsedStages = JSON.parse(orderItem.stages || orderItem.Stages);
+      if (Array.isArray(parsedStages) && parsedStages.length > 0) {
+        const stageTotalPaid = parsedStages
           .filter((s) => s.status === "Paid")
           .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
         stagesHtml = `
@@ -439,7 +440,7 @@ function printSinglePaymentDirect(paymentId) {
               <th style="padding:8px; border:1px solid #000; text-align:center;">Status</th>
             </tr></thead>
             <tbody>
-              ${stages
+              ${parsedStages
                 .map(
                   (s) => `<tr>
                 <td style="padding:8px; border:1px solid #ccc;">${escapeHtml(s.label)}</td>
@@ -459,8 +460,27 @@ function printSinglePaymentDirect(paymentId) {
     } catch (e) {}
   }
 
+  // Disbursement amount is always derived from the selected Payment Request stage,
+  // never trusted directly from a stored "amount" field — this guarantees the
+  // printed amount reflects the current stage selection even on older records,
+  // and falls back to 0.00 if no stage is selected or the label doesn't match
+  // any row in the schedule.
+  const selectedStageLabel =
+    orderItem.paymentRequest || orderItem.PaymentRequest || "";
+  const matchedStage = selectedStageLabel
+    ? parsedStages.find(
+        (s) =>
+          String(s.label).trim().toLowerCase() ===
+          String(selectedStageLabel).trim().toLowerCase(),
+      )
+    : null;
+  const disbursementAmount = matchedStage
+    ? parseFloat(matchedStage.amount) || 0
+    : 0;
+
   let finalLayoutHtml = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
-    <div style="display:flex; justify-content:flex-end;align-items:baseline; border-bottom:3px solid #000; padding-bottom:8px; margin-bottom:15px;">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px;">
+      <h3 style="text-transform:uppercase; margin:0; font-size:16px; font-weight:900;">${escapeHtml(documentTitle)} - ${escapeHtml(orderItem.paymentId || orderItem.PaymentId)}</h3>
       <div style="font-size:13px; font-weight:700;">Date <span style="font-weight:900;">${formatDateForDisplay(orderItem.date || orderItem.Date)}</span></div>
     </div>
     <table style="width:100%; border-collapse:collapse; margin-bottom:10px; font-size:14px;">
@@ -474,13 +494,12 @@ function printSinglePaymentDirect(paymentId) {
     ${stagesHtml}
     <div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">
       <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
-        <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details</h4>
-        ${orderItem.paymentRequest || orderItem.PaymentRequest ? `<div style="font-size:13px; font-weight:700;">Stage <span style="font-weight:900; font-size:15px;">${escapeHtml(orderItem.paymentRequest || orderItem.PaymentRequest)}</span></div>` : ""}
+        <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details <span style="text-transform:none; font-size:13px; font-weight:700; color:#000; margin-left:8px;">— Stage: <span style="font-weight:900; font-size:14px;">${escapeHtml(selectedStageLabel || "Not Selected")}</span></span></h4>
       </div>
       <div style="display:flex; justify-content:space-between; font-size:16px; align-items:flex-end;">
         <div style="width:35%;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase;">${escapeHtml(partyLabel)}</small><strong>${escapeHtml(orderItem.party || orderItem.Party || "N/A")}</strong></div>
         <div style="width:30%;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase;">Bank Account</small><strong>${orderItem.account || orderItem.Account ? String(orderItem.account || orderItem.Account).padStart(10, "0") : "N/A"}</strong><br><span style="font-size:14px; color:#555;">${escapeHtml(orderItem.bank || orderItem.Bank || "")}</span></div>
-        <div style="width:35%; text-align:right;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase; margin-bottom:4px;">Amount</small><span style="font-size:30px; font-weight:900; color:#000; display:block; line-height:1;">₦${formatMoney(orderItem.amount || orderItem.Amount)}</span></div>
+        <div style="width:35%; text-align:right;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase; margin-bottom:4px;">Amount</small><span style="font-size:30px; font-weight:900; color:#000; display:block; line-height:1;">₦${formatMoney(disbursementAmount)}</span></div>
       </div>
     </div>
   </div>`;
