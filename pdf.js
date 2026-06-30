@@ -242,14 +242,26 @@ async function compileAndDownloadUnifiedPDF(
     }
 
     const pages = masterPdf.getPages();
+    const MM_TO_PT = 2.83465; // PDF points per millimetre
+    const FOOTER_FROM_BOTTOM = 12 * MM_TO_PT; // locked 12mm from the physical bottom edge on every page
     pages.forEach((page, index) => {
       const { width, height } = page.getSize();
+
+      // Page number is pinned at an absolute distance from the page bottom
+      // (not affected by HTML content flow/pagination), so it lands in the
+      // exact same spot on every page regardless of how many pages the
+      // document has. The fuller branding/confidentiality footer text still
+      // lives in the in-flow HTML footer (generateStandardReportFooter) at
+      // the end of the document body — this stamp only covers what HTML
+      // flow can't guarantee: a consistent per-page position.
       page.drawText(`Page ${index + 1} of ${pages.length}`, {
         x: width - 110,
-        y: 20,
-        size: 10,
+        y: FOOTER_FROM_BOTTOM,
+        size: 9,
         color: rgb(0.4, 0.4, 0.4),
       });
+
+      // Watermark stays centered regardless of footer position
       page.drawText("Facility Pro", {
         x: width / 4,
         y: height / 2,
@@ -488,10 +500,9 @@ function printSinglePaymentDirect(paymentId) {
       ${orderItem.reference || orderItem.Reference ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Linked Record</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.reference || orderItem.Reference)}</strong></td></tr>` : ""}
       <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Reason</th><td style="padding:10px; border:1px solid #000;">${escapeHtml(orderItem.reason || orderItem.Reason || "")}</td></tr>
       ${orderItem.totalJobValue || orderItem.TotalJobValue ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Total Contract Value</th><td style="padding:10px; border:1px solid #000; font-size:16px;"><strong>₦${formatMoney(orderItem.totalJobValue || orderItem.TotalJobValue)}</strong></td></tr>` : ""}
-      ${orderItem.paidToDate || orderItem.PaidToDate ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Paid to Date</th><td style="padding:10px; border:1px solid #000;">₦${formatMoney(orderItem.paidToDate || orderItem.PaidToDate)}</td></tr>` : ""}
+      ${orderItem.paymentRequest || orderItem.PaymentRequest ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Payment Request</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.paymentRequest || orderItem.PaymentRequest)}</strong></td></tr>` : ""}
       <tr><th style="padding:10px; border:1px solid #000; background:#e8f4fd;">Amount to Pay</th><td style="padding:10px; border:1px solid #000; background:#e8f4fd; font-size:18px;"><strong>₦${formatMoney(orderItem.amount || orderItem.Amount)}</strong></td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#f9f9f9;">Amount in Words</th><td style="padding:10px; border:1px solid #000; font-style:italic;"><strong>${convertAmountToWords(orderItem.amount || orderItem.Amount)}</strong></td></tr>
-      ${orderItem.balanceDue || orderItem.BalanceDue ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Balance Due</th><td style="padding:10px; border:1px solid #000; font-size:16px; color:#dc3545;"><strong>₦${formatMoney(orderItem.balanceDue || orderItem.BalanceDue)}</strong></td></tr>` : ""}
     </table>
     ${stagesHtml}
     <div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">

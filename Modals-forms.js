@@ -607,16 +607,13 @@ function openModal(type, editData = null) {
 
         <div id="stages-table-container"></div>
 
-        <label ${lbl}>Current Amount to Pay (₦)</label>
-        <input id="p_amount" type="number" required value="${isEdit ? escapeHtml(editData.amount || editData.Amount || "") : ""}" placeholder="This payment instalment" ${ls} style="border-color:var(--primary); border-width:3px;" ${dis}
-          oninput="this.dataset.manualOverride='1'; const tjv=parseFloat(document.getElementById('p_total_job')?.value||0)||0; const ptd=parseFloat(document.getElementById('p_paid_todate')?.value||0)||0; const amt=parseFloat(this.value)||0; if(tjv>0) document.getElementById('p_balance_due').value=(tjv-ptd-amt).toFixed(2);">
-
-        <label ${lbl}>Previously Paid to Date (₦)</label>
-        <input id="p_paid_todate" type="number" value="${isEdit ? escapeHtml(editData.paidToDate || editData.PaidToDate || "") : ""}" placeholder="Cumulative paid amount" ${ls} ${dis}
-          oninput="const tjv=parseFloat(document.getElementById('p_total_job')?.value||0)||0; const ptd=parseFloat(this.value)||0; const amt=parseFloat(document.getElementById('p_amount')?.value||0)||0; if(tjv>0) document.getElementById('p_balance_due').value=(tjv-ptd-amt).toFixed(2);">
-
-        <label ${lbl}>Balance Due (₦)</label>
-        <input id="p_balance_due" type="number" value="${isEdit ? escapeHtml(editData.balanceDue || editData.BalanceDue || "") : ""}" placeholder="Remaining contract balance" ${ls} ${dis}>
+        <label ${lbl}>Payment Request</label>
+        <select id="p_payment_request" ${ls} ${dis} onchange="syncPaymentAmountFromRequestSelection()">
+          <option value="">-- Select Stage --</option>
+          <option value="Mobilisation" ${isEdit && (editData.paymentRequest || editData.PaymentRequest) === "Mobilisation" ? "selected" : ""}>Mobilisation</option>
+          <option value="Final Payment" ${isEdit && (editData.paymentRequest || editData.PaymentRequest) === "Final Payment" ? "selected" : ""}>Final Payment</option>
+        </select>
+        <input type="hidden" id="p_amount" value="${isEdit ? escapeHtml(editData.amount || editData.Amount || "") : ""}">
       </div>
 
       <!-- ═══ CLEARED STATUS ═══ -->
@@ -681,13 +678,28 @@ function openModal(type, editData = null) {
       uploader.onchange = (e) =>
         processIncomingMultiAttachments(e.target.files, "paymentPreviews");
 
-    // Render the staged table
-    setTimeout(() => renderPaymentStagesTable(), 50);
+    // Render the staged table, then sync the displayed Amount with whichever
+    // Payment Request stage is selected (handles pre-filled edit data too)
+    setTimeout(() => {
+      renderPaymentStagesTable();
+      syncPaymentAmountFromRequestSelection();
+    }, 50);
 
     submit.onclick = () => {
+      const requestVal = document.getElementById("p_payment_request").value;
+      if (!requestVal) {
+        showToast(
+          "Please select a Payment Request (Mobilisation or Final Payment).",
+          "error",
+        );
+        return;
+      }
       const amtVal = document.getElementById("p_amount").value;
       if (!amtVal) {
-        showToast("Amount to Pay is required.", "error");
+        showToast(
+          `No amount found for "${requestVal}" — set an amount for this stage in the Payment Schedule above.`,
+          "error",
+        );
         return;
       }
       let accVal = document.getElementById("p_account").value;
@@ -709,9 +721,8 @@ function openModal(type, editData = null) {
         type: sanitizeInput(document.getElementById("p_type").value),
         reason: sanitizeInput(document.getElementById("p_reason").value),
         totalJobValue: document.getElementById("p_total_job").value,
-        paidToDate: document.getElementById("p_paid_todate").value,
+        paymentRequest: requestVal,
         amount: amtVal,
-        balanceDue: document.getElementById("p_balance_due").value,
         date: toSheetDate(document.getElementById("p_date").value),
         isPaid: document.getElementById("p_is_paid").checked,
         stages: JSON.stringify(paymentStages),

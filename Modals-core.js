@@ -248,7 +248,7 @@ function updateStageField(idx, field, value, structural) {
 
   if (structural) {
     renderPaymentStagesTable();
-    recalcPaymentFromStages();
+    syncPaymentAmountFromRequestSelection();
     return;
   }
 
@@ -277,7 +277,8 @@ function updateStageField(idx, field, value, structural) {
       .join("");
   }
 
-  recalcPaymentFromStages();
+  // Keep the displayed Amount in sync if the edited stage is the one currently selected
+  syncPaymentAmountFromRequestSelection();
 }
 
 // Called when the Total Contract Value field itself changes (oninput on p_total_job).
@@ -325,33 +326,26 @@ function validatePaymentStages() {
   return true;
 }
 
-function recalcPaymentFromStages() {
-  const totalJobEl = document.getElementById("p_total_job");
+// Reads the "Payment Request" dropdown (Mobilisation / Final Payment) and writes
+// that stage's amount into the hidden p_amount field, which is what actually gets
+// saved and is what the printed Disbursement Details section displays.
+function syncPaymentAmountFromRequestSelection() {
+  const requestEl = document.getElementById("p_payment_request");
   const amountEl = document.getElementById("p_amount");
-  const balanceEl = document.getElementById("p_balance_due");
-  const paidToDateEl = document.getElementById("p_paid_todate");
-  if (!amountEl) return;
+  if (!requestEl || !amountEl) return;
 
-  const paidStagesTotal = paymentStages
-    .filter((s) => s.status === "Paid" || s.status === "Partial")
-    .reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-  const currentStageAmount =
-    paymentStages.find((s) => s.status === "Partial")?.amount ||
-    paymentStages.find((s) => s.status !== "Pending")?.amount ||
-    "";
+  const selectedLabel = requestEl.value;
+  if (!selectedLabel) {
+    amountEl.value = "";
+    return;
+  }
 
-  // Update amount to pay with current active stage amount (latest non-pending)
-  const latestActive = [...paymentStages]
-    .reverse()
-    .find((s) => s.status !== "Pending");
-  if (latestActive && !amountEl.dataset.manualOverride)
-    amountEl.value = latestActive.amount || "";
-
-  // Recalc balance
-  const tjv = parseFloat(totalJobEl?.value || 0) || 0;
-  const ptd = parseFloat(paidToDateEl?.value || 0) || 0;
-  const amt = parseFloat(amountEl.value) || 0;
-  if (tjv > 0 && balanceEl) balanceEl.value = (tjv - ptd - amt).toFixed(2);
+  const matchedStage = paymentStages.find(
+    (s) =>
+      String(s.label).trim().toLowerCase() ===
+      selectedLabel.trim().toLowerCase(),
+  );
+  amountEl.value = matchedStage ? matchedStage.amount || "" : "";
 }
 
 // ─────────────────────────────────────────────
