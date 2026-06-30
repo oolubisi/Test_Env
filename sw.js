@@ -1,74 +1,90 @@
-const CACHE_NAME = "fieldscan-pro-v17";
-const urlsToCache = [
+const CACHE_NAME = "facility-pro-v8";
+
+const STATIC_ASSETS = [
   "./",
   "./index.html",
-  "./style.css",
-  "./manifest.json",
-  "./config.js",
-  "./utils.js",
-  "./branding.js",
-  "./db.js",
-  "./backup.js",
-  "./templates.js",
-  "./api.js",
-  "./payment-helpers.js",
-  "./workorder-helpers.js",
-  "./reports.js",
-  "./accounts.js",
-  "./modals.js",
-  "./dashboard.js",
-  "./console.js",
-  "./letterhead.js",
-  "./variations.js",
+  "./styles.css",
   "./app.js",
-  "https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap",
-  "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css",
-  "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
-  "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js",
+  "./manifest.json",
+  "./logo.png",
 ];
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Cache each URL individually so one 404 doesn't kill the whole install
-      return Promise.all(
-        urlsToCache.map((url) =>
-          cache.add(url).catch((err) => {
-            console.warn("SW: failed to cache", url, err);
-          }),
-        ),
-      );
+      console.log("SW: Opened cache and caching local App Shell");
+      return cache.addAll(STATIC_ASSETS);
     }),
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((cacheNames) =>
-        Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => caches.delete(name)),
-        ),
-      ),
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log("SW: Deleting old cache:", cacheName);
+              return caches.delete(cacheName);
+            }
+          }),
+        );
+      })
+      .then(() => self.clients.claim()),
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") {
+    return;
+  }
+
+  // Skip non-HTTP(S) requests
+  const url = new URL(event.request.url);
+  if (!url.protocol.startsWith("http")) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) return response;
-      return fetch(event.request).catch(() => {
-        // Offline fallback for navigation requests
-        if (event.request.mode === "navigate") {
-          return caches.match("./index.html");
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          (networkResponse.type === "basic" || networkResponse.type === "cors")
+        ) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            // Limit cache size: don't cache huge files
+            const contentLength = networkResponse.headers.get("content-length");
+            if (!contentLength || parseInt(contentLength) < 5 * 1024 * 1024) {
+              cache.put(event.request, responseToCache);
+            }
+          });
         }
-      });
-    }),
+        return networkResponse;
+      })
+      .catch(() => {
+        console.log(
+          "SW: Network failed, serving from cache for",
+          event.request.url,
+        );
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // Return offline fallback for navigation requests
+          if (event.request.mode === "navigate") {
+            return caches.match("./index.html");
+          }
+          return new Response("Offline - Resource not available", {
+            status: 503,
+            statusText: "Service Unavailable",
+          });
+        });
+      }),
   );
 });
