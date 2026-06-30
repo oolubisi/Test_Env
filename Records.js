@@ -403,8 +403,7 @@ function renderListCard(p, item, isMaintPage) {
               sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
             0,
           );
-          const unpaidBalance = Math.max(totalContract - paidStagesTotal, 0);
-          item._unpaidBalance = unpaidBalance;
+          const unpaidBalance = totalContract - paidStagesTotal;
           unpaidBalanceHtml = `<div style="font-size:13px; font-weight:800; color:${unpaidBalance > 0 ? "var(--danger)" : "var(--success)"}; margin-top:4px;">Unpaid Balance: ₦${formatMoney(Math.max(unpaidBalance, 0))}</div>`;
         }
       } catch (e) {}
