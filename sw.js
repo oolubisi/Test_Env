@@ -1,4 +1,4 @@
-const CACHE_NAME = "facility-pro-v11";
+const CACHE_NAME = "facility-pro-v12";
 
 const STATIC_ASSETS = [
   "./",
@@ -48,9 +48,20 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Skip non-HTTP(S) requests
   const url = new URL(event.request.url);
+
+  // Skip non-HTTP(S) requests
   if (!url.protocol.startsWith("http")) {
+    return;
+  }
+
+  // [FIX] Only intercept same-origin requests (the app shell itself).
+  // Cross-origin requests (Google Drive thumbnails/files, Apps Script API calls,
+  // CDN scripts, etc.) must pass straight through to the network untouched —
+  // attempting to clone/cache opaque or redirected cross-origin responses
+  // triggers Cross-Origin Read Blocking (CORB) and can return broken/HTML
+  // responses where binary content was expected.
+  if (url.origin !== self.location.origin) {
     return;
   }
 
