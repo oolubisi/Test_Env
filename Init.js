@@ -74,7 +74,7 @@ async function loadApplicationSettingsData() {
 function applySettingsToUIHeaders() {
   const logoEl = document.getElementById("app-header-logo");
   if (logoEl) {
-    logoEl.src = appSettings.logoUrl || "";
+    logoEl.src = getDirectImageUrl(appSettings.logoUrl) || "";
     logoEl.style.display = appSettings.logoUrl ? "block" : "none";
   }
   const titleEl = document.getElementById("app-header-title");

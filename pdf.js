@@ -52,7 +52,7 @@ function generateReportRef(prefix = "RPT") {
 
 function generateStandardReportHeader(reportTitle, reportRef = "") {
   const logoHtml = appSettings.logoUrl
-    ? `<img src="${escapeHtml(appSettings.logoUrl)}" style="height:55px; max-width:140px; object-fit:contain; margin-bottom:6px;" alt="Logo" onerror="this.style.display='none'">`
+    ? `<img src="${escapeHtml(getDirectImageUrl(appSettings.logoUrl))}" style="height:55px; max-width:140px; object-fit:contain; margin-bottom:6px;" alt="Logo" onerror="this.style.display='none'">`
     : "";
   const today = new Date().toLocaleDateString("en-GB", {
     day: "2-digit",
