@@ -464,7 +464,6 @@ function printSinglePaymentDirect(paymentId) {
       <h3 style="text-transform:uppercase; margin:0; font-size:16px; font-weight:900;">${escapeHtml(documentTitle)} - ${escapeHtml(orderItem.paymentId || orderItem.PaymentId)}</h3>
       <div style="font-size:13px; font-weight:700;">Date <span style="font-weight:900;">${formatDateForDisplay(orderItem.date || orderItem.Date)}</span></div>
     </div>
-    <h4 style="text-transform:uppercase; margin:0 0 8px 0; font-size:14px; font-weight:900;">${escapeHtml(documentTitle)}</h4>
     <table style="width:100%; border-collapse:collapse; margin-bottom:10px; font-size:14px;">
       ${orderItem.reference || orderItem.Reference ? `<tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Linked Record</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.reference || orderItem.Reference)}</strong></td></tr>` : ""}
       <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Reason</th><td style="padding:10px; border:1px solid #000;">${escapeHtml(orderItem.reason || orderItem.Reason || "")}</td></tr>
