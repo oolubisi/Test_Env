@@ -492,6 +492,10 @@ function printSinglePaymentDirect(paymentId) {
     ? parseFloat(matchedStage.amount) || 0
     : 0;
 
+  const showPaymentRequest =
+    orderItem.showPaymentRequest !== false &&
+    orderItem.ShowPaymentRequest !== false;
+
   let finalLayoutHtml = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
     <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px;">
       <h3 style="text-transform:uppercase; margin:0; font-size:16px; font-weight:900;">${escapeHtml(documentTitle)} - ${escapeHtml(orderItem.paymentId || orderItem.PaymentId)}</h3>
@@ -501,12 +505,14 @@ function printSinglePaymentDirect(paymentId) {
       ${orderItem.reference || orderItem.Reference ? `<tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Linked Record</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.reference || orderItem.Reference)}</strong></td></tr>` : ""}
       <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Reason</th><td style="padding:10px; border:1px solid #000;">${escapeHtml(orderItem.reason || orderItem.Reason || "")}</td></tr>
       ${orderItem.totalJobValue || orderItem.TotalJobValue ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Total Contract Value</th><td style="padding:10px; border:1px solid #000; font-size:16px;"><strong>₦${formatMoney(orderItem.totalJobValue || orderItem.TotalJobValue)}</strong></td></tr>` : ""}
-      ${orderItem.paymentRequest || orderItem.PaymentRequest ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Payment Request</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.paymentRequest || orderItem.PaymentRequest)}</strong></td></tr>` : ""}
+      ${showPaymentRequest && (orderItem.paymentRequest || orderItem.PaymentRequest) ? `<tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Payment Request</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.paymentRequest || orderItem.PaymentRequest)}</strong></td></tr>` : ""}
       <tr><th style="padding:10px; border:1px solid #000; background:#e8f4fd;">Amount to Pay</th><td style="padding:10px; border:1px solid #000; background:#e8f4fd; font-size:18px;"><strong>₦${formatMoney(orderItem.amount || orderItem.Amount)}</strong></td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#f9f9f9;">Amount in Words</th><td style="padding:10px; border:1px solid #000; font-style:italic;"><strong>${convertAmountToWords(orderItem.amount || orderItem.Amount)}</strong></td></tr>
     </table>
     ${stagesHtml}
-    <div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">
+    ${
+      showPaymentRequest
+        ? `<div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">
       <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
         <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details</h4>
         <span style="font-weight:900; font-size:21px; text-align:right; color:#000;">${escapeHtml(selectedStageLabel || "Not Selected")}</span>
@@ -516,7 +522,9 @@ function printSinglePaymentDirect(paymentId) {
         <div style="width:30%;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase;">Bank Account</small><strong>${orderItem.account || orderItem.Account ? String(orderItem.account || orderItem.Account).padStart(10, "0") : "N/A"}</strong><br><span style="font-size:14px; color:#555;">${escapeHtml(orderItem.bank || orderItem.Bank || "")}</span></div>
         <div style="width:35%; text-align:right;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase; margin-bottom:4px;">Amount</small><span style="font-size:30px; font-weight:900; color:#000; display:block; line-height:1;">₦${formatMoney(disbursementAmount)}</span></div>
       </div>
-    </div>
+    </div>`
+        : ""
+    }
   </div>`;
 
   let combinedAttachments =

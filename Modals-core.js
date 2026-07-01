@@ -7,6 +7,38 @@
 // =========================================================
 
 // ─────────────────────────────────────────────
+// § PAYMENT REQUEST AUTO-UNCHECK
+// ─────────────────────────────────────────────
+function setupPaymentRequestAutoUncheck() {
+  const checkbox = document.getElementById("p_show_payment_request");
+  if (!checkbox) return;
+
+  // Function to check if all stages are paid
+  const checkAllPaid = () => {
+    if (paymentStages.length === 0) return false;
+    return paymentStages.every((s) => s.status === "Paid");
+  };
+
+  // Auto-uncheck when all stages become paid
+  const observer = new MutationObserver(() => {
+    if (checkAllPaid()) {
+      checkbox.checked = false;
+    }
+  });
+
+  // Watch the stages container for changes (status dropdowns are re-rendered)
+  const container = document.getElementById("stages-table-container");
+  if (container) {
+    observer.observe(container, { childList: true, subtree: true });
+  }
+
+  // Also check immediately in case all are already paid on load
+  if (checkAllPaid()) {
+    checkbox.checked = false;
+  }
+}
+
+// ─────────────────────────────────────────────
 // § MODAL SYSTEM
 // ─────────────────────────────────────────────
 function populateModalInlineImageGalleryPreviews(renderBoxId) {

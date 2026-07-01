@@ -608,6 +608,10 @@ function openModal(type, editData = null) {
         <div id="stages-table-container"></div>
 
         <label ${lbl}>Payment Request</label>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px; padding:8px 10px; background:#f8f9fa; border:2px solid var(--border); border-radius:8px;">
+          <input type="checkbox" id="p_show_payment_request" style="width:22px; height:22px; margin:0; flex-shrink:0;" ${isEdit && (editData.showPaymentRequest === false || editData.ShowPaymentRequest === false) ? "" : "checked"}>
+          <span style="font-size:14px; font-weight:700; color:#333;">Show Payment Request section on printout</span>
+        </div>
         <select id="p_payment_request" ${ls} ${dis} onchange="syncPaymentAmountFromRequestSelection()">
           <option value="">-- Select Stage --</option>
         </select>
@@ -684,6 +688,7 @@ function openModal(type, editData = null) {
         isEdit ? editData.paymentRequest || editData.PaymentRequest || "" : "",
       );
       syncPaymentAmountFromRequestSelection();
+      setupPaymentRequestAutoUncheck();
     }, 50);
 
     submit.onclick = () => {
@@ -724,6 +729,8 @@ function openModal(type, editData = null) {
         date: toSheetDate(document.getElementById("p_date").value),
         isPaid: document.getElementById("p_is_paid").checked,
         stages: JSON.stringify(paymentStages),
+        showPaymentRequest: document.getElementById("p_show_payment_request")
+          .checked,
         attachments: currentModalFiles.join(","),
       })
         .then(() => {

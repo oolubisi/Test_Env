@@ -370,21 +370,29 @@ function renderTotalBalance() {
     }
   });
 
-  // 4. TOTAL UNPAID: total unpaid balance = total contract value minus all paid stages (both INFLOW + OUTFLOW)
+  // 4. TOTAL UNPAID: sum of all unpaid OUTFLOW balances only
   let totalUnpaid = 0;
   (cache.payments || []).forEach((p) => {
-    if (!p || !(p.stages || p.Stages)) return;
-    const totalContract =
-      parseFloat(p.totalJobValue || p.TotalJobValue || 0) || 0;
-    if (totalContract <= 0) return;
-    try {
-      const stages = JSON.parse(p.stages || p.Stages);
-      const paidStagesTotal = stages.reduce(
-        (sum, s) => sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
-        0,
-      );
-      totalUnpaid += Math.max(totalContract - paidStagesTotal, 0);
-    } catch (e) {}
+    if (!p || p.direction !== "OUTFLOW") return;
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        const totalContract =
+          parseFloat(p.totalJobValue || p.TotalJobValue || 0) || 0;
+        const paidStagesTotal = stages.reduce(
+          (sum, s) =>
+            sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
+          0,
+        );
+        totalUnpaid += Math.max(totalContract - paidStagesTotal, 0);
+      } catch (e) {}
+    } else {
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      if (!isCleared) {
+        totalUnpaid += parseFloat(p.amount || p.Amount || 0);
+      }
+    }
   });
 
   // 5. CASH EXPENSES: sum of all Cash Expenses
@@ -399,23 +407,22 @@ function renderTotalBalance() {
   const netColor = netPosition >= 0 ? "#198754" : "#dc3545";
 
   // ── RENDER ──
-  // Font sizes reduced by 40% from previous: 22px → 13px, 26px → 16px, 14px → 8px
   const rowStyle = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 0;
+    padding: 8px 0;
     border-bottom: 1px solid #e9ecef;
   `;
   const labelStyle = `
-    font-size: 8px;
+    font-size: 14px;
     font-weight: 800;
     text-transform: uppercase;
     color: #000;
     letter-spacing: 0.3px;
   `;
   const amountStyle = `
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 900;
     font-family: 'Inter', -apple-system, sans-serif;
   `;
@@ -442,9 +449,9 @@ function renderTotalBalance() {
         <span style="${labelStyle}">Cash Expenses</span>
         <span style="${amountStyle} color: #000;">₦${formatMoney(cashExpenses)}</span>
       </div>
-      <div style="border-top: 2px solid #adb5bd; margin: 8px 0;"></div>
+      <div style="border-top: 2px solid #adb5bd; margin: 10px 0;"></div>
       <div style="${rowStyle} border-bottom: none; padding-bottom: 0;">
-        <span style="${labelStyle} font-size: 10px;">Net Position</span>
+        <span style="${labelStyle} font-size: 14px;">Net Position</span>
         <span style="${amountStyle} font-size: 16px; color: ${netColor};">₦${formatMoney(Math.abs(netPosition))}</span>
       </div>
     </div>
