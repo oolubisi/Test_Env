@@ -50,7 +50,11 @@ function generateReportRef(prefix = "RPT") {
   return `${prefix}-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${String(now.getTime()).slice(-4)}`;
 }
 
-function generateStandardReportHeader(reportTitle, reportRef = "") {
+function generateStandardReportHeader(
+  reportTitle,
+  reportRef = "",
+  showTitleLine = true,
+) {
   const logoHtml = appSettings.logoUrl
     ? `<img src="${escapeHtml(getDirectImageUrl(appSettings.logoUrl))}" style="height:55px; max-width:140px; object-fit:contain; margin-bottom:6px;" alt="Logo" onerror="this.style.display='none'">`
     : "";
@@ -64,7 +68,7 @@ function generateStandardReportHeader(reportTitle, reportRef = "") {
     minute: "2-digit",
   });
   return `
-    <div style="border-bottom: 3px solid #000; padding-bottom: 14px; margin-bottom: 18px; page-break-inside: avoid;">
+    <div style="${showTitleLine ? "border-bottom: 3px solid #000; " : ""}padding-bottom: 14px; margin-bottom: 18px; page-break-inside: avoid;">
       <table style="width:100%; border-collapse:collapse; border:none; margin:0;">
         <tr style="border:none;">
           <td style="border:none; vertical-align:top; width:55%; padding:0;">
@@ -83,15 +87,24 @@ function generateStandardReportHeader(reportTitle, reportRef = "") {
           </td>
         </tr>
       </table>
-      <div style="margin-top:10px; padding-top:8px; border-top:1px solid #ddd;">
+      ${
+        showTitleLine
+          ? `<div style="margin-top:10px; padding-top:8px; border-top:1px solid #ddd;">
         <h2 style="margin:0; font-size:15px; font-weight:900; text-transform:uppercase; color:#000;">${escapeHtml(reportTitle)}</h2>
-      </div>
+      </div>`
+          : ""
+      }
     </div>`;
 }
 
-function wrapReportContent(contentHtml, reportTitle, reportRef = "") {
+function wrapReportContent(
+  contentHtml,
+  reportTitle,
+  reportRef = "",
+  showTitleLine = true,
+) {
   return `<div style="font-family: 'Helvetica', 'Arial', sans-serif; color: #000; background: #fff; width: 100%; max-width: 900px; margin: 0 auto; padding: 0; line-height: 1.4; box-sizing: border-box;">
-    ${generateStandardReportHeader(reportTitle, reportRef)}
+    ${generateStandardReportHeader(reportTitle, reportRef, showTitleLine)}
     <div style="min-height: 500px;">${contentHtml}</div>
   </div>`;
 }
@@ -111,6 +124,7 @@ async function compileAndDownloadUnifiedPDF(
   filename = "Facility_Report",
   reportTitle = "Facility Report",
   reportRef = "",
+  showTitleLine = true,
 ) {
   const normalizedSource = normalizeReportSource(sourceElement);
   if (!normalizedSource || typeof normalizedSource.cloneNode !== "function") {
@@ -159,7 +173,7 @@ async function compileAndDownloadUnifiedPDF(
         h1, h2, h3, h4 { page-break-after: avoid; }
         tr { page-break-inside: avoid; }
       </style>
-    </head><body>${wrapReportContent(clone.innerHTML, reportTitle, reportRef)}</body></html>`;
+    </head><body>${wrapReportContent(clone.innerHTML, reportTitle, reportRef, showTitleLine)}</body></html>`;
 
     const response = await fetch(GAS_URL, {
       method: "POST",
@@ -494,7 +508,8 @@ function printSinglePaymentDirect(paymentId) {
     ${stagesHtml}
     <div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">
       <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
-        <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details <span style="text-transform:none; font-size:13px; font-weight:700; color:#000; margin-left:8px;">— Stage: <span style="font-weight:900; font-size:14px;">${escapeHtml(selectedStageLabel || "Not Selected")}</span></span></h4>
+        <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details</h4>
+        <span style="font-weight:900; font-size:21px; text-align:right; color:#000;">${escapeHtml(selectedStageLabel || "Not Selected")}</span>
       </div>
       <div style="display:flex; justify-content:space-between; font-size:16px; align-items:flex-end;">
         <div style="width:35%;"><small style="color:#666; font-weight:700; font-size:12px; display:block; text-transform:uppercase;">${escapeHtml(partyLabel)}</small><strong>${escapeHtml(orderItem.party || orderItem.Party || "N/A")}</strong></div>
@@ -545,6 +560,7 @@ function printSinglePaymentDirect(paymentId) {
     `Ledger_${orderItem.paymentId || orderItem.PaymentId}`,
     `${documentTitle} - ${orderItem.paymentId || orderItem.PaymentId}`,
     orderItem.paymentId || orderItem.PaymentId,
+    false,
   );
 }
 

@@ -388,23 +388,23 @@ function renderListCard(p, item, isMaintPage) {
     const totalContract =
       parseFloat(item.totalJobValue || item.TotalJobValue || 0) || 0;
 
-    // Parse stages once: drives both the stage-count badge and the unpaid balance
+    // Parse stages once: drives the stage-count badge and the unpaid balance
     let stagesBadge = "";
-    let unpaidBalanceHtml = "";
+    let unpaidBalance = totalContract > 0 ? totalContract : 0;
+    let unpaidColor = "var(--danger)";
     if (item.stages) {
       try {
         const stages = JSON.parse(item.stages);
         const paidCount = stages.filter((s) => s.status === "Paid").length;
         stagesBadge = `<span style="background:#e8f4fd; color:#0D6EFD; padding:2px 6px; border:1px solid #b6d4fe; border-radius:4px; font-size:10px; margin-left:6px;"><i class="fas fa-layer-group"></i> ${paidCount}/${stages.length} stages</span>`;
-
         if (totalContract > 0) {
           const paidStagesTotal = stages.reduce(
             (sum, s) =>
               sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
             0,
           );
-          const unpaidBalance = totalContract - paidStagesTotal;
-          unpaidBalanceHtml = `<div style="font-size:13px; font-weight:800; color:${unpaidBalance > 0 ? "var(--danger)" : "var(--success)"}; margin-top:4px;">Unpaid Balance: ₦${formatMoney(Math.max(unpaidBalance, 0))}</div>`;
+          unpaidBalance = Math.max(totalContract - paidStagesTotal, 0);
+          unpaidColor = unpaidBalance > 0 ? "var(--danger)" : "var(--success)";
         }
       } catch (e) {}
     }
@@ -418,14 +418,17 @@ function renderListCard(p, item, isMaintPage) {
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
           <div style="text-align:right;">
-            <span style="font-size:20px; font-weight:900; color:${color};">${sign}₦${formatMoney(item.amount)}</span><br>
+            ${
+              totalContract > 0
+                ? `<span style="font-size:13px; font-weight:700; color:var(--muted); display:block; text-transform:uppercase;">Unpaid Balance</span><span style="font-size:20px; font-weight:900; color:${unpaidColor};">₦${formatMoney(unpaidBalance)}</span>`
+                : `<span style="font-size:20px; font-weight:900; color:${color};">${sign}₦${formatMoney(item.amount)}</span>`
+            }<br>
             <small style="font-size:11px; font-weight:700; color:var(--muted);">${formatDateForDisplay(item.date)}</small>
           </div>
           <button onclick="event.stopPropagation(); printSinglePaymentDirect('${escapeHtml(item.paymentId || item.PaymentId)}')" style="background:var(--primary); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; min-height:32px;"><i class="fas fa-print"></i> Print</button>
         </div>
       </div>
       <div style="font-size:15px; font-weight:800; color:${color};">${escapeHtml(item.direction || "INFLOW")} &bull; ${escapeHtml(item.type || "General Record")} ${stagesBadge}${paidStatus ? ' <span style="background:var(--success); color:#fff; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:4px;">PAID</span>' : ""}</div>
-      ${unpaidBalanceHtml}
       ${item.reason ? `<div style="font-size:13px; color:var(--muted); margin-top:2px;">${escapeHtml(item.reason)}</div>` : ""}
     </div>`;
   }
