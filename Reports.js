@@ -220,8 +220,294 @@ function compileReportPreview() {
       })
       .join("");
     out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">WO ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Assigned</th><th style="padding:8px 6px; border:1px solid #000;">Amount</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No approved work orders.</td></tr>`}</tbody></table>`;
+  } else if (layout === "asset_register") {
+    out += generateTitleBar("MASTER ASSET REGISTER");
+    const rows = (cache.assets || [])
+      .filter(
+        (a) =>
+          a && String(a.status || a.Status || "").toLowerCase() !== "archived",
+      )
+      .map((a) => {
+        const nextDate = parseToLocalDateObject(
+          a.nextService || a.NextService || "",
+        );
+        const isOverdue =
+          nextDate && nextDate <= new Date().setHours(0, 0, 0, 0);
+        const pmStatus = isOverdue ? "OVERDUE" : nextDate ? "ACTIVE" : "N/A";
+        const pmColor = isOverdue ? "#DC3545" : "#198754";
+        return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(a.tag || a.Tag || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.type || a.Type || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(getUnitNumber(a) || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.loc || a.Loc || a.location || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.status || a.Status || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(a.lastServiced || a.LastServiced)}</td><td style="padding:6px; border:1px solid #000; color:${pmColor}; font-weight:bold;">${pmStatus}</td></tr>`;
+      })
+      .join("");
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Location</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Last Service</th><th style="padding:8px 6px; border:1px solid #000;">PM Status</th></tr></thead><tbody>${rows || `<tr><td colspan="7" style="padding:10px; text-align:center;">No assets found.</td></tr>`}</tbody></table>`;
+  } else if (layout === "generator_log") {
+    out += generateTitleBar("GENERATOR & DIESEL LOG");
+    const startRaw = document.getElementById("rep_start_date")?.value;
+    const endRaw = document.getElementById("rep_end_date")?.value;
+    let plantLogs = (cache.utilities || [])
+      .filter((u) => u && u.type === "Plant Check")
+      .sort(
+        (a, b) =>
+          new Date(b.date || b.Date || 0) - new Date(a.date || a.Date || 0),
+      );
+
+    if (startRaw && endRaw) {
+      const s = new Date(startRaw),
+        e = new Date(endRaw);
+      e.setHours(23, 59, 59, 999);
+      plantLogs = plantLogs.filter((u) => {
+        const d = new Date(fromSheetDate(u.date || u.Date || "") || 0);
+        return d >= s && d <= e;
+      });
+    }
+
+    const rows = plantLogs
+      .map((u) => {
+        return `<tr><td style="padding:6px; border:1px solid #000;">${escapeHtml(getUnitNumber(u) || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(u.date || u.Date)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(u.reading || u.Reading || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(u.meterNo || u.MeterNo || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(u.amount || u.Amount || "0")}L</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(u.notes || u.Notes || "")}</td></tr>`;
+      })
+      .join("");
+
+    // Calculate burn rate if we have at least 2 readings for same generator
+    let burnRateHtml = "";
+    const gen1Logs = plantLogs.filter((u) =>
+      String(getUnitNumber(u)).includes("GENERATOR-1"),
+    );
+    if (gen1Logs.length >= 2) {
+      const curr = gen1Logs[0],
+        prev = gen1Logs[1];
+      const delta =
+        parseFloat(curr.reading || 0) - parseFloat(prev.reading || 0);
+      const liters = parseFloat(curr.amount || curr.Amount || 0);
+      if (delta > 0 && liters > 0) {
+        const rate = (liters / delta).toFixed(2);
+        burnRateHtml = `<div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; margin-bottom:15px;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Generator 1 Burn Rate</div><div style="font-size:22px; font-weight:900; color:#000;">${rate} L/Hr</div><div style="font-size:12px; color:#666;">Based on last ${delta.toFixed(1)} hours with ${liters}L added</div></div>`;
+      }
+    }
+
+    out += burnRateHtml;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Equipment</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Run Hours</th><th style="padding:8px 6px; border:1px solid #000;">Tank Level</th><th style="padding:8px 6px; border:1px solid #000;">Diesel Added</th><th style="padding:8px 6px; border:1px solid #000;">Notes</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No plant logs found.</td></tr>`}</tbody></table>`;
+  } else if (layout === "ticket_report") {
+    out += generateTitleBar("MAINTENANCE TICKETS REPORT");
+    const startRaw = document.getElementById("rep_start_date")?.value;
+    const endRaw = document.getElementById("rep_end_date")?.value;
+    let tickets = cache.tickets || [];
+
+    if (startRaw && endRaw) {
+      const s = new Date(startRaw),
+        e = new Date(endRaw);
+      e.setHours(23, 59, 59, 999);
+      tickets = tickets.filter((t) => {
+        const d = new Date(fromSheetDate(t.date || t.Date || "") || 0);
+        return d >= s && d <= e;
+      });
+    }
+
+    const openCount = tickets.filter(
+      (t) => String(t.status || t.Status || "").toLowerCase() === "open",
+    ).length;
+    const resolvedCount = tickets.filter(
+      (t) => String(t.status || t.Status || "").toLowerCase() === "resolved",
+    ).length;
+    const inProgressCount = tickets.filter(
+      (t) => String(t.status || t.Status || "").toLowerCase() === "in progress",
+    ).length;
+
+    out += `<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:15px;">
+      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:12px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Open</div><div style="font-size:22px; font-weight:900;">${openCount}</div></div>
+      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:12px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">In Progress</div><div style="font-size:22px; font-weight:900;">${inProgressCount}</div></div>
+      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:12px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Resolved</div><div style="font-size:22px; font-weight:900;">${resolvedCount}</div></div>
+    </div>`;
+
+    const rows = tickets
+      .map((t) => {
+        const status = String(t.status || t.Status || "").toLowerCase();
+        const statusColor =
+          status === "resolved"
+            ? "#198754"
+            : status === "in progress"
+              ? "#856404"
+              : "#dc3545";
+        return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(t.ticketId || t.TicketId || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(t.date || t.Date)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(getUnitNumber(t) || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(t.category || t.Category || "N/A")}</td><td style="padding:6px; border:1px solid #000; color:${statusColor}; font-weight:bold;">${escapeHtml(String(t.status || t.Status || "OPEN").toUpperCase())}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(t.description || t.Description || "")}</td></tr>`;
+      })
+      .join("");
+
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Ticket ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Category</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No tickets found.</td></tr>`}</tbody></table>`;
+  } else if (layout === "daily_operations") {
+    out += generateTitleBar("DAILY OPERATIONS REPORT");
+    const reportDate = document.getElementById("rep-param-date")?.value;
+    if (!reportDate) {
+      showToast("Please select a report date.", "warning");
+      return;
+    }
+    const targetDate = new Date(reportDate);
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const dayTickets = (cache.tickets || []).filter((t) => {
+      const d = new Date(fromSheetDate(t.date || t.Date || "") || 0);
+      return d >= targetDate && d < nextDay;
+    });
+    const dayWorkOrders = (cache.workorders || []).filter((w) => {
+      const d = new Date(fromSheetDate(w.date || w.Date || "") || 0);
+      return d >= targetDate && d < nextDay;
+    });
+    const dayUtilities = (cache.utilities || []).filter((u) => {
+      const d = new Date(fromSheetDate(u.date || u.Date || "") || 0);
+      return d >= targetDate && d < nextDay;
+    });
+
+    out += `<div style="margin-bottom:15px;"><strong>Report Date:</strong> ${formatDateForDisplay(reportDate)}</div>`;
+
+    out += `<h3 style="font-size:13px; font-weight:900; text-transform:uppercase; margin:15px 0 8px 0; border-bottom:1px solid #000; padding-bottom:4px;">Maintenance Tickets (${dayTickets.length})</h3>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:15px;"><thead><tr style="background:#f4f4f4;"><th style="padding:6px; border:1px solid #000;">ID</th><th style="padding:6px; border:1px solid #000;">Unit</th><th style="padding:6px; border:1px solid #000;">Category</th><th style="padding:6px; border:1px solid #000;">Status</th></tr></thead><tbody>${dayTickets.map((t) => `<tr><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(t.ticketId || t.TicketId)}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(getUnitNumber(t) || "N/A")}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(t.category || t.Category || "")}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(t.status || t.Status || "")}</td></tr>`).join("") || `<tr><td colspan="4" style="padding:10px; text-align:center;">No tickets</td></tr>`}</tbody></table>`;
+
+    out += `<h3 style="font-size:13px; font-weight:900; text-transform:uppercase; margin:15px 0 8px 0; border-bottom:1px solid #000; padding-bottom:4px;">Work Orders (${dayWorkOrders.length})</h3>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:15px;"><thead><tr style="background:#f4f4f4;"><th style="padding:6px; border:1px solid #000;">ID</th><th style="padding:6px; border:1px solid #000;">Unit</th><th style="padding:6px; border:1px solid #000;">Assigned</th><th style="padding:6px; border:1px solid #000;">Amount</th></tr></thead><tbody>${dayWorkOrders.map((w) => `<tr><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(w.workOrderId || w.WorkOrderId)}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(getUnitNumber(w) || "N/A")}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(w.assigned || w.Assigned || "N/A")}</td><td style="padding:6px; border:1px solid #ccc; text-align:right;">N${formatMoney(w.amount || w.Amount || 0)}</td></tr>`).join("") || `<tr><td colspan="4" style="padding:10px; text-align:center;">No work orders</td></tr>`}</tbody></table>`;
+
+    out += `<h3 style="font-size:13px; font-weight:900; text-transform:uppercase; margin:15px 0 8px 0; border-bottom:1px solid #000; padding-bottom:4px;">Utility Logs (${dayUtilities.length})</h3>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4;"><th style="padding:6px; border:1px solid #000;">Unit</th><th style="padding:6px; border:1px solid #000;">Type</th><th style="padding:6px; border:1px solid #000;">Reading</th><th style="padding:6px; border:1px solid #000;">Amount</th></tr></thead><tbody>${dayUtilities.map((u) => `<tr><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(getUnitNumber(u) || "N/A")}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(u.type || u.Type || "")}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(u.reading || u.Reading || "N/A")}</td><td style="padding:6px; border:1px solid #ccc; text-align:right;">N${formatMoney(u.amount || u.Amount || 0)}</td></tr>`).join("") || `<tr><td colspan="4" style="padding:10px; text-align:center;">No utility logs</td></tr>`}</tbody></table>`;
+  } else if (layout === "monthly_fm") {
+    out += generateTitleBar("MONTHLY FM REPORT");
+    const monthVal = document.getElementById("rep-param-month")?.value;
+    if (!monthVal) {
+      showToast("Please select a month.", "warning");
+      return;
+    }
+    const [year, month] = monthVal.split("-");
+    const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const monthEnd = new Date(
+      parseInt(year),
+      parseInt(month),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const monthTickets = (cache.tickets || []).filter((t) => {
+      const d = new Date(fromSheetDate(t.date || t.Date || "") || 0);
+      return d >= monthStart && d <= monthEnd;
+    });
+    const monthWO = (cache.workorders || []).filter((w) => {
+      const d = new Date(fromSheetDate(w.date || w.Date || "") || 0);
+      return d >= monthStart && d <= monthEnd;
+    });
+    const monthPayments = (cache.payments || []).filter((p) => {
+      const d = new Date(fromSheetDate(p.date || p.Date || "") || 0);
+      return d >= monthStart && d <= monthEnd;
+    });
+
+    const totalWOPending = monthWO.filter(
+      (w) =>
+        String(w.status || w.Status || "").toUpperCase() === "PENDING APPROVAL",
+    ).length;
+    const totalWOApproved = monthWO.filter(
+      (w) => String(w.status || w.Status || "").toUpperCase() === "APPROVED",
+    ).length;
+    const totalInflow = monthPayments
+      .filter((p) => p.direction === "INFLOW")
+      .reduce((s, p) => s + parseFloat(p.amount || p.Amount || 0), 0);
+    const totalOutflow = monthPayments
+      .filter((p) => p.direction === "OUTFLOW")
+      .reduce((s, p) => s + parseFloat(p.amount || p.Amount || 0), 0);
+
+    out += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+      <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Tickets Logged</div><div style="font-size:22px; font-weight:900;">${monthTickets.length}</div></div>
+      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Work Orders</div><div style="font-size:22px; font-weight:900;">${monthWO.length}</div></div>
+      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Pending WO</div><div style="font-size:22px; font-weight:900;">${totalWOPending}</div></div>
+      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Approved WO</div><div style="font-size:22px; font-weight:900;">${totalWOApproved}</div></div>
+    </div>`;
+
+    out += `<div style="background:#f8f9fa; border:2px solid #000; border-radius:12px; padding:16px; margin-bottom:20px; text-align:center;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div><div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#198754;">Total Inflow</div><div style="font-size:20px; font-weight:900; color:#198754;">N${formatMoney(totalInflow)}</div></div>
+        <div><div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#dc3545;">Total Outflow</div><div style="font-size:20px; font-weight:900; color:#dc3545;">N${formatMoney(totalOutflow)}</div></div>
+      </div>
+      <div style="border-top:1px solid #adb5bd; margin-top:10px; padding-top:10px;">
+        <div style="font-size:11px; font-weight:800; text-transform:uppercase;">Net Position</div>
+        <div style="font-size:24px; font-weight:900; color:${totalInflow - totalOutflow >= 0 ? "#198754" : "#dc3545"};">${totalInflow - totalOutflow >= 0 ? "" : "-"}N${formatMoney(Math.abs(totalInflow - totalOutflow))}</div>
+      </div>
+    </div>`;
+
+    out += `<h3 style="font-size:13px; font-weight:900; text-transform:uppercase; margin:15px 0 8px 0; border-bottom:1px solid #000; padding-bottom:4px;">Work Orders Detail</h3>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4;"><th style="padding:6px; border:1px solid #000;">ID</th><th style="padding:6px; border:1px solid #000;">Date</th><th style="padding:6px; border:1px solid #000;">Unit</th><th style="padding:6px; border:1px solid #000;">Status</th><th style="padding:6px; border:1px solid #000; text-align:right;">Amount</th></tr></thead><tbody>${monthWO.map((w) => `<tr><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(w.workOrderId || w.WorkOrderId)}</td><td style="padding:6px; border:1px solid #ccc;">${formatDateForDisplay(w.date || w.Date)}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(getUnitNumber(w) || "N/A")}</td><td style="padding:6px; border:1px solid #ccc;">${escapeHtml(w.status || w.Status || "")}</td><td style="padding:6px; border:1px solid #ccc; text-align:right; font-weight:700;">N${formatMoney(w.amount || w.Amount || 0)}</td></tr>`).join("") || `<tr><td colspan="5" style="padding:10px; text-align:center;">No work orders</td></tr>`}</tbody></table>`;
+  } else if (layout === "kpi_dashboard") {
+    out += generateTitleBar("EXECUTIVE KPI DASHBOARD");
+    const monthVal = document.getElementById("rep-param-month")?.value;
+    if (!monthVal) {
+      showToast("Please select a month.", "warning");
+      return;
+    }
+    const [year, month] = monthVal.split("-");
+    const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const monthEnd = new Date(
+      parseInt(year),
+      parseInt(month),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const totalApts = (cache.apts || []).filter(
+      (a) => String(a.type || a.Type || "").toLowerCase() !== "services",
+    ).length;
+    const occupiedApts = (cache.apts || []).filter(
+      (a) => String(a.status || a.Status || "").toLowerCase() === "occupied",
+    ).length;
+    const occupancyRate =
+      totalApts > 0 ? ((occupiedApts / totalApts) * 100).toFixed(1) : 0;
+
+    const totalAssets = (cache.assets || []).length;
+    const overdueAssets = (cache.assets || []).filter((a) => {
+      const nextDate = parseToLocalDateObject(
+        a.nextService || a.NextService || "",
+      );
+      return nextDate && nextDate <= new Date().setHours(0, 0, 0, 0);
+    }).length;
+
+    const openTickets = (cache.tickets || []).filter(
+      (t) => String(t.status || t.Status || "").toLowerCase() !== "resolved",
+    ).length;
+    const pendingWO = (cache.workorders || []).filter(
+      (w) =>
+        String(w.status || w.Status || "").toUpperCase() === "PENDING APPROVAL",
+    ).length;
+
+    const allPayments = cache.payments || [];
+    const totalInflow = allPayments
+      .filter((p) => p.direction === "INFLOW")
+      .reduce((s, p) => s + parseFloat(p.amount || p.Amount || 0), 0);
+    const totalOutflow = allPayments
+      .filter((p) => p.direction === "OUTFLOW")
+      .reduce((s, p) => s + parseFloat(p.amount || p.Amount || 0), 0);
+    const cashExp = (cache.cashExpenses || []).reduce(
+      (s, c) => s + parseFloat(c.amount || c.Amount || 0),
+      0,
+    );
+
+    out += `<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
+      <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Occupancy Rate</div><div style="font-size:28px; font-weight:900;">${occupancyRate}%</div><div style="font-size:12px; color:#666;">${occupiedApts} / ${totalApts} units</div></div>
+      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">PM Overdue</div><div style="font-size:28px; font-weight:900;">${overdueAssets}</div><div style="font-size:12px; color:#666;">of ${totalAssets} assets</div></div>
+      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Open Tickets</div><div style="font-size:28px; font-weight:900;">${openTickets}</div></div>
+    </div>`;
+
+    out += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+      <div style="background:#f8f9fa; border:2px solid #000; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; text-transform:uppercase;">Pending Work Orders</div><div style="font-size:24px; font-weight:900;">${pendingWO}</div></div>
+      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Net Position</div><div style="font-size:24px; font-weight:900; color:${totalInflow - totalOutflow - cashExp >= 0 ? "#198754" : "#dc3545"};">${totalInflow - totalOutflow - cashExp >= 0 ? "" : "-"}N${formatMoney(Math.abs(totalInflow - totalOutflow - cashExp))}</div></div>
+    </div>`;
+
+    out += `<div style="background:#fff; border:2px solid #000; border-radius:12px; padding:16px;">
+      <h3 style="font-size:13px; font-weight:900; text-transform:uppercase; margin:0 0 10px 0; border-bottom:1px solid #ccc; padding-bottom:4px;">Financial Summary</h3>
+      <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e9ecef;"><span style="font-weight:700;">Total Inflow</span><span style="font-weight:900; color:#198754;">N${formatMoney(totalInflow)}</span></div>
+      <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e9ecef;"><span style="font-weight:700;">Total Outflow</span><span style="font-weight:900; color:#dc3545;">N${formatMoney(totalOutflow)}</span></div>
+      <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e9ecef;"><span style="font-weight:700;">Cash Expenses</span><span style="font-weight:900;">N${formatMoney(cashExp)}</span></div>
+      <div style="display:flex; justify-content:space-between; padding:8px 0 0 0; margin-top:8px; border-top:2px solid #000;"><span style="font-weight:900; font-size:14px;">NET POSITION</span><span style="font-weight:900; font-size:18px; color:${totalInflow - totalOutflow - cashExp >= 0 ? "#198754" : "#dc3545"};">${totalInflow - totalOutflow - cashExp >= 0 ? "" : "-"}N${formatMoney(Math.abs(totalInflow - totalOutflow - cashExp))}</span></div>
+    </div>`;
   } else {
-    out += `<p style="padding:20px; font-weight:700; color:var(--muted);">Report type not yet implemented. Please select a different report.</p>`;
+    out += `<p style="padding:20px; font-weight:700; color:var(--muted);">Report type not available. Please select a different report.</p>`;
   }
 
   out += `</div>`;

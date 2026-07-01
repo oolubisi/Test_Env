@@ -684,6 +684,7 @@ function openModal(type, editData = null) {
         isEdit ? editData.paymentRequest || editData.PaymentRequest || "" : "",
       );
       syncPaymentAmountFromRequestSelection();
+      setupPaymentRequestAutoUncheck();
     }, 50);
 
     submit.onclick = () => {

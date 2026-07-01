@@ -1,4 +1,4 @@
-const CACHE_NAME = "facility-pro-v12";
+const CACHE_NAME = "facility-pro-v13";
 
 const STATIC_ASSETS = [
   "./",
@@ -14,6 +14,9 @@ const STATIC_ASSETS = [
   "./manifest.json",
   "./logo.png",
 ];
+
+// Cross-origin endpoints that need network-first strategy
+const API_ENDPOINTS = ["script.google.com"];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -55,16 +58,49 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // [FIX] Only intercept same-origin requests (the app shell itself).
-  // Cross-origin requests (Google Drive thumbnails/files, Apps Script API calls,
-  // CDN scripts, etc.) must pass straight through to the network untouched —
-  // attempting to clone/cache opaque or redirected cross-origin responses
-  // triggers Cross-Origin Read Blocking (CORB) and can return broken/HTML
-  // responses where binary content was expected.
-  if (url.origin !== self.location.origin) {
+  // Check if this is an API call (cross-origin)
+  const isApiCall = API_ENDPOINTS.some((endpoint) =>
+    url.hostname.includes(endpoint),
+  );
+
+  if (isApiCall) {
+    // Network-first strategy for API calls with offline fallback
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          // Cache successful API responses for offline reading
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          console.log(
+            "SW: API network failed, serving from cache:",
+            event.request.url,
+          );
+          return caches.match(event.request).then((cachedResponse) => {
+            if (cachedResponse) {
+              return cachedResponse;
+            }
+            // Return offline JSON response for API calls
+            return new Response(
+              JSON.stringify({
+                status: "error",
+                message: "Offline - No cached data available",
+              }),
+              { status: 503, headers: { "Content-Type": "application/json" } },
+            );
+          });
+        }),
+    );
     return;
   }
 
+  // Same-origin requests: Cache-first with network update
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
@@ -75,7 +111,6 @@ self.addEventListener("fetch", (event) => {
         ) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            // Limit cache size: don't cache huge files
             const contentLength = networkResponse.headers.get("content-length");
             if (!contentLength || parseInt(contentLength) < 5 * 1024 * 1024) {
               cache.put(event.request, responseToCache);
@@ -93,7 +128,6 @@ self.addEventListener("fetch", (event) => {
           if (cachedResponse) {
             return cachedResponse;
           }
-          // Return offline fallback for navigation requests
           if (event.request.mode === "navigate") {
             return caches.match("./index.html");
           }

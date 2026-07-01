@@ -111,6 +111,19 @@ function normalizeReportSource(source) {
   return source;
 }
 
+// Sanitize HTML string before sending to server
+function sanitizeHtmlForServer(htmlString) {
+  if (!htmlString) return "";
+  // Remove script tags and event handlers
+  let clean = String(htmlString)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\bon\w+\s*=\s*["']?[^"'>]*["']?/gi, "")
+    .replace(/javascript:/gi, "")
+    .replace(/data:text\/html/gi, "")
+    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+  return clean;
+}
+
 async function compileAndDownloadUnifiedPDF(
   sourceElement,
   attachmentUrls = [],
@@ -154,6 +167,14 @@ async function compileAndDownloadUnifiedPDF(
         cloneNode.parentNode.replaceChild(span, cloneNode);
     });
 
+    const rawHtml = wrapReportContent(
+      clone.innerHTML,
+      reportTitle,
+      reportRef,
+      showTitleLine,
+    );
+    const sanitizedHtml = sanitizeHtmlForServer(rawHtml);
+
     const cleanHTML = `<!DOCTYPE html><html><head><meta charset="UTF-8">
       <style>
         @page { size: A4 portrait; margin: 12mm 10mm 12mm 10mm; }
@@ -166,7 +187,7 @@ async function compileAndDownloadUnifiedPDF(
         h1, h2, h3, h4 { page-break-after: avoid; }
         tr { page-break-inside: avoid; }
       </style>
-    </head><body>${wrapReportContent(clone.innerHTML, reportTitle, reportRef, showTitleLine)}</body></html>`;
+    </head><body>${sanitizedHtml}</body></html>`;
 
     const response = await fetch(GAS_URL, {
       method: "POST",

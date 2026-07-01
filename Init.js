@@ -320,7 +320,14 @@ function renderTotalBalance() {
             totalInflow += parseFloat(s.amount) || 0;
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn(
+          "[Data Consistency] Failed to parse INFLOW stages for",
+          p.paymentId || p.PaymentId,
+          ":",
+          e.message,
+        );
+      }
     } else {
       // Non-staged: only count if marked as paid/cleared
       const isCleared =
@@ -349,7 +356,14 @@ function renderTotalBalance() {
             totalOutflow += parseFloat(s.amount) || 0;
           }
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn(
+          "[Data Consistency] Failed to parse OUTFLOW stages for",
+          p.paymentId || p.PaymentId,
+          ":",
+          e.message,
+        );
+      }
     } else {
       const isCleared =
         String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
@@ -374,7 +388,14 @@ function renderTotalBalance() {
           0,
         );
         pendingInflow += Math.max(totalContract - paidStagesTotal, 0);
-      } catch (e) {}
+      } catch (e) {
+        console.warn(
+          "[Data Consistency] Failed to parse INFLOW pending stages for",
+          p.paymentId || p.PaymentId,
+          ":",
+          e.message,
+        );
+      }
     } else {
       const isCleared =
         String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
@@ -399,7 +420,14 @@ function renderTotalBalance() {
           0,
         );
         totalUnpaid += Math.max(totalContract - paidStagesTotal, 0);
-      } catch (e) {}
+      } catch (e) {
+        console.warn(
+          "[Data Consistency] Failed to parse OUTFLOW unpaid stages for",
+          p.paymentId || p.PaymentId,
+          ":",
+          e.message,
+        );
+      }
     } else {
       const isCleared =
         String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
@@ -417,7 +445,8 @@ function renderTotalBalance() {
   });
 
   // 6. NET POSITION
-  const netPosition = totalInflow - totalOutflow - cashExpenses;
+  // Note: totalOutflow already includes cash expenses, so don't subtract again
+  const netPosition = totalInflow - totalOutflow;
   const netColor = netPosition >= 0 ? "#198754" : "#dc3545";
 
   // ── RENDER ──

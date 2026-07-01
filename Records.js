@@ -444,7 +444,15 @@ function renderListCard(p, item, isMaintPage) {
           unpaidBalance = Math.max(totalContract - paidStagesTotal, 0);
           unpaidColor = unpaidBalance > 0 ? "var(--danger)" : "var(--success)";
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn(
+          "[Data Consistency] Failed to parse stages for payment card",
+          item.paymentId || item.PaymentId,
+          ":",
+          e.message,
+        );
+        stagesBadge = `<span style="background:#fdecea; color:#dc3545; padding:2px 6px; border:1px solid #f5c2c7; border-radius:4px; font-size:10px; margin-left:6px;"><i class="fas fa-exclamation-triangle"></i> Invalid Stages</span>`;
+      }
     }
 
     return `<div class="card" onclick="openRecordRow('payment', '${escapeHtml(item.paymentId || item.PaymentId)}')">
