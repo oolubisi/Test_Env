@@ -74,6 +74,8 @@ function handleReportProfileSwitch() {
     financials: [
       ["", "-- Select Report --"],
       ["ledger_summary", "Comprehensive Financial Ledger"],
+      ["pending_outflow", "Pending Outflow"],
+      ["ledger", "Ledger"],
       ["fin_wo", "Approved Work Orders Ledger"],
     ],
     executive: [
@@ -99,11 +101,28 @@ function handleReportLayoutSwitch() {
     paramsFrame.innerHTML = `<label>SELECT APARTMENT UNIT</label><select id="rep-param-unit" class="form-control"></select>`;
     populateUnitDropdown("rep-param-unit");
   } else if (
-    ["ledger_summary", "generator_log", "ticket_report", "fin_wo"].includes(
-      layout,
-    )
+    [
+      "ledger_summary",
+      "generator_log",
+      "ticket_report",
+      "fin_wo",
+      "pending_outflow",
+    ].includes(layout)
   ) {
     paramsFrame.innerHTML = `<div style="display:flex; gap:10px;"><div style="flex:1;"><label>START DATE</label><input type="date" id="rep_start_date"></div><div style="flex:1;"><label>END DATE</label><input type="date" id="rep_end_date"></div></div>`;
+  } else if (layout === "ledger") {
+    paramsFrame.innerHTML = `
+      <label>SELECT LEDGER TYPE</label>
+      <select id="rep-ledger-type">
+        <option value="">-- Select Ledger Type --</option>
+        <option value="inflow_paid_pending">Inflow - Paid & Pending</option>
+        <option value="outflow_paid_pending">Outflow - Paid & Pending</option>
+        <option value="cash_expenses">Cash Expenses</option>
+      </select>
+      <div style="display:flex; gap:10px; margin-top:10px;">
+        <div style="flex:1;"><label>START DATE</label><input type="date" id="rep_start_date"></div>
+        <div style="flex:1;"><label>END DATE</label><input type="date" id="rep_end_date"></div>
+      </div>`;
   } else if (layout === "daily_operations") {
     paramsFrame.innerHTML = `<label>REPORT DATE</label><input type="date" id="rep-param-date" value="${new Date().toISOString().split("T")[0]}">`;
   } else if (layout === "monthly_fm" || layout === "kpi_dashboard") {
@@ -127,6 +146,23 @@ function compileReportPreview() {
       return;
     }
     generateApartmentDossierReport(unit);
+    return;
+  }
+  if (layout === "ledger_summary") {
+    generateComprehensiveFinancialLedger();
+    return;
+  }
+  if (layout === "pending_outflow") {
+    generatePendingOutflowReport();
+    return;
+  }
+  if (layout === "ledger") {
+    const ledgerType = document.getElementById("rep-ledger-type")?.value;
+    if (!ledgerType) {
+      showToast("Please select a ledger type.", "warning");
+      return;
+    }
+    generateLedgerReport(ledgerType);
     return;
   }
 
@@ -171,43 +207,19 @@ function compileReportPreview() {
       .join("");
     out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Location</th><th style="padding:8px 6px; border:1px solid #000;">Last Service</th><th style="padding:8px 6px; border:1px solid #000;">Next Service</th><th style="padding:8px 6px; border:1px solid #000;">PM Status</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No data.</td></tr>`}</tbody></table>`;
   } else if (layout === "ledger_summary") {
-    const startRaw = document.getElementById("rep_start_date")?.value;
-    const endRaw = document.getElementById("rep_end_date")?.value;
-    if (!startRaw || !endRaw) {
-      showToast("Please select a date range.", "warning");
-      return;
-    }
-    const startDate = new Date(startRaw),
-      endDate = new Date(endRaw);
-    out += generateTitleBar("COMPREHENSIVE FINANCIAL LEDGER");
-    out += `<p style="font-weight:700; font-size:12px; margin-bottom:15px;">Period: ${startDate.toLocaleDateString("en-GB")} to ${endDate.toLocaleDateString("en-GB")}</p>`;
-    let totalInflow = 0,
-      totalOutflow = 0;
-    const rows = (cache.payments || [])
-      .filter((p) => {
-        const d = new Date(fromSheetDate(p?.date || "") || 0);
-        return d >= startDate && d <= endDate;
-      })
-      .map((p) => {
-        if (!p) return "";
-        const amt = parseFloat(p.amount || p.Amount || 0);
-        if (p.direction === "OUTFLOW") totalOutflow += amt;
-        else totalInflow += amt;
-        const color = p.direction === "OUTFLOW" ? "#DC3545" : "#198754";
-        const sign = p.direction === "OUTFLOW" ? "-" : "+";
-        return `<tr><td style="padding:6px; border:1px solid #000;">${escapeHtml(p.paymentId || p.PaymentId)}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(p.date)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(p.party || "")}</td><td style="padding:6px; border:1px solid #000; font-weight:bold; color:${color};">${sign}₦${formatMoney(amt)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(p.type || "")}</td></tr>`;
+    // Handled above
+  } else if (layout === "fin_wo") {
+    out += generateTitleBar("APPROVED WORK ORDERS LEDGER");
+    const rows = (cache.workorders || [])
+      .filter(
+        (w) =>
+          w && String(w.status || w.Status || "").toUpperCase() === "APPROVED",
+      )
+      .map((w) => {
+        return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(w.workOrderId || w.WorkOrderId || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(w.date || w.Date)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(w.assigned || w.Assigned || "N/A")}</td><td style="padding:6px; border:1px solid #000; text-align:right; font-weight:bold;">N${formatMoney(w.amount || w.Amount || 0)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(w.description || w.Description || "")}</td></tr>`;
       })
       .join("");
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:10px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Party</th><th style="padding:8px 6px; border:1px solid #000;">Amount</th><th style="padding:8px 6px; border:1px solid #000;">Type</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No records for this period.</td></tr>`}<tr style="font-weight:900; font-size:13px; background:#eee; -webkit-print-color-adjust:exact;"><td colspan="3" style="padding:8px; border:1px solid #000; text-align:right;">TOTALS:</td><td style="padding:8px; border:1px solid #000; color:${totalInflow - totalOutflow >= 0 ? "#198754" : "#DC3545"};">Net: ${totalInflow - totalOutflow >= 0 ? "+" : "-"}₦${formatMoney(Math.abs(totalInflow - totalOutflow))}</td><td style="padding:8px; border:1px solid #000;"></td></tr></tbody></table>`;
-  } else if (layout === "asset_register") {
-    out += generateTitleBar("MASTER ASSET REGISTER");
-    const rows = (cache.assets || [])
-      .filter((a) => a && String(a.status || "") !== "Archived")
-      .map((a) => {
-        return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(a.tag || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.type || "N/A")}</td><td style="padding:6px; border:1px solid #000;">Unit ${escapeHtml(getUnitNumber(a))}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.specs || "N/A")}</td><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(String(a.status || "").toUpperCase())}</td></tr>`;
-      })
-      .join("");
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Specs</th><th style="padding:8px 6px; border:1px solid #000;">Status</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No assets registered.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">WO ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Assigned</th><th style="padding:8px 6px; border:1px solid #000;">Amount</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No approved work orders.</td></tr>`}</tbody></table>`;
   } else {
     out += `<p style="padding:20px; font-weight:700; color:var(--muted);">Report type not yet implemented. Please select a different report.</p>`;
   }
@@ -226,9 +238,718 @@ function compileReportPreview() {
   window.currentReportAttachmentManifest = [];
   window.currentReportTitle = layout;
   window.currentReportRef = ref;
-  window.currentReportRawContent = out; // unwrapped content only, for PDF download (avoids double header/footer)
+  window.currentReportRawContent = out;
   const previewCard = document.getElementById("report-onscreen-preview-card");
   if (previewCard) previewCard.style.display = "block";
+}
+
+// =========================================================
+// § COMPREHENSIVE FINANCIAL LEDGER
+// =========================================================
+function generateComprehensiveFinancialLedger() {
+  const viewport = document.getElementById("report-preview-viewport");
+  if (!viewport) return;
+
+  const startRaw = document.getElementById("rep_start_date")?.value;
+  const endRaw = document.getElementById("rep_end_date")?.value;
+  if (!startRaw || !endRaw) {
+    showToast("Please select a date range.", "warning");
+    return;
+  }
+  const startDate = new Date(startRaw);
+  const endDate = new Date(endRaw);
+  endDate.setHours(23, 59, 59, 999);
+
+  let totalInflow = 0,
+    totalOutflow = 0,
+    pendingInflow = 0,
+    totalUnpaid = 0,
+    cashExpenses = 0;
+
+  const inflowPaidRows = [];
+  const inflowPendingRows = [];
+  (cache.payments || []).forEach((p) => {
+    if (!p || p.direction !== "INFLOW") return;
+    const d = new Date(fromSheetDate(p.date || p.Date || "") || 0);
+    if (d < startDate || d > endDate) return;
+
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        const totalContract =
+          parseFloat(p.totalJobValue || p.TotalJobValue || 0) || 0;
+        const paidStagesTotal = stages.reduce(
+          (sum, s) =>
+            sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
+          0,
+        );
+        const unpaidAmt = Math.max(totalContract - paidStagesTotal, 0);
+        stages.forEach((s) => {
+          if (s.status === "Paid") {
+            totalInflow += parseFloat(s.amount) || 0;
+            inflowPaidRows.push({
+              id: p.paymentId || p.PaymentId,
+              date: p.date || p.Date,
+              party: p.party || p.Party || "N/A",
+              amount: parseFloat(s.amount) || 0,
+              type: p.type || p.Type || "",
+              stageLabel: s.label,
+            });
+          } else {
+            inflowPendingRows.push({
+              id: p.paymentId || p.PaymentId,
+              date: p.date || p.Date,
+              party: p.party || p.Party || "N/A",
+              amount: parseFloat(s.amount) || 0,
+              type: p.type || p.Type || "",
+              stageLabel: s.label,
+            });
+          }
+        });
+        pendingInflow += unpaidAmt;
+      } catch (e) {}
+    } else {
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      const amt = parseFloat(p.amount || p.Amount || 0);
+      if (isCleared) {
+        totalInflow += amt;
+        inflowPaidRows.push({
+          id: p.paymentId || p.PaymentId,
+          date: p.date || p.Date,
+          party: p.party || p.Party || "N/A",
+          amount: amt,
+          type: p.type || p.Type || "",
+        });
+      } else {
+        pendingInflow += amt;
+        inflowPendingRows.push({
+          id: p.paymentId || p.PaymentId,
+          date: p.date || p.Date,
+          party: p.party || p.Party || "N/A",
+          amount: amt,
+          type: p.type || p.Type || "",
+        });
+      }
+    }
+  });
+
+  const outflowPaidRows = [];
+  const outflowPendingRows = [];
+  (cache.payments || []).forEach((p) => {
+    if (!p || p.direction !== "OUTFLOW") return;
+    const d = new Date(fromSheetDate(p.date || p.Date || "") || 0);
+    if (d < startDate || d > endDate) return;
+
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        const totalContract =
+          parseFloat(p.totalJobValue || p.TotalJobValue || 0) || 0;
+        const paidStagesTotal = stages.reduce(
+          (sum, s) =>
+            sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
+          0,
+        );
+        const unpaidAmt = Math.max(totalContract - paidStagesTotal, 0);
+        totalUnpaid += unpaidAmt;
+        stages.forEach((s) => {
+          if (s.status === "Paid") {
+            totalOutflow += parseFloat(s.amount) || 0;
+            outflowPaidRows.push({
+              id: p.paymentId || p.PaymentId,
+              date: p.date || p.Date,
+              party: p.party || p.Party || "N/A",
+              amount: parseFloat(s.amount) || 0,
+              type: p.type || p.Type || "",
+              stageLabel: s.label,
+            });
+          } else {
+            outflowPendingRows.push({
+              id: p.paymentId || p.PaymentId,
+              date: p.date || p.Date,
+              party: p.party || p.Party || "N/A",
+              amount: parseFloat(s.amount) || 0,
+              type: p.type || p.Type || "",
+              stageLabel: s.label,
+            });
+          }
+        });
+      } catch (e) {}
+    } else {
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      const amt = parseFloat(p.amount || p.Amount || 0);
+      if (isCleared) {
+        totalOutflow += amt;
+        outflowPaidRows.push({
+          id: p.paymentId || p.PaymentId,
+          date: p.date || p.Date,
+          party: p.party || p.Party || "N/A",
+          amount: amt,
+          type: p.type || p.Type || "",
+        });
+      } else {
+        totalUnpaid += amt;
+        outflowPendingRows.push({
+          id: p.paymentId || p.PaymentId,
+          date: p.date || p.Date,
+          party: p.party || p.Party || "N/A",
+          amount: amt,
+          type: p.type || p.Type || "",
+        });
+      }
+    }
+  });
+
+  const cashExpenseRows = [];
+  (cache.cashExpenses || []).forEach((c) => {
+    if (!c) return;
+    const d = new Date(fromSheetDate(c.date || c.Date || "") || 0);
+    if (d < startDate || d > endDate) return;
+    const amt = parseFloat(c.amount || c.Amount || 0);
+    cashExpenses += amt;
+    totalOutflow += amt;
+    cashExpenseRows.push({
+      id: c.cashId || c.CashId,
+      date: c.date || c.Date,
+      party: c.description || c.Description || "N/A",
+      amount: amt,
+      type: "Cash Expense",
+    });
+  });
+
+  const netPosition = totalInflow - totalOutflow;
+  const netColor = netPosition >= 0 ? "#198754" : "#dc3545";
+
+  let out = `<div style="font-family:'Helvetica','Inter',sans-serif; color:#000; background:#fff; box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; padding:0; line-height:1.4;">`;
+
+  out += `
+    <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end;">
+      <h2 style="margin:0; font-size:18px; font-weight:900; text-transform:uppercase;">COMPREHENSIVE FINANCIAL LEDGER</h2>
+      <div style="text-align:right; font-size:12px;">
+        <p style="margin:0; color:#555;">PERIOD:</p>
+        <p style="margin:2px 0 0 0; font-weight:bold;">${startDate.toLocaleDateString("en-GB")} &mdash; ${endDate.toLocaleDateString("en-GB")}</p>
+      </div>
+    </div>`;
+
+  // 1. NET FINANCIAL POSITION
+  out += `
+    <div style="margin-bottom:25px; page-break-inside:avoid;">
+      <h3 style="font-size:14px; font-weight:900; text-transform:uppercase; margin:0 0 10px 0; color:#000; border-bottom:1px solid #000; padding-bottom:4px;">1. Net Financial Position</h3>
+      <div style="background:#fff; border:2px solid #000; border-radius:16px; padding:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e9ecef;">
+          <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Total Inflow</span>
+          <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:#198754;">N${formatMoney(totalInflow)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e9ecef;">
+          <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Pending Inflow</span>
+          <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:#0d6efd;">N${formatMoney(pendingInflow)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e9ecef;">
+          <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Total Outflow</span>
+          <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:#dc3545;">N${formatMoney(totalOutflow)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e9ecef;">
+          <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Total Unpaid</span>
+          <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:#fd7e14;">N${formatMoney(totalUnpaid)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e9ecef;">
+          <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Cash Expenses</span>
+          <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:#000;">N${formatMoney(cashExpenses)}</span>
+        </div>
+        <div style="border-top:2px solid #adb5bd; margin:10px 0;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0;">
+          <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Net Position</span>
+          <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:${netColor};">${netPosition < 0 ? "-" : ""}N${formatMoney(Math.abs(netPosition))}</span>
+        </div>
+      </div>
+    </div>`;
+
+  const renderTable = (title, rows, color, isPending) => {
+    if (rows.length === 0) return "";
+    const total = rows.reduce((sum, r) => sum + r.amount, 0);
+    const pendingLabel = isPending ? " &mdash; PENDING" : " &mdash; PAID";
+    return `
+    <div style="margin-bottom:25px; page-break-inside:avoid;">
+      <h3 style="font-size:14px; font-weight:900; text-transform:uppercase; margin:0 0 10px 0; color:${color}; border-bottom:2px solid ${color}; padding-bottom:4px;">${title}${pendingLabel}</h3>
+      <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px;">
+        <thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;">
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">ID</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Date</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Party</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:right;">Amount</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Type</th>
+        </tr></thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `<tr>
+            <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.id)}</td>
+            <td style="padding:6px; border:1px solid #ccc;">${formatDateForDisplay(r.date)}</td>
+            <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.party)}${r.stageLabel ? ` <span style="font-size:10px; color:#666;">(${escapeHtml(r.stageLabel)})</span>` : ""}</td>
+            <td style="padding:6px; border:1px solid #ccc; text-align:right; font-weight:700;">N${formatMoney(r.amount)}</td>
+            <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.type)}</td>
+          </tr>`,
+            )
+            .join("")}
+          <tr style="background:#f9f9f9; font-weight:900;">
+            <td colspan="3" style="padding:8px; border:1px solid #000; text-align:right;">TOTAL</td>
+            <td style="padding:8px; border:1px solid #000; text-align:right; color:${color};">N${formatMoney(total)}</td>
+            <td style="padding:8px; border:1px solid #000;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+  };
+
+  out += renderTable("2. Total Outflow", outflowPaidRows, "#dc3545", false);
+  out += renderTable("3. Outflow", outflowPendingRows, "#fd7e14", true);
+  out += renderTable("4. Inflow", inflowPaidRows, "#198754", false);
+  out += renderTable("5. Inflow", inflowPendingRows, "#0d6efd", true);
+  out += renderTable("6. Cash Expenses", cashExpenseRows, "#000", false);
+
+  out += `</div>`;
+
+  const ref = generateReportRef("RPT");
+  const wrapped = wrapReportContent(out, "Comprehensive Financial Ledger", ref);
+  viewport.innerHTML = wrapped;
+  const printContainer = document.getElementById("report-print-container");
+  if (printContainer) printContainer.innerHTML = wrapped;
+  window.currentReportFilename = "Comprehensive_Financial_Ledger_" + Date.now();
+  window.currentReportAttachmentManifest = [];
+  window.currentReportTitle = "Comprehensive Financial Ledger";
+  window.currentReportRef = ref;
+  window.currentReportRawContent = out;
+  document.getElementById("report-onscreen-preview-card").style.display =
+    "block";
+}
+
+// =========================================================
+// § PENDING OUTFLOW REPORT
+// =========================================================
+function generatePendingOutflowReport() {
+  const viewport = document.getElementById("report-preview-viewport");
+  if (!viewport) return;
+
+  const startRaw = document.getElementById("rep_start_date")?.value;
+  const endRaw = document.getElementById("rep_end_date")?.value;
+  if (!startRaw || !endRaw) {
+    showToast("Please select a date range.", "warning");
+    return;
+  }
+  const startDate = new Date(startRaw);
+  const endDate = new Date(endRaw);
+  endDate.setHours(23, 59, 59, 999);
+
+  let totalPending = 0;
+  const pendingRows = [];
+
+  (cache.payments || []).forEach((p) => {
+    if (!p || p.direction !== "OUTFLOW") return;
+    const d = new Date(fromSheetDate(p.date || p.Date || "") || 0);
+    if (d < startDate || d > endDate) return;
+
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        const totalContract =
+          parseFloat(p.totalJobValue || p.TotalJobValue || 0) || 0;
+        const paidStagesTotal = stages.reduce(
+          (sum, s) =>
+            sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
+          0,
+        );
+        const unpaidAmt = Math.max(totalContract - paidStagesTotal, 0);
+        if (unpaidAmt > 0) {
+          totalPending += unpaidAmt;
+          pendingRows.push({
+            id: p.paymentId || p.PaymentId,
+            date: p.date || p.Date,
+            party: p.party || p.Party || "N/A",
+            amount: unpaidAmt,
+            type: p.type || p.Type || "",
+            stages: stages
+              .filter((s) => s.status !== "Paid")
+              .map((s) => s.label)
+              .join(", "),
+          });
+        }
+      } catch (e) {}
+    } else {
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      const amt = parseFloat(p.amount || p.Amount || 0);
+      if (!isCleared && amt > 0) {
+        totalPending += amt;
+        pendingRows.push({
+          id: p.paymentId || p.PaymentId,
+          date: p.date || p.Date,
+          party: p.party || p.Party || "N/A",
+          amount: amt,
+          type: p.type || p.Type || "",
+        });
+      }
+    }
+  });
+
+  let out = `<div style="font-family:'Helvetica','Inter',sans-serif; color:#000; background:#fff; box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; padding:0; line-height:1.4;">`;
+
+  out += `
+    <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end;">
+      <h2 style="margin:0; font-size:18px; font-weight:900; text-transform:uppercase;">PENDING OUTFLOW</h2>
+      <div style="text-align:right; font-size:12px;">
+        <p style="margin:0; color:#555;">PERIOD:</p>
+        <p style="margin:2px 0 0 0; font-weight:bold;">${startDate.toLocaleDateString("en-GB")} &mdash; ${endDate.toLocaleDateString("en-GB")}</p>
+      </div>
+    </div>`;
+
+  out += `
+    <div style="background:#fff3cd; border:2px solid #ffc107; border-radius:12px; padding:16px; margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#856404;">Total Pending Outflow</span>
+        <span style="font-size:22px; font-weight:900; color:#dc3545;">N${formatMoney(totalPending)}</span>
+      </div>
+    </div>`;
+
+  if (pendingRows.length > 0) {
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px;">
+      <thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;">
+        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">ID</th>
+        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Date</th>
+        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Party</th>
+        <th style="padding:8px 6px; border:1px solid #000; text-align:right;">Amount</th>
+        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Type</th>
+      </tr></thead>
+      <tbody>
+        ${pendingRows
+          .map(
+            (r) => `<tr>
+          <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.id)}</td>
+          <td style="padding:6px; border:1px solid #ccc;">${formatDateForDisplay(r.date)}</td>
+          <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.party)}${r.stages ? ` <span style="font-size:10px; color:#666;">(${escapeHtml(r.stages)})</span>` : ""}</td>
+          <td style="padding:6px; border:1px solid #ccc; text-align:right; font-weight:700;">N${formatMoney(r.amount)}</td>
+          <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.type)}</td>
+        </tr>`,
+          )
+          .join("")}
+        <tr style="background:#f9f9f9; font-weight:900;">
+          <td colspan="3" style="padding:8px; border:1px solid #000; text-align:right;">TOTAL</td>
+          <td style="padding:8px; border:1px solid #000; text-align:right; color:#dc3545;">N${formatMoney(totalPending)}</td>
+          <td style="padding:8px; border:1px solid #000;"></td>
+        </tr>
+      </tbody>
+    </table>`;
+  } else {
+    out += `<p style="padding:20px; text-align:center; font-weight:700; color:#666;">No pending outflow records for this period.</p>`;
+  }
+
+  out += `</div>`;
+
+  const ref = generateReportRef("RPT");
+  const wrapped = wrapReportContent(out, "Pending Outflow", ref);
+  viewport.innerHTML = wrapped;
+  const printContainer = document.getElementById("report-print-container");
+  if (printContainer) printContainer.innerHTML = wrapped;
+  window.currentReportFilename = "Pending_Outflow_" + Date.now();
+  window.currentReportAttachmentManifest = [];
+  window.currentReportTitle = "Pending Outflow";
+  window.currentReportRef = ref;
+  window.currentReportRawContent = out;
+  document.getElementById("report-onscreen-preview-card").style.display =
+    "block";
+}
+
+// =========================================================
+// § LEDGER REPORT (Inflow/Outflow/Cash with Paid & Pending)
+// =========================================================
+function generateLedgerReport(ledgerType) {
+  const viewport = document.getElementById("report-preview-viewport");
+  if (!viewport) return;
+
+  const startRaw = document.getElementById("rep_start_date")?.value;
+  const endRaw = document.getElementById("rep_end_date")?.value;
+  if (!startRaw || !endRaw) {
+    showToast("Please select a date range.", "warning");
+    return;
+  }
+  const startDate = new Date(startRaw);
+  const endDate = new Date(endRaw);
+  endDate.setHours(23, 59, 59, 999);
+
+  let out = `<div style="font-family:'Helvetica','Inter',sans-serif; color:#000; background:#fff; box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; padding:0; line-height:1.4;">`;
+
+  const renderTable = (title, rows, color, isPending) => {
+    if (rows.length === 0)
+      return `<p style="padding:15px; text-align:center; font-weight:700; color:#666;">No ${isPending ? "pending" : "paid"} records found.</p>`;
+    const total = rows.reduce((sum, r) => sum + r.amount, 0);
+    const statusLabel = isPending ? "PENDING" : "PAID";
+    return `
+    <div style="margin-bottom:20px; page-break-inside:avoid;">
+      <h3 style="font-size:13px; font-weight:900; text-transform:uppercase; margin:0 0 8px 0; color:${color}; border-bottom:2px solid ${color}; padding-bottom:4px;">${title} &mdash; ${statusLabel}</h3>
+      <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px;">
+        <thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;">
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">ID</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Date</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Party</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:right;">Amount</th>
+          <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Type</th>
+        </tr></thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `<tr>
+            <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.id)}</td>
+            <td style="padding:6px; border:1px solid #ccc;">${formatDateForDisplay(r.date)}</td>
+            <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.party)}${r.stageLabel ? ` <span style="font-size:10px; color:#666;">(${escapeHtml(r.stageLabel)})</span>` : ""}</td>
+            <td style="padding:6px; border:1px solid #ccc; text-align:right; font-weight:700;">N${formatMoney(r.amount)}</td>
+            <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.type)}</td>
+          </tr>`,
+            )
+            .join("")}
+          <tr style="background:#f9f9f9; font-weight:900;">
+            <td colspan="3" style="padding:8px; border:1px solid #000; text-align:right;">TOTAL</td>
+            <td style="padding:8px; border:1px solid #000; text-align:right; color:${color};">N${formatMoney(total)}</td>
+            <td style="padding:8px; border:1px solid #000;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+  };
+
+  if (ledgerType === "inflow_paid_pending") {
+    const paidRows = [];
+    const pendingRows = [];
+    let totalPaid = 0,
+      totalPending = 0;
+
+    (cache.payments || []).forEach((p) => {
+      if (!p || p.direction !== "INFLOW") return;
+      const d = new Date(fromSheetDate(p.date || p.Date || "") || 0);
+      if (d < startDate || d > endDate) return;
+
+      if (p.stages || p.Stages) {
+        try {
+          const stages = JSON.parse(p.stages || p.Stages);
+          stages.forEach((s) => {
+            const amt = parseFloat(s.amount) || 0;
+            if (s.status === "Paid") {
+              totalPaid += amt;
+              paidRows.push({
+                id: p.paymentId || p.PaymentId,
+                date: p.date || p.Date,
+                party: p.party || p.Party || "N/A",
+                amount: amt,
+                type: p.type || p.Type || "",
+                stageLabel: s.label,
+              });
+            } else {
+              totalPending += amt;
+              pendingRows.push({
+                id: p.paymentId || p.PaymentId,
+                date: p.date || p.Date,
+                party: p.party || p.Party || "N/A",
+                amount: amt,
+                type: p.type || p.Type || "",
+                stageLabel: s.label,
+              });
+            }
+          });
+        } catch (e) {}
+      } else {
+        const isCleared =
+          String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+        const amt = parseFloat(p.amount || p.Amount || 0);
+        if (isCleared) {
+          totalPaid += amt;
+          paidRows.push({
+            id: p.paymentId || p.PaymentId,
+            date: p.date || p.Date,
+            party: p.party || p.Party || "N/A",
+            amount: amt,
+            type: p.type || p.Type || "",
+          });
+        } else {
+          totalPending += amt;
+          pendingRows.push({
+            id: p.paymentId || p.PaymentId,
+            date: p.date || p.Date,
+            party: p.party || p.Party || "N/A",
+            amount: amt,
+            type: p.type || p.Type || "",
+          });
+        }
+      }
+    });
+
+    out += `
+      <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end;">
+        <h2 style="margin:0; font-size:18px; font-weight:900; text-transform:uppercase;">INFLOW LEDGER</h2>
+        <div style="text-align:right; font-size:12px;">
+          <p style="margin:0; color:#555;">PERIOD:</p>
+          <p style="margin:2px 0 0 0; font-weight:bold;">${startDate.toLocaleDateString("en-GB")} &mdash; ${endDate.toLocaleDateString("en-GB")}</p>
+        </div>
+      </div>`;
+
+    out += `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;">
+          <div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Total Paid</div>
+          <div style="font-size:20px; font-weight:900; color:#198754;">N${formatMoney(totalPaid)}</div>
+        </div>
+        <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center;">
+          <div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Total Pending</div>
+          <div style="font-size:20px; font-weight:900; color:#0d6efd;">N${formatMoney(totalPending)}</div>
+        </div>
+      </div>`;
+
+    out += renderTable("Inflow", paidRows, "#198754", false);
+    out += renderTable("Inflow", pendingRows, "#0d6efd", true);
+  } else if (ledgerType === "outflow_paid_pending") {
+    const paidRows = [];
+    const pendingRows = [];
+    let totalPaid = 0,
+      totalPending = 0;
+
+    (cache.payments || []).forEach((p) => {
+      if (!p || p.direction !== "OUTFLOW") return;
+      const d = new Date(fromSheetDate(p.date || p.Date || "") || 0);
+      if (d < startDate || d > endDate) return;
+
+      if (p.stages || p.Stages) {
+        try {
+          const stages = JSON.parse(p.stages || p.Stages);
+          stages.forEach((s) => {
+            const amt = parseFloat(s.amount) || 0;
+            if (s.status === "Paid") {
+              totalPaid += amt;
+              paidRows.push({
+                id: p.paymentId || p.PaymentId,
+                date: p.date || p.Date,
+                party: p.party || p.Party || "N/A",
+                amount: amt,
+                type: p.type || p.Type || "",
+                stageLabel: s.label,
+              });
+            } else {
+              totalPending += amt;
+              pendingRows.push({
+                id: p.paymentId || p.PaymentId,
+                date: p.date || p.Date,
+                party: p.party || p.Party || "N/A",
+                amount: amt,
+                type: p.type || p.Type || "",
+                stageLabel: s.label,
+              });
+            }
+          });
+        } catch (e) {}
+      } else {
+        const isCleared =
+          String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+        const amt = parseFloat(p.amount || p.Amount || 0);
+        if (isCleared) {
+          totalPaid += amt;
+          paidRows.push({
+            id: p.paymentId || p.PaymentId,
+            date: p.date || p.Date,
+            party: p.party || p.Party || "N/A",
+            amount: amt,
+            type: p.type || p.Type || "",
+          });
+        } else {
+          totalPending += amt;
+          pendingRows.push({
+            id: p.paymentId || p.PaymentId,
+            date: p.date || p.Date,
+            party: p.party || p.Party || "N/A",
+            amount: amt,
+            type: p.type || p.Type || "",
+          });
+        }
+      }
+    });
+
+    out += `
+      <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end;">
+        <h2 style="margin:0; font-size:18px; font-weight:900; text-transform:uppercase;">OUTFLOW LEDGER</h2>
+        <div style="text-align:right; font-size:12px;">
+          <p style="margin:0; color:#555;">PERIOD:</p>
+          <p style="margin:2px 0 0 0; font-weight:bold;">${startDate.toLocaleDateString("en-GB")} &mdash; ${endDate.toLocaleDateString("en-GB")}</p>
+        </div>
+      </div>`;
+
+    out += `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;">
+          <div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Total Paid</div>
+          <div style="font-size:20px; font-weight:900; color:#dc3545;">N${formatMoney(totalPaid)}</div>
+        </div>
+        <div style="background:#fff3cd; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center;">
+          <div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Total Pending</div>
+          <div style="font-size:20px; font-weight:900; color:#fd7e14;">N${formatMoney(totalPending)}</div>
+        </div>
+      </div>`;
+
+    out += renderTable("Outflow", paidRows, "#dc3545", false);
+    out += renderTable("Outflow", pendingRows, "#fd7e14", true);
+  } else if (ledgerType === "cash_expenses") {
+    const rows = [];
+    let total = 0;
+
+    (cache.cashExpenses || []).forEach((c) => {
+      if (!c) return;
+      const d = new Date(fromSheetDate(c.date || c.Date || "") || 0);
+      if (d < startDate || d > endDate) return;
+      const amt = parseFloat(c.amount || c.Amount || 0);
+      total += amt;
+      rows.push({
+        id: c.cashId || c.CashId,
+        date: c.date || c.Date,
+        party: c.description || c.Description || "N/A",
+        amount: amt,
+        type: "Cash Expense",
+      });
+    });
+
+    out += `
+      <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end;">
+        <h2 style="margin:0; font-size:18px; font-weight:900; text-transform:uppercase;">CASH EXPENSES LEDGER</h2>
+        <div style="text-align:right; font-size:12px;">
+          <p style="margin:0; color:#555;">PERIOD:</p>
+          <p style="margin:2px 0 0 0; font-weight:bold;">${startDate.toLocaleDateString("en-GB")} &mdash; ${endDate.toLocaleDateString("en-GB")}</p>
+        </div>
+      </div>`;
+
+    out += `
+      <div style="background:#f8f9fa; border:2px solid #000; border-radius:12px; padding:14px; margin-bottom:20px; text-align:center;">
+        <div style="font-size:11px; font-weight:800; color:#000; text-transform:uppercase;">Total Cash Expenses</div>
+        <div style="font-size:22px; font-weight:900; color:#000;">N${formatMoney(total)}</div>
+      </div>`;
+
+    out += renderTable("Cash Expenses", rows, "#000", false);
+  }
+
+  out += `</div>`;
+
+  const ref = generateReportRef("RPT");
+  const titleMap = {
+    inflow_paid_pending: "Inflow Ledger",
+    outflow_paid_pending: "Outflow Ledger",
+    cash_expenses: "Cash Expenses Ledger",
+  };
+  const wrapped = wrapReportContent(out, titleMap[ledgerType], ref);
+  viewport.innerHTML = wrapped;
+  const printContainer = document.getElementById("report-print-container");
+  if (printContainer) printContainer.innerHTML = wrapped;
+  window.currentReportFilename =
+    titleMap[ledgerType].replace(/\s+/g, "_") + "_" + Date.now();
+  window.currentReportAttachmentManifest = [];
+  window.currentReportTitle = titleMap[ledgerType];
+  window.currentReportRef = ref;
+  window.currentReportRawContent = out;
+  document.getElementById("report-onscreen-preview-card").style.display =
+    "block";
 }
 
 function downloadCurrentReportPDF() {
@@ -237,9 +958,6 @@ function downloadCurrentReportPDF() {
     showToast("Please generate a report first.", "warning");
     return;
   }
-  // Use the raw (unwrapped) content here — the viewport's innerHTML is already wrapped with
-  // header/footer for on-screen preview, and compileAndDownloadUnifiedPDF wraps again internally.
-  // Passing the wrapped HTML would duplicate the header and footer in the final PDF.
   const rawContent = window.currentReportRawContent || source.innerHTML;
   compileAndDownloadUnifiedPDF(
     rawContent,
