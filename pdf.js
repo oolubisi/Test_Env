@@ -68,14 +68,13 @@ function generateStandardReportHeader(
     minute: "2-digit",
   });
   return `
-    <div style="${showTitleLine ? "border-bottom: 3px solid #000; " : ""}padding-bottom: 14px; margin-bottom: 18px; page-break-inside: avoid;">
+    <div style="padding-bottom: 14px; margin-bottom: 18px; page-break-inside: avoid;">
       <table style="width:100%; border-collapse:collapse; border:none; margin:0;">
         <tr style="border:none;">
           <td style="border:none; vertical-align:top; width:55%; padding:0;">
             ${logoHtml}
-            <h1 style="margin:0; font-size:20px; font-weight:900; text-transform:uppercase; color:#000;">${escapeHtml(appSettings.estateName || "FACILITY PRO ESTATE")}</h1>
+            <h1 style="margin:0; font-size:24px; font-weight:900; text-transform:uppercase; color:#000;">${escapeHtml(appSettings.estateName || "FACILITY PRO ESTATE")}</h1>
             <p style="margin:3px 0 0 0; font-size:10px; color:#333; line-height:1.4;">${escapeHtml(appSettings.estateAddress || "")}</p>
-            <p style="margin:2px 0 0 0; font-size:9px; color:#555; font-weight:700;">Managed by: ${escapeHtml(appSettings.fmName || "Facility Management")} &bull; ${escapeHtml(appSettings.fmAddress || "")}</p>
           </td>
           <td style="border:none; vertical-align:top; text-align:right; width:45%; padding:0;">
             <div style="background:#f4f4f4; border:1px solid #ccc; padding:8px 10px; border-radius:6px; display:inline-block; text-align:left;">
@@ -87,13 +86,7 @@ function generateStandardReportHeader(
           </td>
         </tr>
       </table>
-      ${
-        showTitleLine
-          ? `<div style="margin-top:10px; padding-top:8px; border-top:1px solid #ddd;">
-        <h2 style="margin:0; font-size:15px; font-weight:900; text-transform:uppercase; color:#000;">${escapeHtml(reportTitle)}</h2>
-      </div>`
-          : ""
-      }
+      <p style="margin:8px 0 0 0; font-size:11px; color:#555; font-weight:700; text-align:left;">Managed by: ${escapeHtml(appSettings.fmName || "Facility Management")}</p>
     </div>`;
 }
 
