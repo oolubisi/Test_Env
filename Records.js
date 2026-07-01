@@ -97,6 +97,42 @@ function processExpenseAction(actionType, reqId) {
 }
 
 // ─────────────────────────────────────────────
+// § PAYMENT REQUEST VISIBILITY TOGGLE
+// ─────────────────────────────────────────────
+function togglePaymentRequestVisibility(paymentId, labelEl) {
+  const checkbox = labelEl.querySelector('input[type="checkbox"]');
+  const newValue = checkbox.checked;
+
+  // Update local cache immediately
+  const payment = cache.payments.find(
+    (p) => p && String(p.paymentId || p.PaymentId) === paymentId,
+  );
+  if (payment) {
+    payment.showPaymentRequest = newValue;
+    payment.ShowPaymentRequest = newValue;
+  }
+
+  // Sync to backend
+  callApi("updatePayment", {
+    paymentId: paymentId,
+    showPaymentRequest: newValue,
+  })
+    .then(() => {
+      showToast(
+        newValue
+          ? "Payment Request visible on printout"
+          : "Payment Request hidden from printout",
+        "success",
+      );
+    })
+    .catch(() => {
+      showToast("Failed to update visibility", "error");
+      // Revert checkbox on failure
+      checkbox.checked = !newValue;
+    });
+}
+
+// ─────────────────────────────────────────────
 // § DATA REFRESH & RENDER PIPELINE
 // ─────────────────────────────────────────────
 function refreshData(p) {
@@ -387,6 +423,8 @@ function renderListCard(p, item, isMaintPage) {
       item.isPaid === true;
     const totalContract =
       parseFloat(item.totalJobValue || item.TotalJobValue || 0) || 0;
+    const showPaymentRequest =
+      item.showPaymentRequest !== false && item.ShowPaymentRequest !== false;
 
     // Parse stages once: drives the stage-count badge and the unpaid balance
     let stagesBadge = "";
@@ -425,7 +463,13 @@ function renderListCard(p, item, isMaintPage) {
             }<br>
             <small style="font-size:11px; font-weight:700; color:var(--muted);">${formatDateForDisplay(item.date)}</small>
           </div>
-          <button onclick="event.stopPropagation(); printSinglePaymentDirect('${escapeHtml(item.paymentId || item.PaymentId)}')" style="background:var(--primary); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; min-height:32px;"><i class="fas fa-print"></i> Print</button>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <label style="display:flex; align-items:center; gap:4px; background:#f8f9fa; border:2px solid var(--border); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; color:#333;" onclick="event.stopPropagation(); togglePaymentRequestVisibility('${escapeHtml(item.paymentId || item.PaymentId)}', this)">
+              <input type="checkbox" ${showPaymentRequest ? "checked" : ""} style="width:16px; height:16px; margin:0; pointer-events:none;">
+              <span>Show PR</span>
+            </label>
+            <button onclick="event.stopPropagation(); printSinglePaymentDirect('${escapeHtml(item.paymentId || item.PaymentId)}')" style="background:var(--primary); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; min-height:32px;"><i class="fas fa-print"></i> Print</button>
+          </div>
         </div>
       </div>
       <div style="font-size:15px; font-weight:800; color:${color};">${escapeHtml(item.direction || "INFLOW")} &bull; ${escapeHtml(item.type || "General Record")} ${stagesBadge}${paidStatus ? ' <span style="background:var(--success); color:#fff; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:4px;">PAID</span>' : ""}</div>

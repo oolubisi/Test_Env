@@ -466,7 +466,7 @@ function renderTotalBalance() {
       <div style="border-top: 2px solid #adb5bd; margin: 10px 0;"></div>
       <div style="${rowStyle} border-bottom: none; padding-bottom: 0;">
         <span style="${labelStyle} font-size: 14px;">Net Position</span>
-        <span style="${amountStyle} font-size: 16px; color: ${netColor};">₦${formatMoney(Math.abs(netPosition))}</span>
+        <span style="${amountStyle} font-size: 16px; color: ${netColor};">${netPosition < 0 ? "-" : ""}₦${formatMoney(Math.abs(netPosition))}</span>
       </div>
     </div>
   `;
