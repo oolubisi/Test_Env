@@ -305,33 +305,49 @@ function renderTotalBalance() {
   const balEl = document.getElementById("s-ledger-balance");
   if (!balEl) return;
 
-  // Total Inflow: sum of cleared INFLOW payment amounts
-  let totalInflow = 0;
+  // ── CALCULATIONS ──
+
+  // 1. CLIENT RECEIVED: sum of cleared INFLOW payment amounts
+  let clientReceived = 0;
   (cache.payments || []).forEach((p) => {
     if (!p) return;
     const isCleared =
       String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
-    if (!isCleared || p.direction === "OUTFLOW") return;
-    totalInflow += parseFloat(p.amount || p.Amount || 0);
+    if (!isCleared || p.direction !== "INFLOW") return;
+    clientReceived += parseFloat(p.amount || p.Amount || 0);
   });
 
-  // Total Outflow: sum of Total Contract Sum (totalJobValue) for ALL OUTFLOW payment records
-  // — committed contract obligations, regardless of cleared/paid status
-  let totalOutflow = 0;
+  // 2. TOTAL OUTGOING: Cash Expenses + paid OUTFLOW stages
+  let totalOutgoing = 0;
+  // Cash expenses
+  (cache.cashExpenses || []).forEach((c) => {
+    if (!c) return;
+    totalOutgoing += parseFloat(c.amount || c.Amount || 0);
+  });
+  // Paid OUTFLOW stages
   (cache.payments || []).forEach((p) => {
     if (!p || p.direction !== "OUTFLOW") return;
-    totalOutflow += parseFloat(
-      p.totalJobValue || p.TotalJobValue || p.amount || p.Amount || 0,
-    );
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        stages.forEach((s) => {
+          if (s.status === "Paid") {
+            totalOutgoing += parseFloat(s.amount) || 0;
+          }
+        });
+      } catch (e) {}
+    } else {
+      // Fallback: if no stages, use amount if paid
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      if (isCleared) {
+        totalOutgoing += parseFloat(p.amount || p.Amount || 0);
+      }
+    }
   });
 
-  // Net Position = Total Inflow − Total Outflow
-  const netBalance = totalInflow - totalOutflow;
-  const netColor = netBalance >= 0 ? "var(--success)" : "var(--danger)";
-  const netSign = netBalance >= 0 ? "+" : "-";
-
-  // Total Unpaid: sum of (contractValue − paid stages total) across all staged payment records
-  let totalUnpaid = 0;
+  // 3. OUTSTANDING BALANCE: total contract value minus all paid stages (INFLOW + OUTFLOW)
+  let outstandingBalance = 0;
   (cache.payments || []).forEach((p) => {
     if (!p || !(p.stages || p.Stages)) return;
     const totalContract =
@@ -343,43 +359,91 @@ function renderTotalBalance() {
         (sum, s) => sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
         0,
       );
-      totalUnpaid += Math.max(totalContract - paidStagesTotal, 0);
+      outstandingBalance += Math.max(totalContract - paidStagesTotal, 0);
     } catch (e) {}
   });
 
-  // Font size: Total Outflow reduced 25% from original 24px → 18px.
-  // All four tiles use the same 18px so they're visually consistent.
-  const AMT = "font-size:18px; font-weight:900;";
-  const LBL =
-    "font-size:11px; font-weight:800; text-transform:uppercase; margin-bottom:3px;";
+  // 4. PENDING (OUTGOING): unpaid stages in OUTFLOW payment schedules
+  let pendingOutgoing = 0;
+  (cache.payments || []).forEach((p) => {
+    if (!p || p.direction !== "OUTFLOW") return;
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        stages.forEach((s) => {
+          if (s.status !== "Paid") {
+            pendingOutgoing += parseFloat(s.amount) || 0;
+          }
+        });
+      } catch (e) {}
+    } else {
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      if (!isCleared) {
+        pendingOutgoing += parseFloat(p.amount || p.Amount || 0);
+      }
+    }
+  });
+
+  // 5. SMALL EXPENSES: sum of all Cash Expenses
+  let smallExpenses = 0;
+  (cache.cashExpenses || []).forEach((c) => {
+    if (!c) return;
+    smallExpenses += parseFloat(c.amount || c.Amount || 0);
+  });
+
+  // 6. NET BALANCE
+  const netBalance = clientReceived - totalOutgoing;
+  const netColor = netBalance >= 0 ? "#198754" : "#dc3545";
+
+  // ── RENDER ──
+  const rowStyle = `
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #e9ecef;
+  `;
+  const labelStyle = `
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #000;
+    letter-spacing: 0.3px;
+  `;
+  const amountStyle = `
+    font-size: 22px;
+    font-weight: 900;
+    font-family: 'Inter', -apple-system, sans-serif;
+  `;
 
   balEl.innerHTML = `
-    <div style="display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto auto; gap:8px; margin-top:8px;">
-
-      <!-- Row 1 Col 1: Net Position -->
-      <div style="background:${netBalance >= 0 ? "#e8f5e9" : "#fdecea"}; border:2px solid ${netColor}; border-radius:10px; padding:10px;">
-        <div style="${LBL} color:${netColor};">Net Position</div>
-        <div style="${AMT} color:${netColor};">${netSign}₦${formatMoney(Math.abs(netBalance))}</div>
+    <div style="background: #fff; border: 2px solid #000; border-radius: 16px; padding: 20px;">
+      <div style="${rowStyle}">
+        <span style="${labelStyle}">Client Received</span>
+        <span style="${amountStyle} color: #198754;">₦${formatMoney(clientReceived)}</span>
       </div>
-
-      <!-- Row 1 Col 2: Total Inflow -->
-      <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:10px; padding:10px;">
-        <div style="${LBL} color:#2e7d32;">Total Inflow</div>
-        <div style="${AMT} color:#2e7d32;">+₦${formatMoney(totalInflow)}</div>
+      <div style="${rowStyle}">
+        <span style="${labelStyle}">Outstanding Balance</span>
+        <span style="${amountStyle} color: #0d6efd;">₦${formatMoney(outstandingBalance)}</span>
       </div>
-
-      <!-- Row 2 Col 1: Total Outflow -->
-      <div style="background:#fdecea; border:1px solid #ef9a9a; border-radius:10px; padding:10px;">
-        <div style="${LBL} color:#c62828;">Total Outflow</div>
-        <div style="${AMT} color:#c62828;">-₦${formatMoney(totalOutflow)}</div>
+      <div style="${rowStyle}">
+        <span style="${labelStyle}">Total Outgoing</span>
+        <span style="${amountStyle} color: #dc3545;">₦${formatMoney(totalOutgoing)}</span>
       </div>
-
-      <!-- Row 2 Col 2: Total Unpaid -->
-      <div style="background:#fff8e1; border:1px solid #ffc107; border-radius:10px; padding:10px;">
-        <div style="${LBL} color:#856404;"><i class="fas fa-exclamation-triangle"></i> Total Unpaid</div>
-        <div style="${AMT} color:#856404;">₦${formatMoney(totalUnpaid)}</div>
+      <div style="${rowStyle}">
+        <span style="${labelStyle}">Pending (Outgoing)</span>
+        <span style="${amountStyle} color: #fd7e14;">₦${formatMoney(pendingOutgoing)}</span>
       </div>
-
+      <div style="${rowStyle} border-bottom: none;">
+        <span style="${labelStyle}">Small Expenses</span>
+        <span style="${amountStyle} color: #000;">₦${formatMoney(smallExpenses)}</span>
+      </div>
+      <div style="border-top: 2px solid #adb5bd; margin: 12px 0;"></div>
+      <div style="${rowStyle} border-bottom: none; padding-bottom: 0;">
+        <span style="${labelStyle} font-size: 16px;">Net Balance</span>
+        <span style="${amountStyle} font-size: 26px; color: ${netColor};">₦${formatMoney(Math.abs(netBalance))}</span>
+      </div>
     </div>
   `;
 }
