@@ -477,7 +477,7 @@ function renderListCard(p, item, isMaintPage) {
           </div>
           <div style="display:flex; gap:6px; align-items:center;">
             <label style="display:flex; align-items:center; gap:4px; background:#f8f9fa; border:2px solid var(--border); padding:4px 8px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; color:#333;" onclick="event.stopPropagation(); togglePaymentRequestVisibility('${escapeHtml(item.paymentId || item.PaymentId)}', this)">
-              <input type="checkbox" ${showPaymentRequest ? "checked" : ""} style="width:26px; height:16px; margin:0; pointer-events:none;">
+              <input type="checkbox" ${showPaymentRequest ? "checked" : ""} style="width:56px; height:16px; margin:0; pointer-events:none;">
               <span>PR</span>
             </label>
             <button onclick="event.stopPropagation(); printSinglePaymentDirect('${escapeHtml(item.paymentId || item.PaymentId)}')" style="background:var(--primary); color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; min-height:32px;"><i class="fas fa-print"></i> Print</button>
