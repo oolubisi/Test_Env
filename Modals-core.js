@@ -174,7 +174,7 @@ function renderPaymentStagesTable() {
           .map(
             (stage, idx) => `
           <div style="display:grid; grid-template-columns:1fr 90px 80px 32px; gap:6px; align-items:center; margin-bottom:6px;">
-            <input list="stage-presets" value="${escapeHtml(stage.label)}" placeholder="Stage label" oninput="updateStageField(${idx}, 'label', this.value, false)"
+            <input list="stage-presets" value="${escapeHtml(stage.label)}" placeholder="Stage label" oninput="updateStageField(${idx}, 'label', this.value, false)" onchange="refreshPaymentRequestDropdown()"
               style="padding:8px 10px; border:2px solid var(--border); border-radius:8px; font-size:15px; font-weight:600; background:white; color:black;">
             <input type="number" value="${escapeHtml(stage.amount)}" placeholder="Amount" oninput="updateStageField(${idx}, 'amount', this.value, false)"
               style="padding:8px 8px; border:2px solid var(--border); border-radius:8px; font-size:15px; font-weight:600; background:white; color:black;">
@@ -248,6 +248,7 @@ function updateStageField(idx, field, value, structural) {
 
   if (structural) {
     renderPaymentStagesTable();
+    refreshPaymentRequestDropdown();
     syncPaymentAmountFromRequestSelection();
     return;
   }
@@ -299,14 +300,39 @@ function refreshStagesSummaryOnly() {
     );
 }
 
+// Rebuilds the Payment Request dropdown options from the current paymentStages array.
+// Called after any structural change (add/remove row, initial render, status change).
+// `selectedLabel` is the value to pre-select (from saved editData on modal open).
+function refreshPaymentRequestDropdown(selectedLabel = "") {
+  const sel = document.getElementById("p_payment_request");
+  if (!sel) return;
+  const current = selectedLabel || sel.value; // preserve current selection if already set
+  sel.innerHTML = '<option value="">-- Select Stage --</option>';
+  paymentStages.forEach((s) => {
+    if (!s.label || !s.label.trim()) return;
+    const opt = document.createElement("option");
+    opt.value = s.label.trim();
+    opt.textContent = s.label.trim();
+    if (
+      current &&
+      s.label.trim().toLowerCase() === current.trim().toLowerCase()
+    )
+      opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 function addPaymentStageRow() {
   paymentStages.push({ label: "New Stage", amount: "", status: "Pending" });
   renderPaymentStagesTable();
+  refreshPaymentRequestDropdown();
 }
 
 function removeStageRow(idx) {
   paymentStages.splice(idx, 1);
   renderPaymentStagesTable();
+  refreshPaymentRequestDropdown();
+  syncPaymentAmountFromRequestSelection();
 }
 
 // Returns true if the schedule is valid, false (and shows a toast) if not.

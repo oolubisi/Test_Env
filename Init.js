@@ -302,8 +302,10 @@ function renderGeneratorEfficiencyLogs() {
 }
 
 function renderTotalBalance() {
+  const card = document.getElementById("ledger-balance-card");
   const balEl = document.getElementById("s-ledger-balance");
   if (!balEl) return;
+
   let totalInflow = 0,
     totalOutflow = 0;
   (cache.payments || []).forEach((p) => {
@@ -323,8 +325,53 @@ function renderTotalBalance() {
     if (isCleared) totalOutflow += amt;
   });
   const netBalance = totalInflow - totalOutflow;
-  balEl.textContent = `${netBalance >= 0 ? "+" : "-"}₦${formatMoney(Math.abs(netBalance))}`;
-  balEl.style.color = netBalance >= 0 ? "var(--success)" : "var(--danger)";
+
+  // Compute total unpaid balance across all payment records that have staged schedules
+  let totalUnpaid = 0;
+  (cache.payments || []).forEach((p) => {
+    if (!p || !(p.stages || p.Stages)) return;
+    const totalContract =
+      parseFloat(p.totalJobValue || p.TotalJobValue || 0) || 0;
+    if (totalContract <= 0) return;
+    try {
+      const stages = JSON.parse(p.stages || p.Stages);
+      const paidStagesTotal = stages.reduce(
+        (sum, s) => sum + (s.status === "Paid" ? parseFloat(s.amount) || 0 : 0),
+        0,
+      );
+      totalUnpaid += Math.max(totalContract - paidStagesTotal, 0);
+    } catch (e) {}
+  });
+
+  const netColor = netBalance >= 0 ? "var(--success)" : "var(--danger)";
+  const netSign = netBalance >= 0 ? "+" : "-";
+
+  // Rewrite the card body to show the full breakdown
+  balEl.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+      <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:10px; padding:10px;">
+        <div style="font-size:11px; font-weight:800; color:#2e7d32; text-transform:uppercase; margin-bottom:2px;">Total Inflow</div>
+        <div style="font-size:18px; font-weight:900; color:#2e7d32;">+₦${formatMoney(totalInflow)}</div>
+      </div>
+      <div style="background:#fdecea; border:1px solid #ef9a9a; border-radius:10px; padding:10px;">
+        <div style="font-size:11px; font-weight:800; color:#c62828; text-transform:uppercase; margin-bottom:2px;">Total Outflow</div>
+        <div style="font-size:18px; font-weight:900; color:#c62828;">-₦${formatMoney(totalOutflow)}</div>
+      </div>
+    </div>
+    <div style="margin-top:8px; padding:10px; background:${netBalance >= 0 ? "#e8f5e9" : "#fdecea"}; border:2px solid ${netColor}; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:13px; font-weight:800; color:${netColor}; text-transform:uppercase;">Net Position</span>
+      <span style="font-size:24px; font-weight:900; color:${netColor};">${netSign}₦${formatMoney(Math.abs(netBalance))}</span>
+    </div>
+    ${
+      totalUnpaid > 0
+        ? `
+    <div style="margin-top:8px; padding:10px; background:#fff8e1; border:2px solid #ffc107; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:13px; font-weight:800; color:#856404; text-transform:uppercase;"><i class="fas fa-exclamation-triangle"></i> Total Unpaid</span>
+      <span style="font-size:20px; font-weight:900; color:#856404;">₦${formatMoney(totalUnpaid)}</span>
+    </div>`
+        : ""
+    }
+  `;
 }
 
 function updateDashboardCounters() {

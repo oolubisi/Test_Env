@@ -610,8 +610,6 @@ function openModal(type, editData = null) {
         <label ${lbl}>Payment Request</label>
         <select id="p_payment_request" ${ls} ${dis} onchange="syncPaymentAmountFromRequestSelection()">
           <option value="">-- Select Stage --</option>
-          <option value="Mobilisation" ${isEdit && (editData.paymentRequest || editData.PaymentRequest) === "Mobilisation" ? "selected" : ""}>Mobilisation</option>
-          <option value="Final Payment" ${isEdit && (editData.paymentRequest || editData.PaymentRequest) === "Final Payment" ? "selected" : ""}>Final Payment</option>
         </select>
         <input type="hidden" id="p_amount" value="${isEdit ? escapeHtml(editData.amount || editData.Amount || "") : ""}">
       </div>
@@ -682,22 +680,22 @@ function openModal(type, editData = null) {
     // Payment Request stage is selected (handles pre-filled edit data too)
     setTimeout(() => {
       renderPaymentStagesTable();
+      refreshPaymentRequestDropdown(
+        isEdit ? editData.paymentRequest || editData.PaymentRequest || "" : "",
+      );
       syncPaymentAmountFromRequestSelection();
     }, 50);
 
     submit.onclick = () => {
       const requestVal = document.getElementById("p_payment_request").value;
       if (!requestVal) {
-        showToast(
-          "Please select a Payment Request (Mobilisation or Final Payment).",
-          "error",
-        );
+        showToast("Please select a Payment Request stage.", "error");
         return;
       }
       const amtVal = document.getElementById("p_amount").value;
       if (!amtVal) {
         showToast(
-          `No amount found for "${requestVal}" — set an amount for this stage in the Payment Schedule above.`,
+          `No amount set for "${requestVal}" — add an amount in the Payment Schedule above.`,
           "error",
         );
         return;
