@@ -9,7 +9,7 @@
 
 // § MODAL FORMS
 // ─────────────────────────────────────────────
-function openModal(type, editData = null) {
+async function openModal(type, editData = null) {
   lastFocusedElement = document.activeElement;
   const body = document.getElementById("modalBody");
   const submit = document.getElementById("modalSubmit");
@@ -40,7 +40,7 @@ function openModal(type, editData = null) {
   if (type === "expenserequest") {
     const uniqueId = isEdit
       ? editData.reqId || editData.ReqId
-      : generateNextId("EXR", cache.expenseRequests || [], "reqId");
+      : await generateNextRecordId("EXR", "ExpenseRequests", "reqId", cache.expenseRequests || []);
     title.innerText = isEdit
       ? "Update Expense Request"
       : "Draft Expense Request";
@@ -96,7 +96,7 @@ function openModal(type, editData = null) {
   else if (type === "cashexpense") {
     const uniqueId = isEdit
       ? editData.cashId || editData.CashId
-      : generateNextId("CSH", cache.cashExpenses || [], "cashId");
+      : await generateNextRecordId("CSH", "CashExpenses", "cashId", cache.cashExpenses || []);
     title.innerText = isEdit ? "Edit Cash Expense" : "Log Cash Expense";
     if (isEdit && (editData.attachments || editData.Attachments)) {
       currentModalFiles = String(editData.attachments || editData.Attachments)
@@ -205,7 +205,7 @@ function openModal(type, editData = null) {
   else if (type === "asset") {
     const uniqueTag = isEdit
       ? editData.tag || editData.Tag
-      : generateNextId("AST", cache.assets || [], "tag");
+      : await generateNextRecordId("AST", "Assets", "tag", cache.assets || []);
     title.innerText = isEdit ? "Update Asset" : "Register Facility Asset";
     if (isEdit && (editData.photos || editData.Photos))
       currentModalFiles = String(editData.photos || editData.Photos)
@@ -306,7 +306,7 @@ function openModal(type, editData = null) {
   else if (type === "maintenance") {
     const uniqueId = isEdit
       ? editData.ticketId || editData.TicketId
-      : generateNextId("TKT", cache.tickets || [], "ticketId");
+      : await generateNextRecordId("TKT", "Maintenance", "ticketId", cache.tickets || []);
     title.innerText = isEdit
       ? "Update Maintenance Ticket"
       : "Log Maintenance Ticket";
@@ -362,7 +362,7 @@ function openModal(type, editData = null) {
   else if (type === "workorder") {
     const uniqueWO = isEdit
       ? editData.workOrderId || editData.WorkOrderId
-      : generateNextId("WO", cache.workorders || [], "workOrderId");
+      : await generateNextRecordId("WO", "WorkOrders", "workOrderId", cache.workorders || []);
     const isApproved =
       isEdit &&
       String(editData.status || editData.Status || "").toUpperCase() ===
@@ -493,7 +493,7 @@ function openModal(type, editData = null) {
   else if (type === "payment") {
     const uniqueId = isEdit
       ? editData.paymentId
-      : generateNextId("PAY", cache.payments, "paymentId");
+      : await generateNextRecordId("PAY", "Payments", "paymentId", cache.payments);
     const isAlreadyPaid =
       isEdit &&
       (String(editData.isPaid || editData.IsPaid || "").toUpperCase() ===
@@ -744,7 +744,7 @@ function openModal(type, editData = null) {
   else if (type === "inventory") {
     const uniqueItem = isEdit
       ? editData.itemId || editData.ItemId
-      : generateNextId("INV", cache.inventory, "itemId");
+      : await generateNextRecordId("INV", "Inventory", "itemId", cache.inventory);
     title.innerText = isEdit
       ? "Edit Stock Ledger Item"
       : "Register New Inventory Item";
@@ -893,7 +893,7 @@ function openModal(type, editData = null) {
   else if (type === "staff") {
     const uniqueId = isEdit
       ? editData.rowId || editData.RowId
-      : generateNextId("STF", cache.staff, "rowId");
+      : await generateNextRecordId("STF", "Staff", "rowId", cache.staff);
     title.innerText = "Staff Profile Management";
     currentAvatarPhoto = isEdit ? editData.passport || editData.Passport : "";
     if (isEdit && (editData.attachments || editData.Attachments))
@@ -999,7 +999,7 @@ function openModal(type, editData = null) {
   else if (type === "vendor") {
     const uniqueId = isEdit
       ? editData.rowId || editData.RowId
-      : generateNextId("VND", cache.vendors, "rowId");
+      : await generateNextRecordId("VND", "Vendors", "rowId", cache.vendors);
     title.innerText = "Vendor SLA Registry Profile";
     currentAvatarPhoto = isEdit ? editData.passport || editData.Passport : "";
     if (isEdit && (editData.attachments || editData.Attachments))

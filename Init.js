@@ -39,6 +39,24 @@ function generateNextId(prefix, list, idKey) {
   return `${prefix}-${String(maxId + 1).padStart(4, "0")}`;
 }
 
+async function generateNextRecordId(prefix, sheetName, idKey, fallbackList) {
+  try {
+    const response = await fetch(GAS_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        action: "generateId",
+        data: { prefix, sheetName, idKey },
+      }),
+    });
+    if (!response.ok) throw new Error("ID_HTTP_" + response.status);
+    const result = await response.json();
+    if (result?.status === "success" && result.id) return result.id;
+  } catch (err) {
+    console.warn("Backend ID generation unavailable; using local fallback.", err);
+  }
+  return generateNextId(prefix, fallbackList || [], idKey);
+}
+
 async function loadApplicationSettingsData() {
   const stored = localStorage.getItem("facility_pro_config_meta");
   if (stored) {

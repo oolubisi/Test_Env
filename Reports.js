@@ -41,11 +41,186 @@ function initReportsEngine() {
       document.getElementById("rep-layout-selector").innerHTML =
         "<option value=''>-- Choose Configurations --</option>";
       document.getElementById("rep-dynamic-parameters-frame").innerHTML = "";
+      refreshReportPresetSelector();
       document.getElementById("report-onscreen-preview-card").style.display =
         "none";
       setGlobalLoading(false);
     })
     .catch(() => setGlobalLoading(false));
+}
+
+function getReportPresets() {
+  try {
+    return JSON.parse(localStorage.getItem("facility_pro_report_presets") || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveReportPresets(presets) {
+  localStorage.setItem("facility_pro_report_presets", JSON.stringify(presets));
+}
+
+function collectReportParameters() {
+  const params = {};
+  document
+    .querySelectorAll("#rep-dynamic-parameters-frame input, #rep-dynamic-parameters-frame select")
+    .forEach((el) => {
+      if (el.id) params[el.id] = el.value;
+    });
+  return params;
+}
+
+function applyReportParameters(params) {
+  Object.entries(params || {}).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  });
+}
+
+function refreshReportPresetSelector() {
+  const selector = document.getElementById("rep-preset-selector");
+  if (!selector) return;
+  const presets = getReportPresets();
+  selector.innerHTML = '<option value="">-- Saved Presets --</option>';
+  presets.forEach((preset) => {
+    const option = document.createElement("option");
+    option.value = preset.name;
+    option.textContent = preset.name;
+    selector.appendChild(option);
+  });
+}
+
+function saveCurrentReportPreset() {
+  const profile = document.getElementById("rep-profile-selector")?.value;
+  const layout = document.getElementById("rep-layout-selector")?.value;
+  if (!profile || !layout) {
+    showToast("Choose a report category and type first.", "warning");
+    return;
+  }
+  const defaultName =
+    document.getElementById("rep-layout-selector").selectedOptions[0]?.textContent ||
+    layout;
+  const name = prompt("Preset name", defaultName);
+  if (!name) return;
+  const presets = getReportPresets().filter((preset) => preset.name !== name);
+  presets.push({
+    name: sanitizeInput(name),
+    profile,
+    layout,
+    params: collectReportParameters(),
+    savedAt: new Date().toISOString(),
+  });
+  saveReportPresets(presets.sort((a, b) => a.name.localeCompare(b.name)));
+  refreshReportPresetSelector();
+  document.getElementById("rep-preset-selector").value = sanitizeInput(name);
+  showToast("Report preset saved", "success");
+}
+
+function loadSelectedReportPreset() {
+  const selector = document.getElementById("rep-preset-selector");
+  const name = selector?.value;
+  if (!name) return;
+  const preset = getReportPresets().find((item) => item.name === name);
+  if (!preset) return;
+  document.getElementById("rep-profile-selector").value = preset.profile;
+  handleReportProfileSwitch();
+  document.getElementById("rep-layout-selector").value = preset.layout;
+  handleReportLayoutSwitch();
+  applyReportParameters(preset.params);
+  selector.value = name;
+  showToast("Report preset loaded", "success");
+}
+
+function deleteSelectedReportPreset() {
+  const selector = document.getElementById("rep-preset-selector");
+  const name = selector?.value;
+  if (!name) {
+    showToast("Select a preset to delete.", "warning");
+    return;
+  }
+  if (!confirm(`Delete report preset "${name}"?`)) return;
+  saveReportPresets(getReportPresets().filter((preset) => preset.name !== name));
+  refreshReportPresetSelector();
+  showToast("Report preset deleted", "success");
+}
+
+function setReportSelection(profile, layout, params = {}) {
+  document.getElementById("rep-profile-selector").value = profile;
+  handleReportProfileSwitch();
+  document.getElementById("rep-layout-selector").value = layout;
+  handleReportLayoutSwitch();
+  applyReportParameters(params);
+}
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const last = new Date(y, now.getMonth() + 1, 0).getDate();
+  return {
+    month: `${y}-${m}`,
+    start: `${y}-${m}-01`,
+    end: `${y}-${m}-${String(last).padStart(2, "0")}`,
+  };
+}
+
+function generateMonthlyReportPack() {
+  const viewport = document.getElementById("report-preview-viewport");
+  if (!viewport) return;
+  const range = getCurrentMonthRange();
+  const sections = [];
+
+  const capture = (title, renderFn) => {
+    renderFn();
+    if (window.currentReportRawContent) {
+      sections.push(`
+        <section style="page-break-after:always;">
+          <h2 style="font-size:18px; font-weight:900; text-transform:uppercase; border-bottom:2px solid #000; padding-bottom:8px; margin:0 0 14px 0;">${escapeHtml(title)}</h2>
+          ${window.currentReportRawContent}
+        </section>`);
+    }
+  };
+
+  capture("Monthly FM Report", () => {
+    setReportSelection("executive", "monthly_fm", {
+      "rep-param-month": range.month,
+    });
+    compileReportPreview();
+  });
+  capture("Executive KPI Dashboard", () => {
+    setReportSelection("executive", "kpi_dashboard", {
+      "rep-param-month": range.month,
+    });
+    compileReportPreview();
+  });
+  capture("Comprehensive Financial Ledger", () => {
+    setReportSelection("financials", "ledger_summary", {
+      rep_start_date: range.start,
+      rep_end_date: range.end,
+    });
+    generateComprehensiveFinancialLedger();
+  });
+  capture("Preventive Maintenance Schedule", () => {
+    setReportSelection("equipment", "pm_schedule");
+    compileReportPreview();
+  });
+
+  const packHtml = `<div style="font-family:'Helvetica','Inter',sans-serif; color:#000; background:#fff; box-sizing:border-box; width:100%; max-width:900px; margin:0 auto; padding:0; line-height:1.4;">
+    ${sections.join("")}
+  </div>`;
+  const ref = generateReportRef("PACK");
+  const wrapped = wrapReportContent(packHtml, "Monthly Report Pack", ref);
+  viewport.innerHTML = wrapped;
+  const printContainer = document.getElementById("report-print-container");
+  if (printContainer) printContainer.innerHTML = wrapped;
+  window.currentReportFilename = "Monthly_Report_Pack_" + range.month;
+  window.currentReportAttachmentManifest = [];
+  window.currentReportTitle = "Monthly Report Pack";
+  window.currentReportRef = ref;
+  window.currentReportRawContent = packHtml;
+  document.getElementById("report-onscreen-preview-card").style.display = "block";
+  showToast("Monthly report pack generated", "success");
 }
 
 function handleReportProfileSwitch() {
