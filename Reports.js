@@ -167,7 +167,7 @@ function compileReportPreview() {
   }
 
   const generateTitleBar = (titleText) => `
-    <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end;">
+    <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:15px; display:flex; justify-content:space-between; align-items:flex-end; page-break-inside:avoid; page-break-after:avoid;">
       <h2 style="margin:0; font-size:18px; font-weight:900; text-transform:uppercase;">${escapeHtml(titleText)}</h2>
       <div style="text-align:right; font-size:12px;"><p style="margin:0; color:#555;">RUN DATE:</p><p style="margin:2px 0 0 0; font-weight:bold;">${new Date().toLocaleDateString("en-GB")}</p></div>
     </div>`;
@@ -183,7 +183,7 @@ function compileReportPreview() {
         return `<tr><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.unit || a.Unit || a.apt || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.type || a.Type || "N/A")}</td><td style="padding:6px; border:1px solid #000; font-weight:bold; color:${isOcc ? "#198754" : "#DC3545"};">${escapeHtml((a.status || "VACANT").toUpperCase())}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.tenant || a.Tenant || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.leaseEnd || "N/A")}</td></tr>`;
       })
       .join("");
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Tenant</th><th style="padding:8px 6px; border:1px solid #000;">Lease Expiry</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No data.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:20px; page-break-inside:auto;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Tenant</th><th style="padding:8px 6px; border:1px solid #000;">Lease Expiry</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No data.</td></tr>`}</tbody></table>`;
   } else if (layout === "pm_schedule") {
     out += generateTitleBar("PREVENTIVE MAINTENANCE SCHEDULE");
     const rows = (cache.assets || [])
@@ -205,7 +205,7 @@ function compileReportPreview() {
         return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(a.tag || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.type || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.loc || a.location || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.lastServiced || "-")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.nextService || "-")}</td><td style="padding:6px; border:1px solid #000; font-weight:bold; color:${color};">${escapeHtml(pmStatus.toUpperCase())}</td></tr>`;
       })
       .join("");
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Location</th><th style="padding:8px 6px; border:1px solid #000;">Last Service</th><th style="padding:8px 6px; border:1px solid #000;">Next Service</th><th style="padding:8px 6px; border:1px solid #000;">PM Status</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No data.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; page-break-inside:auto;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Location</th><th style="padding:8px 6px; border:1px solid #000;">Last Service</th><th style="padding:8px 6px; border:1px solid #000;">Next Service</th><th style="padding:8px 6px; border:1px solid #000;">PM Status</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No data.</td></tr>`}</tbody></table>`;
   } else if (layout === "ledger_summary") {
     // Handled above
   } else if (layout === "fin_wo") {
@@ -219,7 +219,7 @@ function compileReportPreview() {
         return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(w.workOrderId || w.WorkOrderId || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(w.date || w.Date)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(w.assigned || w.Assigned || "N/A")}</td><td style="padding:6px; border:1px solid #000; text-align:right; font-weight:bold;">N${formatMoney(w.amount || w.Amount || 0)}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(w.description || w.Description || "")}</td></tr>`;
       })
       .join("");
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">WO ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Assigned</th><th style="padding:8px 6px; border:1px solid #000;">Amount</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No approved work orders.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; page-break-inside:auto;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">WO ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Assigned</th><th style="padding:8px 6px; border:1px solid #000;">Amount</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="5" style="padding:10px; text-align:center;">No approved work orders.</td></tr>`}</tbody></table>`;
   } else if (layout === "asset_register") {
     out += generateTitleBar("MASTER ASSET REGISTER");
     const rows = (cache.assets || [])
@@ -238,7 +238,7 @@ function compileReportPreview() {
         return `<tr><td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(a.tag || a.Tag || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.type || a.Type || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(getUnitNumber(a) || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.loc || a.Loc || a.location || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${escapeHtml(a.status || a.Status || "N/A")}</td><td style="padding:6px; border:1px solid #000;">${formatDateForDisplay(a.lastServiced || a.LastServiced)}</td><td style="padding:6px; border:1px solid #000; color:${pmColor}; font-weight:bold;">${pmStatus}</td></tr>`;
       })
       .join("");
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Location</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Last Service</th><th style="padding:8px 6px; border:1px solid #000;">PM Status</th></tr></thead><tbody>${rows || `<tr><td colspan="7" style="padding:10px; text-align:center;">No assets found.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; page-break-inside:auto;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Tag</th><th style="padding:8px 6px; border:1px solid #000;">Type</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Location</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Last Service</th><th style="padding:8px 6px; border:1px solid #000;">PM Status</th></tr></thead><tbody>${rows || `<tr><td colspan="7" style="padding:10px; text-align:center;">No assets found.</td></tr>`}</tbody></table>`;
   } else if (layout === "generator_log") {
     out += generateTitleBar("GENERATOR & DIESEL LOG");
     const startRaw = document.getElementById("rep_start_date")?.value;
@@ -284,7 +284,7 @@ function compileReportPreview() {
     }
 
     out += burnRateHtml;
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Equipment</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Run Hours</th><th style="padding:8px 6px; border:1px solid #000;">Tank Level</th><th style="padding:8px 6px; border:1px solid #000;">Diesel Added</th><th style="padding:8px 6px; border:1px solid #000;">Notes</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No plant logs found.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; page-break-inside:auto;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Equipment</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Run Hours</th><th style="padding:8px 6px; border:1px solid #000;">Tank Level</th><th style="padding:8px 6px; border:1px solid #000;">Diesel Added</th><th style="padding:8px 6px; border:1px solid #000;">Notes</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No plant logs found.</td></tr>`}</tbody></table>`;
   } else if (layout === "ticket_report") {
     out += generateTitleBar("MAINTENANCE TICKETS REPORT");
     const startRaw = document.getElementById("rep_start_date")?.value;
@@ -330,7 +330,7 @@ function compileReportPreview() {
       })
       .join("");
 
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Ticket ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Category</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No tickets found.</td></tr>`}</tbody></table>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; page-break-inside:auto;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;"><th style="padding:8px 6px; border:1px solid #000;">Ticket ID</th><th style="padding:8px 6px; border:1px solid #000;">Date</th><th style="padding:8px 6px; border:1px solid #000;">Unit</th><th style="padding:8px 6px; border:1px solid #000;">Category</th><th style="padding:8px 6px; border:1px solid #000;">Status</th><th style="padding:8px 6px; border:1px solid #000;">Description</th></tr></thead><tbody>${rows || `<tr><td colspan="6" style="padding:10px; text-align:center;">No tickets found.</td></tr>`}</tbody></table>`;
   } else if (layout === "daily_operations") {
     out += generateTitleBar("DAILY OPERATIONS REPORT");
     const reportDate = document.getElementById("rep-param-date")?.value;
@@ -413,10 +413,10 @@ function compileReportPreview() {
       .reduce((s, p) => s + parseFloat(p.amount || p.Amount || 0), 0);
 
     out += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-      <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Tickets Logged</div><div style="font-size:22px; font-weight:900;">${monthTickets.length}</div></div>
-      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Work Orders</div><div style="font-size:22px; font-weight:900;">${monthWO.length}</div></div>
-      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Pending WO</div><div style="font-size:22px; font-weight:900;">${totalWOPending}</div></div>
-      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Approved WO</div><div style="font-size:22px; font-weight:900;">${totalWOApproved}</div></div>
+      <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Tickets Logged</div><div style="font-size:22px; font-weight:900;">${monthTickets.length}</div></div>
+      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Work Orders</div><div style="font-size:22px; font-weight:900;">${monthWO.length}</div></div>
+      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Pending WO</div><div style="font-size:22px; font-weight:900;">${totalWOPending}</div></div>
+      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Approved WO</div><div style="font-size:22px; font-weight:900;">${totalWOApproved}</div></div>
     </div>`;
 
     out += `<div style="background:#f8f9fa; border:2px solid #000; border-radius:12px; padding:16px; margin-bottom:20px; text-align:center;">
@@ -489,14 +489,14 @@ function compileReportPreview() {
     );
 
     out += `<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
-      <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Occupancy Rate</div><div style="font-size:28px; font-weight:900;">${occupancyRate}%</div><div style="font-size:12px; color:#666;">${occupiedApts} / ${totalApts} units</div></div>
-      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">PM Overdue</div><div style="font-size:28px; font-weight:900;">${overdueAssets}</div><div style="font-size:12px; color:#666;">of ${totalAssets} assets</div></div>
-      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Open Tickets</div><div style="font-size:28px; font-weight:900;">${openTickets}</div></div>
+      <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Occupancy Rate</div><div style="font-size:28px; font-weight:900;">${occupancyRate}%</div><div style="font-size:12px; color:#666;">${occupiedApts} / ${totalApts} units</div></div>
+      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">PM Overdue</div><div style="font-size:28px; font-weight:900;">${overdueAssets}</div><div style="font-size:12px; color:#666;">of ${totalAssets} assets</div></div>
+      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#856404; text-transform:uppercase;">Open Tickets</div><div style="font-size:28px; font-weight:900;">${openTickets}</div></div>
     </div>`;
 
     out += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-      <div style="background:#f8f9fa; border:2px solid #000; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; text-transform:uppercase;">Pending Work Orders</div><div style="font-size:24px; font-weight:900;">${pendingWO}</div></div>
-      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Net Position</div><div style="font-size:24px; font-weight:900; color:${totalInflow - totalOutflow - cashExp >= 0 ? "#198754" : "#dc3545"};">${totalInflow - totalOutflow - cashExp >= 0 ? "" : "-"}N${formatMoney(Math.abs(totalInflow - totalOutflow - cashExp))}</div></div>
+      <div style="background:#f8f9fa; border:2px solid #000; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; text-transform:uppercase;">Pending Work Orders</div><div style="font-size:24px; font-weight:900;">${pendingWO}</div></div>
+      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Net Position</div><div style="font-size:24px; font-weight:900; color:${totalInflow - totalOutflow - cashExp >= 0 ? "#198754" : "#dc3545"};">${totalInflow - totalOutflow - cashExp >= 0 ? "" : "-"}N${formatMoney(Math.abs(totalInflow - totalOutflow - cashExp))}</div></div>
     </div>`;
 
     out += `<div style="background:#fff; border:2px solid #000; border-radius:12px; padding:16px;">
@@ -723,7 +723,7 @@ function generateComprehensiveFinancialLedger() {
   out += `
     <div style="margin-bottom:25px; page-break-inside:avoid;">
       <h3 style="font-size:14px; font-weight:900; text-transform:uppercase; margin:0 0 10px 0; color:#000; border-bottom:1px solid #000; padding-bottom:4px;">1. Net Financial Position</h3>
-      <div style="background:#fff; border:2px solid #000; border-radius:16px; padding:16px;">
+      <div style="background:#fff; border:2px solid #000; border-radius:16px; padding:16px; page-break-inside:avoid;">
         <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #e9ecef;">
           <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#000; letter-spacing:0.3px;">Total Inflow</span>
           <span style="font-size:16px; font-weight:900; font-family:'Inter',sans-serif; color:#198754;">N${formatMoney(totalInflow)}</span>
@@ -890,7 +890,7 @@ function generatePendingOutflowReport() {
     </div>`;
 
   out += `
-    <div style="background:#fff3cd; border:2px solid #ffc107; border-radius:12px; padding:16px; margin-bottom:20px;">
+    <div style="background:#fff3cd; border:2px solid #ffc107; border-radius:12px; padding:16px; margin-bottom:20px; page-break-inside:avoid;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span style="font-size:14px; font-weight:800; text-transform:uppercase; color:#856404;">Total Pending Outflow</span>
         <span style="font-size:22px; font-weight:900; color:#dc3545;">N${formatMoney(totalPending)}</span>
@@ -1078,11 +1078,11 @@ function generateLedgerReport(ledgerType) {
 
     out += `
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-        <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;">
+        <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;">
           <div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Total Paid</div>
           <div style="font-size:20px; font-weight:900; color:#198754;">N${formatMoney(totalPaid)}</div>
         </div>
-        <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center;">
+        <div style="background:#e8f4fd; border:2px solid #0d6efd; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;">
           <div style="font-size:11px; font-weight:800; color:#0d6efd; text-transform:uppercase;">Total Pending</div>
           <div style="font-size:20px; font-weight:900; color:#0d6efd;">N${formatMoney(totalPending)}</div>
         </div>
@@ -1166,7 +1166,7 @@ function generateLedgerReport(ledgerType) {
 
     out += `
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;">
-        <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;">
+        <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center; page-break-inside:avoid;">
           <div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Total Paid</div>
           <div style="font-size:20px; font-weight:900; color:#dc3545;">N${formatMoney(totalPaid)}</div>
         </div>

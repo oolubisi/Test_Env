@@ -714,6 +714,32 @@ textarea:disabled {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+  /* Table page-break handling */
+  #report-print-container table {
+    page-break-inside: auto !important;
+    border-collapse: collapse;
+    width: 100%;
+  }
+  #report-print-container thead {
+    display: table-header-group !important;
+  }
+  #report-print-container tbody {
+    display: table-row-group !important;
+  }
+  #report-print-container tr {
+    page-break-inside: auto !important;
+    page-break-after: auto !important;
+  }
+  #report-print-container td,
+  #report-print-container th {
+    page-break-inside: auto !important;
+  }
+  #report-print-container h1,
+  #report-print-container h2,
+  #report-print-container h3,
+  #report-print-container h4 {
+    page-break-after: avoid !important;
+  }
   @page {
     size: A4 portrait;
     margin: 10mm 10mm 12mm 10mm;

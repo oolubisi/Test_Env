@@ -180,12 +180,39 @@ async function compileAndDownloadUnifiedPDF(
         @page { size: A4 portrait; margin: 12mm 10mm 12mm 10mm; }
         body { font-family: Arial, sans-serif; color: #333; background: #fff; padding: 0; margin: 0; font-size: 11px; line-height: 1.4; }
         * { box-sizing: border-box; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 12px; border: 1px solid #444 !important; }
-        th, td { text-align: left; padding: 6px 8px; border: 1px solid #ccc !important; vertical-align: top; }
-        th { background-color: #f4f4f4; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+        /* Table page-break flow */
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin-bottom: 12px; 
+          border: 1px solid #444 !important;
+          page-break-inside: auto !important;
+        }
+        thead { 
+          display: table-header-group !important; 
+        }
+        tbody { 
+          display: table-row-group !important; 
+        }
+        tr { 
+          page-break-inside: auto !important;
+          page-break-after: auto !important;
+        }
+        th, td { 
+          text-align: left; 
+          padding: 6px 8px; 
+          border: 1px solid #ccc !important; 
+          vertical-align: top;
+          page-break-inside: auto !important;
+        }
+        th { 
+          background-color: #f4f4f4; 
+          -webkit-print-color-adjust: exact; 
+          print-color-adjust: exact; 
+        }
         img { max-width: 100%; }
         h1, h2, h3, h4 { page-break-after: avoid; }
-        tr { page-break-inside: avoid; }
       </style>
     </head><body>${sanitizedHtml}</body></html>`;
 
@@ -338,7 +365,7 @@ function printSingleWorkOrderDirect(woId, includeAttachments = true) {
   }
   const html = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
     <h3 style="text-transform:uppercase; margin-bottom:15px; font-size:16px; font-weight:900;">Work Order Authorization Form</h3>
-    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px;">
+    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px; page-break-inside:auto;">
       <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Work Order Ref</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.workOrderId || orderItem.WorkOrderId)}</strong></td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Date</th><td style="padding:10px; border:1px solid #000;">${formatDateForDisplay(orderItem.date || orderItem.Date)}</td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Target Node</th><td style="padding:10px; border:1px solid #000;">Unit ${escapeHtml(unitId)} | Asset: ${escapeHtml(assetInfo)}</td></tr>
@@ -378,7 +405,7 @@ function printSingleExpenseRequestDirect(reqId) {
   const unitId = getUnitNumber(orderItem);
   const html = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
     <h3 style="text-transform:uppercase; margin-bottom:15px; font-size:16px; font-weight:900;">Expense Request Form</h3>
-    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px;">
+    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px; page-break-inside:auto;">
       <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Request Ref</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.reqId || orderItem.ReqId)}</strong></td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Apt : Asset</th><td style="padding:10px; border:1px solid #000;">Unit ${escapeHtml(unitId)} : ${escapeHtml(orderItem.assetTag || "N/A")}</td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#e8f4fd;">Estimated Cost</th><td style="padding:10px; border:1px solid #000; background:#e8f4fd; font-size:18px;"><strong>₦${formatMoney(orderItem.cost || orderItem.Cost)}</strong></td></tr>
@@ -412,7 +439,7 @@ function printSingleCashExpenseDirect(cashId) {
   const unitId = getUnitNumber(orderItem);
   const html = `<div style="width:100%; padding:0; font-family:'Inter', sans-serif; color:#000; background:#fff; box-sizing:border-box;">
     <h3 style="text-transform:uppercase; margin-bottom:15px; font-size:16px; font-weight:900;">Cash Expense Voucher</h3>
-    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px;">
+    <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:14px; page-break-inside:auto;">
       <tr><th style="width:30%; padding:10px; border:1px solid #000; background:#f0f0f0;">Voucher ID</th><td style="padding:10px; border:1px solid #000;"><strong>${escapeHtml(orderItem.cashId || orderItem.CashId)}</strong></td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#f0f0f0;">Associated Unit</th><td style="padding:10px; border:1px solid #000;">Unit ${escapeHtml(unitId)}</td></tr>
       <tr><th style="padding:10px; border:1px solid #000; background:#e8f4fd;">Amount Dispensed</th><td style="padding:10px; border:1px solid #000; background:#e8f4fd; font-size:22px;"><strong>₦${formatMoney(orderItem.amount || orderItem.Amount)}</strong></td></tr>
@@ -526,7 +553,7 @@ function printSinglePaymentDirect(paymentId) {
     ${stagesHtml}
     ${
       showPaymentRequest
-        ? `<div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid;">
+        ? `<div style="border:2px dashed #000; padding:20px; margin-top:25px; background:#fafafa; border-radius:8px; page-break-inside:avoid; page-break-before:auto;">
       <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:5px;">
         <h4 style="margin:0; text-transform:uppercase; font-size:14px; color:#444;">Disbursement Details</h4>
         <span style="font-weight:900; font-size:21px; text-align:right; color:#000;">${escapeHtml(selectedStageLabel || "Not Selected")}</span>
