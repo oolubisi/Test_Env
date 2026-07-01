@@ -83,6 +83,43 @@ function clearAvatarPhotoFrame() {
   if (btn) btn.style.display = "none";
 }
 
+// Compress PDF base64 by stripping non-essential objects (best-effort)
+async function compressPdfToTarget(base64Str, targetBytes) {
+  // For PDFs we can't do true recompression in browser easily.
+  // Strategy: if it's a data URI, keep only the data portion.
+  // If still too large, reject (user must supply smaller source).
+  let data = base64Str;
+  if (data.includes(",")) data = data.split(",")[1];
+
+  // Attempt to remove common PDF bloat: embedded full fonts, metadata streams
+  // This is a lightweight regex-based cleanup — not a true PDF recompressor
+  let decoded;
+  try {
+    decoded = atob(data);
+  } catch (e) {
+    return base64Str;
+  }
+
+  // Remove PDF metadata and some non-essential objects
+  decoded = decoded
+    .replace(/\/Metadata\s*\d+\s*\d+\s*obj[\s\S]*?endobj/g, "")
+    .replace(/\/OpenAction[\s\S]*?>>/g, ">>")
+    .replace(/\/JavaScript[\s\S]*?>>/g, ">>")
+    .replace(/\/RichMedia[\s\S]*?>>/g, ">>")
+    .replace(/\/EmbeddedFile[\s\S]*?>>/g, ">>")
+    .replace(/\/AFRelationship[\s\S]*?\/F /g, "/F ");
+
+  const cleaned = "data:application/pdf;base64," + btoa(decoded);
+  // If still over target, we can't compress further without a proper PDF library
+  if (cleaned.length > targetBytes * 1.35) {
+    showToast(
+      "PDF could not be compressed below 300KB. Please use a smaller file.",
+      "error",
+    );
+  }
+  return cleaned;
+}
+
 function processIncomingMultiAttachments(filesList, previewTargetId) {
   if (!filesList || filesList.length === 0) return;
   Array.from(filesList).forEach((file) => {
@@ -90,25 +127,37 @@ function processIncomingMultiAttachments(filesList, previewTargetId) {
       file.type === "application/pdf" ||
       file.name.toLowerCase().endsWith(".pdf");
     if (isPdf) {
-      if (file.size > 500 * 1024) {
-        showToast(
-          `PDF "${file.name}" exceeds 500KB limit. Skipped.`,
-          "warning",
-        );
-        return;
-      }
+      // Always compress PDFs. Target max 300KB after compression.
+      const MAX_PDF_SIZE = 300 * 1024; // 300KB
       const reader = new FileReader();
-      reader.onload = (evt) => {
+      reader.onload = async (evt) => {
+        let base64 = evt.target.result;
+        // If over limit, attempt basic compression by re-encoding
+        if (base64.length > MAX_PDF_SIZE * 1.35) {
+          // base64 is ~1.35x binary
+          showToast(
+            `PDF "${file.name}" is large (${(file.size / 1024).toFixed(0)}KB). Compressing...`,
+            "warning",
+          );
+          // Re-encode to strip unnecessary metadata (best-effort for PDFs)
+          base64 = await compressPdfToTarget(base64, MAX_PDF_SIZE);
+        }
+        const finalSize = Math.round(base64.length * 0.75);
+        if (finalSize > MAX_PDF_SIZE) {
+          showToast(
+            `PDF "${file.name}" still exceeds 300KB after compression (${(finalSize / 1024).toFixed(0)}KB). Try a smaller file or reduce pages.`,
+            "error",
+          );
+          return;
+        }
         const name =
           "pdf_" + Date.now() + "_" + file.name.replace(/[^a-zA-Z0-9.]/g, "_");
-        callApi("uploadImage", { base64: evt.target.result, name }).then(
-          (res) => {
-            if (res?.url) {
-              currentModalFiles.push(res.url);
-              populateModalInlineImageGalleryPreviews(previewTargetId);
-            }
-          },
-        );
+        callApi("uploadImage", { base64: base64, name }).then((res) => {
+          if (res?.url) {
+            currentModalFiles.push(res.url);
+            populateModalInlineImageGalleryPreviews(previewTargetId);
+          }
+        });
       };
       reader.readAsDataURL(file);
     } else {

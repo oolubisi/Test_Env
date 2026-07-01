@@ -380,4 +380,5 @@ let appSettings = {
   fmName: "Facility Operations Management",
   fmAddress: "Primary Support Office Center",
   logoUrl: "",
+  mainFolder: "FacilityPro_Attachments",
 };

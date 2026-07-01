@@ -55,9 +55,6 @@ function generateStandardReportHeader(
   reportRef = "",
   showTitleLine = true,
 ) {
-  const logoHtml = appSettings.logoUrl
-    ? `<img src="${escapeHtml(getDirectImageUrl(appSettings.logoUrl))}" style="height:55px; max-width:140px; object-fit:contain; margin-bottom:6px;" alt="Logo" onerror="this.style.display='none'">`
-    : "";
   const today = new Date().toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -72,7 +69,6 @@ function generateStandardReportHeader(
       <table style="width:100%; border-collapse:collapse; border:none; margin:0;">
         <tr style="border:none;">
           <td style="border:none; vertical-align:top; width:55%; padding:0;">
-            ${logoHtml}
             <h1 style="margin:0; font-size:24px; font-weight:900; text-transform:uppercase; color:#000;">${escapeHtml(appSettings.estateName || "FACILITY PRO ESTATE")}</h1>
             <p style="margin:3px 0 0 0; font-size:10px; color:#333; line-height:1.4;">${escapeHtml(appSettings.estateAddress || "")}</p>
             <p style="margin:8px 0 0 0; font-size:11px; color:#555; font-weight:700;">Managed by: ${escapeHtml(appSettings.fmName || "Facility Management")}</p>

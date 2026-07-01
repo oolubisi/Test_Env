@@ -97,6 +97,9 @@ async function commitApplicationSettingsData() {
   appSettings.logoUrl = sanitizeInput(
     document.getElementById("cfg-logo-url").value,
   );
+  appSettings.mainFolder =
+    sanitizeInput(document.getElementById("cfg-main-folder").value) ||
+    "FacilityPro_Attachments";
   localStorage.setItem("facility_pro_config_meta", JSON.stringify(appSettings));
   applySettingsToUIHeaders();
   try {
@@ -115,6 +118,7 @@ function syncSettingsInputsToUIFields() {
     ["cfg-fm-name", "fmName"],
     ["cfg-fm-address", "fmAddress"],
     ["cfg-logo-url", "logoUrl"],
+    ["cfg-main-folder", "mainFolder"],
   ];
   map.forEach(([id, key]) => {
     const el = document.getElementById(id);
