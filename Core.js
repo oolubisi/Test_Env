@@ -13,7 +13,7 @@
 // =========================================================
 
 const GAS_URL =
-  "https://script.google.com/macros/s/AKfycbz6QlM-vbGBhw3EsbAsf70a0LDPN3Pww-fuqgU0vYwKzQyujhJ6oQoUG8tzKCKRaGkC/exec";
+  "https://script.google.com/macros/s/AKfycbywuJnim2WBgSIrM-uFvLxKyBtKvMevnbbs0QOHQBShlsHHtAHbUdJAxeaP524v_Boj/exec";
 
 // ─────────────────────────────────────────────
 // § SECURITY UTILITIES
