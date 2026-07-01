@@ -173,7 +173,7 @@
             </div>
             <div
               class="nav-card"
-              onclick="showPage('assets')"
+              onclick="showOverdueAssets()"
               role="button"
               tabindex="0"
               aria-label="PM Due"
@@ -949,7 +949,7 @@
             <div
               style="
                 display: grid;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr 1fr 1fr;
                 gap: 10px;
                 margin-top: 15px;
               "
@@ -971,6 +971,13 @@
                 onclick="printCurrentReport()"
               >
                 <i class="fas fa-print"></i> Print
+              </button>
+              <button
+                class="action-btn"
+                style="background: var(--primary); font-size: 14px; padding: 13px"
+                onclick="downloadCurrentReportCSV()"
+              >
+                <i class="fas fa-file-csv"></i> CSV
               </button>
             </div>
           </div>
@@ -1039,6 +1046,14 @@
             >
               <i class="fas fa-save"></i> Save Settings
             </button>
+            <button
+              class="action-btn"
+              style="background: var(--text); margin-top: 10px"
+              onclick="renderDiagnosticsPanel()"
+            >
+              <i class="fas fa-stethoscope"></i> Run Diagnostics
+            </button>
+            <div id="diagnostics-panel" style="margin-top: 12px"></div>
           </div>
         </div>
       </main>

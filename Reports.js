@@ -9,32 +9,7 @@
 // ─────────────────────────────────────────────
 function initReportsEngine() {
   setGlobalLoading(true, "Loading reports...");
-  Promise.all([
-    callApi("getApartments", {}).then(
-      (r) => (cache.apts = Array.isArray(r) ? r : []),
-    ),
-    callApi("getAssets", {}).then(
-      (r) => (cache.assets = Array.isArray(r) ? r : []),
-    ),
-    callApi("getMaintenance", {}).then(
-      (r) => (cache.tickets = Array.isArray(r) ? r : []),
-    ),
-    callApi("getWorkOrders", {}).then(
-      (r) => (cache.workorders = Array.isArray(r) ? r : []),
-    ),
-    callApi("getUtilities", {}).then(
-      (r) => (cache.utilities = Array.isArray(r) ? r : []),
-    ),
-    callApi("getPayments", {}).then(
-      (r) => (cache.payments = Array.isArray(r) ? r : []),
-    ),
-    callApi("getExpenseRequests", {}).then(
-      (r) => (cache.expenseRequests = Array.isArray(r) ? r : []),
-    ),
-    callApi("getCashExpenses", {}).then(
-      (r) => (cache.cashExpenses = Array.isArray(r) ? r : []),
-    ),
-  ])
+  loadReportDataBundle()
     .then(() => {
       if (cache.apts) sortApartmentsCacheList();
       document.getElementById("rep-profile-selector").value = "";
@@ -47,6 +22,34 @@ function initReportsEngine() {
       setGlobalLoading(false);
     })
     .catch(() => setGlobalLoading(false));
+}
+
+async function loadReportDataBundle() {
+  const bundled = await callApi("getAllData", {});
+  if (bundled && typeof bundled === "object" && !Array.isArray(bundled) && bundled.apartments) {
+    cache.apts = Array.isArray(bundled.apartments) ? bundled.apartments : [];
+    cache.assets = Array.isArray(bundled.assets) ? bundled.assets : [];
+    cache.tickets = Array.isArray(bundled.maintenance) ? bundled.maintenance : [];
+    cache.workorders = Array.isArray(bundled.workOrders) ? bundled.workOrders : [];
+    cache.inventory = Array.isArray(bundled.inventory) ? bundled.inventory : [];
+    cache.staff = Array.isArray(bundled.staff) ? bundled.staff : [];
+    cache.vendors = Array.isArray(bundled.vendors) ? bundled.vendors : [];
+    cache.utilities = Array.isArray(bundled.utilities) ? bundled.utilities : [];
+    cache.payments = Array.isArray(bundled.payments) ? bundled.payments : [];
+    cache.expenseRequests = Array.isArray(bundled.expenseRequests) ? bundled.expenseRequests : [];
+    cache.cashExpenses = Array.isArray(bundled.cashExpenses) ? bundled.cashExpenses : [];
+    return;
+  }
+  await Promise.all([
+    callApi("getApartments", {}).then((r) => (cache.apts = Array.isArray(r) ? r : [])),
+    callApi("getAssets", {}).then((r) => (cache.assets = Array.isArray(r) ? r : [])),
+    callApi("getMaintenance", {}).then((r) => (cache.tickets = Array.isArray(r) ? r : [])),
+    callApi("getWorkOrders", {}).then((r) => (cache.workorders = Array.isArray(r) ? r : [])),
+    callApi("getUtilities", {}).then((r) => (cache.utilities = Array.isArray(r) ? r : [])),
+    callApi("getPayments", {}).then((r) => (cache.payments = Array.isArray(r) ? r : [])),
+    callApi("getExpenseRequests", {}).then((r) => (cache.expenseRequests = Array.isArray(r) ? r : [])),
+    callApi("getCashExpenses", {}).then((r) => (cache.cashExpenses = Array.isArray(r) ? r : [])),
+  ]);
 }
 
 function getReportPresets() {
@@ -258,6 +261,7 @@ function handleReportProfileSwitch() {
       ["daily_operations", "Daily Operations Report"],
       ["monthly_fm", "Monthly FM Report"],
       ["kpi_dashboard", "Executive KPI Dashboard"],
+      ["data_quality", "Data Quality Audit"],
     ],
   };
   (options[profile] || []).forEach(([val, label]) => {
@@ -681,6 +685,24 @@ function compileReportPreview() {
       <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #e9ecef;"><span style="font-weight:700;">Cash Expenses</span><span style="font-weight:900;">N${formatMoney(cashExp)}</span></div>
       <div style="display:flex; justify-content:space-between; padding:8px 0 0 0; margin-top:8px; border-top:2px solid #000;"><span style="font-weight:900; font-size:14px;">NET POSITION</span><span style="font-weight:900; font-size:18px; color:${totalInflow - totalOutflow - cashExp >= 0 ? "#198754" : "#dc3545"};">${totalInflow - totalOutflow - cashExp >= 0 ? "" : "-"}N${formatMoney(Math.abs(totalInflow - totalOutflow - cashExp))}</span></div>
     </div>`;
+  } else if (layout === "data_quality") {
+    out += generateTitleBar("DATA QUALITY AUDIT");
+    const issues = buildDataQualityIssues();
+    const rows = issues
+      .map(
+        (issue) => `<tr>
+          <td style="padding:6px; border:1px solid #000; font-weight:bold;">${escapeHtml(issue.area)}</td>
+          <td style="padding:6px; border:1px solid #000;">${escapeHtml(issue.record)}</td>
+          <td style="padding:6px; border:1px solid #000;">${escapeHtml(issue.issue)}</td>
+          <td style="padding:6px; border:1px solid #000;">${escapeHtml(issue.severity)}</td>
+        </tr>`,
+      )
+      .join("");
+    out += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:15px;">
+      <div style="background:#fdecea; border:2px solid #dc3545; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#dc3545; text-transform:uppercase;">Issues Found</div><div style="font-size:24px; font-weight:900;">${issues.length}</div></div>
+      <div style="background:#e8f5e9; border:2px solid #198754; border-radius:12px; padding:14px; text-align:center;"><div style="font-size:11px; font-weight:800; color:#198754; text-transform:uppercase;">Records Checked</div><div style="font-size:24px; font-weight:900;">${getTotalRecordCount()}</div></div>
+    </div>`;
+    out += `<table style="width:100%; border-collapse:collapse; font-size:12px;"><thead style="display:table-header-group;"><tr style="background:#f4f4f4;"><th style="padding:8px 6px; border:1px solid #000;">Area</th><th style="padding:8px 6px; border:1px solid #000;">Record</th><th style="padding:8px 6px; border:1px solid #000;">Issue</th><th style="padding:8px 6px; border:1px solid #000;">Severity</th></tr></thead><tbody>${rows || `<tr><td colspan="4" style="padding:10px; text-align:center;">No data quality issues found.</td></tr>`}</tbody></table>`;
   } else {
     out += `<p style="padding:20px; font-weight:700; color:var(--muted);">Report type not available. Please select a different report.</p>`;
   }
@@ -702,6 +724,99 @@ function compileReportPreview() {
   window.currentReportRawContent = out;
   const previewCard = document.getElementById("report-onscreen-preview-card");
   if (previewCard) previewCard.style.display = "block";
+}
+
+function getTotalRecordCount() {
+  return [
+    cache.apts,
+    cache.assets,
+    cache.tickets,
+    cache.workorders,
+    cache.inventory,
+    cache.staff,
+    cache.vendors,
+    cache.utilities,
+    cache.payments,
+    cache.expenseRequests,
+    cache.cashExpenses,
+  ].reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
+}
+
+function buildDataQualityIssues() {
+  const issues = [];
+  const add = (area, record, issue, severity = "Medium") =>
+    issues.push({ area, record: String(record || "N/A"), issue, severity });
+
+  (cache.apts || []).forEach((a) => {
+    const unit = getUnitNumber(a);
+    if (!unit) add("Apartments", a.tenant || a.Tenant, "Missing unit/apartment number", "High");
+    if (!a.type && !a.Type) add("Apartments", unit, "Missing unit type");
+  });
+  (cache.assets || []).forEach((a) => {
+    const tag = a.tag || a.Tag;
+    if (!tag) add("Assets", getUnitNumber(a), "Missing asset tag", "High");
+    if (!getUnitNumber(a)) add("Assets", tag, "Missing linked unit/service area");
+    if ((a.photos || a.Photos || "").includes("drive.google.com") && !extractDriveFileId(a.photos || a.Photos)) {
+      add("Assets", tag, "Photo link is not a supported Drive file URL");
+    }
+  });
+  (cache.tickets || []).forEach((t) => {
+    const id = t.ticketId || t.TicketId;
+    if (!id) add("Maintenance", getUnitNumber(t), "Missing ticket ID", "High");
+    if (!t.date && !t.Date) add("Maintenance", id, "Missing ticket date");
+    if (!t.description && !t.Description) add("Maintenance", id, "Missing description");
+  });
+  (cache.workorders || []).forEach((w) => {
+    const id = w.workOrderId || w.WorkOrderId;
+    if (!id) add("Work Orders", getUnitNumber(w), "Missing work order ID", "High");
+    if (!w.assigned && !w.Assigned) add("Work Orders", id, "Missing assignee/vendor");
+    if (!w.amount && !w.Amount) add("Work Orders", id, "Missing negotiated amount");
+  });
+  (cache.payments || []).forEach((p) => {
+    const id = p.paymentId || p.PaymentId;
+    if (!id) add("Payments", p.party || p.Party, "Missing payment ID", "High");
+    if (!p.direction && !p.Direction) add("Payments", id, "Missing direction");
+    if (!p.party && !p.Party) add("Payments", id, "Missing party");
+    try {
+      const stages = p.stages || p.Stages ? JSON.parse(p.stages || p.Stages) : [];
+      const stageTotal = stages.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+      const total = parseFloat(p.totalJobValue || p.TotalJobValue || 0);
+      if (total && stageTotal > total) add("Payments", id, "Payment stages exceed total contract value", "High");
+    } catch (e) {
+      add("Payments", id, "Invalid payment stages JSON", "High");
+    }
+  });
+  return issues;
+}
+
+function downloadCurrentReportCSV() {
+  const source = document.getElementById("report-preview-viewport");
+  if (!source || !source.innerHTML.trim()) {
+    showToast("Please generate a report first.", "warning");
+    return;
+  }
+  const rows = [];
+  source.querySelectorAll("table").forEach((table) => {
+    table.querySelectorAll("tr").forEach((tr) => {
+      const cells = [...tr.querySelectorAll("th,td")].map((cell) =>
+        `"${String(cell.textContent || "").replace(/\s+/g, " ").trim().replace(/"/g, '""')}"`,
+      );
+      if (cells.length) rows.push(cells.join(","));
+    });
+    rows.push("");
+  });
+  if (!rows.length) {
+    showToast("No table data found for CSV export.", "warning");
+    return;
+  }
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${window.currentReportFilename || "Facility_Report"}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  showToast("CSV exported", "success");
 }
 
 // =========================================================

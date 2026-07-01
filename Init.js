@@ -577,6 +577,60 @@ function updateDashboardCounters() {
   });
 }
 
+function isAssetOverdue(asset) {
+  if (!asset) return false;
+  if (String(asset.status || asset.Status || "").toLowerCase() === "archived")
+    return false;
+  if (String(asset.archived || asset.Archived || "").toLowerCase() === "yes")
+    return false;
+  const nextServiceDate = parseToLocalDateObject(
+    asset.nextService || asset.NextService || "",
+  );
+  return nextServiceDate && nextServiceDate <= new Date().setHours(0, 0, 0, 0);
+}
+
+function showOverdueAssets() {
+  window.pendingAssetFilter = "overdue";
+  showPage("assets");
+}
+
+function renderDiagnosticsPanel() {
+  const panel = document.getElementById("diagnostics-panel");
+  if (!panel) return;
+  const queue = JSON.parse(
+    localStorage.getItem("facility_pro_sync_queue") || "[]",
+  );
+  const backups = Object.keys(localStorage).filter((key) =>
+    key.startsWith("facility_pro_backup_"),
+  ).length;
+  const swReady = "serviceWorker" in navigator;
+  const currentData = {
+    Apartments: cache.apts.length,
+    Assets: cache.assets.length,
+    Tickets: cache.tickets.length,
+    "Work Orders": cache.workorders.length,
+    Payments: cache.payments.length,
+    Inventory: cache.inventory.length,
+  };
+  panel.innerHTML = `
+    <div style="border:2px solid var(--border); border-radius:8px; padding:12px; background:#fff;">
+      <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:900; text-transform:uppercase;">Diagnostics</h4>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:13px;">
+        <div><strong>Network:</strong> ${navigator.onLine ? "Online" : "Offline"}</div>
+        <div><strong>Service Worker:</strong> ${swReady ? "Supported" : "Unavailable"}</div>
+        <div><strong>Offline Queue:</strong> ${queue.length}</div>
+        <div><strong>Cached Reads:</strong> ${backups}</div>
+        <div><strong>Backend URL:</strong> ${escapeHtml(GAS_URL.slice(0, 42))}...</div>
+        <div><strong>App Cache:</strong> facility-pro-v13</div>
+      </div>
+      <div style="margin-top:10px; font-size:13px;">
+        ${Object.entries(currentData)
+          .map(([key, val]) => `<span style="display:inline-block; margin:3px 6px 3px 0; padding:4px 8px; border:1px solid var(--border); border-radius:6px; font-weight:800;">${escapeHtml(key)}: ${val}</span>`)
+          .join("")}
+      </div>
+    </div>`;
+}
+
 // ─────────────────────────────────────────────
 // § NAVIGATION
 // ─────────────────────────────────────────────

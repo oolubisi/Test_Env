@@ -233,6 +233,10 @@ function refreshData(p) {
             String(item.status || item.Status || "") !== "Archived" &&
             String(item.archived || item.Archived || "") !== "Yes",
         );
+        if (window.pendingAssetFilter === "overdue") {
+          displayData = displayData.filter((item) => isAssetOverdue(item));
+          window.pendingAssetFilter = "";
+        }
       }
       if (isMaint) cache.tickets = displayData;
       if (p === "staff") {
