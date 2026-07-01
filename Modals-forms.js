@@ -514,14 +514,14 @@ function openModal(type, editData = null) {
       isEdit ? editData.stages || editData.Stages || null : null,
     );
 
-    // Build party datalist
+    // Build party datalist: Apartments (unit numbers) + Vendors only
     let partyOpts = "";
     (cache.apts || []).forEach((a) => {
-      if (a?.tenant && a.tenant.toLowerCase() !== "services")
-        partyOpts += `<option value="${escapeHtml(a.tenant)}">`;
-    });
-    (cache.staff || []).forEach((s) => {
-      if (s?.name) partyOpts += `<option value="${escapeHtml(s.name)}">`;
+      const uNum = getUnitNumber(a);
+      if (uNum && String(a.type || "").toLowerCase() !== "services") {
+        const label = `Unit ${uNum}${a.tenant ? " - " + a.tenant : ""}`;
+        partyOpts += `<option value="${escapeHtml(label)}">`;
+      }
     });
     (cache.vendors || []).forEach((v) => {
       if (v?.company) partyOpts += `<option value="${escapeHtml(v.company)}">`;

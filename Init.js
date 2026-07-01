@@ -307,14 +307,28 @@ function renderTotalBalance() {
 
   // ── CALCULATIONS ──
 
-  // 1. TOTAL INFLOW: sum of cleared INFLOW payment amounts
+  // 1. TOTAL INFLOW: sum of PAID stages from INFLOW payment schedules
   let totalInflow = 0;
   (cache.payments || []).forEach((p) => {
-    if (!p) return;
-    const isCleared =
-      String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
-    if (!isCleared || p.direction !== "INFLOW") return;
-    totalInflow += parseFloat(p.amount || p.Amount || 0);
+    if (!p || p.direction !== "INFLOW") return;
+    // If staged, sum only Paid stages
+    if (p.stages || p.Stages) {
+      try {
+        const stages = JSON.parse(p.stages || p.Stages);
+        stages.forEach((s) => {
+          if (s.status === "Paid") {
+            totalInflow += parseFloat(s.amount) || 0;
+          }
+        });
+      } catch (e) {}
+    } else {
+      // Non-staged: only count if marked as paid/cleared
+      const isCleared =
+        String(p.isPaid).toUpperCase() === "TRUE" || p.isPaid === true;
+      if (isCleared) {
+        totalInflow += parseFloat(p.amount || p.Amount || 0);
+      }
+    }
   });
 
   // 2. TOTAL OUTFLOW: Cash Expenses + paid OUTFLOW stages
