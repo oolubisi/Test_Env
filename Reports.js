@@ -467,7 +467,6 @@ function generateComprehensiveFinancialLedger() {
     </div>`;
 
   const renderTable = (title, rows, color, isPending) => {
-    if (rows.length === 0) return "";
     const total = rows.reduce((sum, r) => sum + r.amount, 0);
     const pendingLabel = isPending ? " &mdash; PENDING" : " &mdash; PAID";
     return `
@@ -612,37 +611,37 @@ function generatePendingOutflowReport() {
       </div>
     </div>`;
 
-  if (pendingRows.length > 0) {
-    out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px;">
-      <thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;">
-        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">ID</th>
-        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Date</th>
-        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Party</th>
-        <th style="padding:8px 6px; border:1px solid #000; text-align:right;">Amount</th>
-        <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Type</th>
-      </tr></thead>
-      <tbody>
-        ${pendingRows
-          .map(
-            (r) => `<tr>
-          <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.id)}</td>
-          <td style="padding:6px; border:1px solid #ccc;">${formatDateForDisplay(r.date)}</td>
-          <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.party)}${r.stages ? ` <span style="font-size:10px; color:#666;">(${escapeHtml(r.stages)})</span>` : ""}</td>
-          <td style="padding:6px; border:1px solid #ccc; text-align:right; font-weight:700;">N${formatMoney(r.amount)}</td>
-          <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.type)}</td>
-        </tr>`,
-          )
-          .join("")}
-        <tr style="background:#f9f9f9; font-weight:900;">
-          <td colspan="3" style="padding:8px; border:1px solid #000; text-align:right;">TOTAL</td>
-          <td style="padding:8px; border:1px solid #000; text-align:right; color:#dc3545;">N${formatMoney(totalPending)}</td>
-          <td style="padding:8px; border:1px solid #000;"></td>
-        </tr>
-      </tbody>
-    </table>`;
-  } else {
-    out += `<p style="padding:20px; text-align:center; font-weight:700; color:#666;">No pending outflow records for this period.</p>`;
-  }
+  out += `<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px;">
+    <thead><tr style="background:#f4f4f4; -webkit-print-color-adjust:exact;">
+      <th style="padding:8px 6px; border:1px solid #000; text-align:left;">ID</th>
+      <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Date</th>
+      <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Party</th>
+      <th style="padding:8px 6px; border:1px solid #000; text-align:right;">Amount</th>
+      <th style="padding:8px 6px; border:1px solid #000; text-align:left;">Type</th>
+    </tr></thead>
+    <tbody>
+      ${
+        pendingRows.length > 0
+          ? pendingRows
+              .map(
+                (r) => `<tr>
+        <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.id)}</td>
+        <td style="padding:6px; border:1px solid #ccc;">${formatDateForDisplay(r.date)}</td>
+        <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.party)}${r.stages ? ` <span style="font-size:10px; color:#666;">(${escapeHtml(r.stages)})</span>` : ""}</td>
+        <td style="padding:6px; border:1px solid #ccc; text-align:right; font-weight:700;">N${formatMoney(r.amount)}</td>
+        <td style="padding:6px; border:1px solid #ccc;">${escapeHtml(r.type)}</td>
+      </tr>`,
+              )
+              .join("")
+          : `<tr><td colspan="5" style="padding:10px; text-align:center; color:#666;">No records</td></tr>`
+      }
+      <tr style="background:#f9f9f9; font-weight:900;">
+        <td colspan="3" style="padding:8px; border:1px solid #000; text-align:right;">TOTAL</td>
+        <td style="padding:8px; border:1px solid #000; text-align:right; color:#dc3545;">N${formatMoney(totalPending)}</td>
+        <td style="padding:8px; border:1px solid #000;"></td>
+      </tr>
+    </tbody>
+  </table>`;
 
   out += `</div>`;
 
