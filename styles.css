@@ -717,8 +717,13 @@ textarea:disabled {
   /* Table page-break handling */
   #report-print-container table {
     page-break-inside: auto !important;
+    break-inside: auto !important;
     border-collapse: collapse;
     width: 100%;
+  }
+  #report-print-container .report-flow-section {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
   #report-print-container thead {
     display: table-header-group !important;
@@ -727,12 +732,17 @@ textarea:disabled {
     display: table-row-group !important;
   }
   #report-print-container tr {
-    page-break-inside: auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
     page-break-after: auto !important;
+    break-after: auto !important;
   }
   #report-print-container td,
   #report-print-container th {
     page-break-inside: auto !important;
+    break-inside: auto !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   #report-print-container h1,
   #report-print-container h2,

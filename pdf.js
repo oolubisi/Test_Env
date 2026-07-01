@@ -120,6 +120,48 @@ function sanitizeHtmlForServer(htmlString) {
   return clean;
 }
 
+function enableReportTablePagination(root) {
+  if (!root || typeof root.querySelectorAll !== "function") return;
+
+  root.querySelectorAll("table").forEach((table) => {
+    table.classList.add("report-flow-table");
+    table.style.pageBreakInside = "auto";
+    table.style.breakInside = "auto";
+    table.style.borderCollapse = "collapse";
+    table.style.width = "100%";
+
+    table.querySelectorAll("thead").forEach((thead) => {
+      thead.style.display = "table-header-group";
+    });
+    table.querySelectorAll("tbody").forEach((tbody) => {
+      tbody.style.display = "table-row-group";
+    });
+    table.querySelectorAll("tr").forEach((row) => {
+      row.style.pageBreakInside = "avoid";
+      row.style.breakInside = "avoid";
+      row.style.pageBreakAfter = "auto";
+      row.style.breakAfter = "auto";
+    });
+    table.querySelectorAll("th, td").forEach((cell) => {
+      cell.style.pageBreakInside = "auto";
+      cell.style.breakInside = "auto";
+      cell.style.overflowWrap = "anywhere";
+      cell.style.wordBreak = "break-word";
+    });
+
+    let parent = table.parentElement;
+    while (parent && parent !== root) {
+      const hasOnlyThisTable =
+        parent.querySelectorAll("table").length === 1 &&
+        parent.textContent.trim() === table.textContent.trim();
+      if (!hasOnlyThisTable) parent.classList.add("report-flow-section");
+      parent.style.pageBreakInside = "auto";
+      parent.style.breakInside = "auto";
+      parent = parent.parentElement;
+    }
+  });
+}
+
 async function compileAndDownloadUnifiedPDF(
   sourceElement,
   attachmentUrls = [],
@@ -162,6 +204,7 @@ async function compileAndDownloadUnifiedPDF(
       if (cloneNode.parentNode)
         cloneNode.parentNode.replaceChild(span, cloneNode);
     });
+    enableReportTablePagination(clone);
 
     const rawHtml = wrapReportContent(
       clone.innerHTML,
@@ -178,12 +221,17 @@ async function compileAndDownloadUnifiedPDF(
         * { box-sizing: border-box; }
 
         /* Table page-break flow */
+        .report-flow-section {
+          page-break-inside: auto !important;
+          break-inside: auto !important;
+        }
         table { 
           width: 100%; 
           border-collapse: collapse; 
           margin-bottom: 12px; 
           border: 1px solid #444 !important;
           page-break-inside: auto !important;
+          break-inside: auto !important;
         }
         thead { 
           display: table-header-group !important; 
@@ -192,8 +240,10 @@ async function compileAndDownloadUnifiedPDF(
           display: table-row-group !important; 
         }
         tr { 
-          page-break-inside: auto !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
           page-break-after: auto !important;
+          break-after: auto !important;
         }
         th, td { 
           text-align: left; 
@@ -201,6 +251,9 @@ async function compileAndDownloadUnifiedPDF(
           border: 1px solid #ccc !important; 
           vertical-align: top;
           page-break-inside: auto !important;
+          break-inside: auto !important;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
         th { 
           background-color: #f4f4f4; 
